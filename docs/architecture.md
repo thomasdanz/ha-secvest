@@ -53,7 +53,7 @@ The API client is a self-contained Python package without any Home Assistant dep
 | Module | Responsibility |
 |---|---|
 | `transport.py` | Owns the single HTTPS connection and the TLS session cache (ADR 0001). Serialises every request through one queue. Applies timeouts, maps responses to typed errors, measures timings and counts full handshakes and resumptions. Blocks all requests after an authentication failure. |
-| `client.py` | One method per API operation the integration uses (push registration is deliberately not included): `get_system`, `get_partitions`, `get_zones`, `get_alarms`, `get_faults`, `get_log_since`, `set_partition_state`, `set_zone_omitted`. Returns models, raises errors. No retries, no verification — that is the coordinator's job. |
+| `client.py` | One method per API operation the integration uses (push registration is deliberately not included): `get_system`, `get_partitions`, `get_zones`, `get_alarms`, `get_faults`, `get_log`, `get_log_since`, `set_partition_state`, `set_zone_omitted`. Returns models, raises errors. No retries, no verification — that is the coordinator's job. |
 | `models.py` | Frozen dataclasses (`Partition`, `Zone`, `PanelEvent` for faults and alarms, `LogEntry`, `LogEvent`, `Output`, `Camera`) and enums. Faults and alarms share one event model, because the panel emits both in the same format; all fields except the identifying ones are optional. Unknown enum values are kept as raw strings instead of failing. |
 | `parsing.py` | Lenient JSON parsing (control characters, ids as strings), both spellings of alarm states, conversion of log timestamps from panel local time. |
 | `errors.py` | `SecvestError` and subclasses: `AuthenticationError` (401), `InstallerLockedError` (403 installer), `NotAllowedError` (403 empty), `NotFoundError` (404), `InvalidRequestError` (400), `ArmingBlockedError` (409, carries the faults), `CommunicationError` (timeouts, connection errors, unexpected responses). |
@@ -96,7 +96,7 @@ Other Secvest integrations were reviewed for this design. These patterns load th
 - **No path variants.** One request per operation with the exact path; no trying `/x/` and then `/x` on failure.
 - **No automatic retries of commands** (arm, disarm, omit, acknowledge). The outcome is determined by the verification refresh. Single exception: if the connection was lost after sending and the verification shows the target was not reached, the command is sent once more.
 - **No retries after a failed login**, neither REST nor web interface.
-- **No full log download per polling round.** The log is fetched incrementally and rarely.
+- **No full log download per polling round.** The full log is fetched once, to set the baseline; after that only incrementally and rarely.
 - **No guessed requests.** Only calls documented in the specification (observed on a panel or defined by the official app) are sent.
 
 ## Data flow
@@ -107,8 +107,16 @@ Other Secvest integrations were reviewed for this design. These patterns load th
 every status interval (default 30 s, minimum 24 s):
     partitions → alarms → faults → zones of each selected partition
 every log interval (default 5 min):
-    log entries newer than the last known one
+    log entries from one hour before the newest known one
 ```
+
+**Log polling without gaps:**
+
+- **Baseline:** on the first start, and whenever the stored log state is missing, the full log (up to 600 entries) is fetched once. Its newest entry is the baseline; these entries fire no events. This doesn't depend on the panel clock matching Home Assistant's.
+- **Increments:** `$filter=timestamp ge <newest known timestamp − 1 h>`. The overlap returns already known entries again on purpose: it covers entries written later within the same second, and the hour the panel's local clock repeats when daylight saving time ends.
+- **De-duplication by content:** an entry counts as known if `id`, timestamp, text and event fields all match. The `id` alone isn't enough, since it seems to be derived from the timestamp and could repeat when the clock goes back.
+- **Persistence:** the newest timestamp and the entries of the overlap window are stored, so a Home Assistant restart neither replays nor skips entries.
+- **Limits (documented):** entries written after a panel restart before its clock is set (dated 2019-01-01), and more than 600 new entries between two log polls, can be missed.
 
 The partition state alone tells whether a partition is in alarm, so an alarm is detected even if `/alarms/` fails. `/alarms/` is still part of the round for the alarm type and other details.
 
@@ -121,16 +129,19 @@ entity action (e.g. arm away)
   → coordinator.arm(partition, target)
       0. the whole sequence holds the request queue — no polling round in between,
          the entity keeps showing its previous state until the sequence ends
-      1. if switching between armed modes: disarm first (verified)
+      1. if switching between armed modes: disarm first (verified);
+         if disarming during an alarm (*-alarm): acknowledge first (verified)
       2. PUT partition state
            409 → ArmingBlockedError with faults → user-facing error
       3. verification refresh: partition (+ faults, zones)
       4. target state reached?  yes → done
-                                no  → error with best reason:
-                                      open zones of the partition, else generic
+                                no  → arming_failed with the likely reason
+                                      (see "Failed arming")
 ```
 
 The verification refresh replaces the next regular polling round, so a command doesn't add a burst of extra requests.
+
+**Disarming during an alarm:** the official app only allows `unset` from `set`/`partset` or from `acknowledged`. Disarming a partition in an alarm state (`set-alarm`, `partset-alarm`, `unset-alarm`) therefore first acknowledges the alarm and then disarms, each step verified, like switching between armed modes. A direct `unset` from an alarm state is never sent (see "No guessed requests").
 
 **Connection lost after sending a command:** the command may or may not have reached the panel. The integration first runs the verification refresh; only if the target state was not reached, it sends the command **once** more (verified again). This is the single exception to "no automatic retries of commands" and is safe because a state change the panel already applied is not applied twice.
 
@@ -157,6 +168,7 @@ Only the reason differs:
 | `InstallerLockedError` | Keep last known states, mark the panel as locked (attribute and binary sensor), poll at a reduced rate, commands fail with a clear message. |
 | `ArmingBlockedError` | Command fails; the message lists the blocking faults and zones. |
 | `NotAllowedError` | Command fails (e.g. zone not omittable). |
+| `InvalidRequestError`, `NotFoundError` | Indicate a bug or a panel that differs from the specification. The command fails, the response is logged; during polling they are handled like a `CommunicationError`. |
 | `CommunicationError` | Backoff with increasing delay; after several consecutive failures a pause; entities become unavailable only after the pause starts. |
 | Unknown values in responses | Kept raw, logged once, shown as attributes; never crash. |
 
@@ -212,4 +224,4 @@ Changing options reloads the entry.
 
 ## Open points
 
-- None at the moment; see the proposed ADRs.
+- None at the moment.
