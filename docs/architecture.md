@@ -11,7 +11,7 @@ Terms follow the manufacturer's wording, see the [glossary](glossary.md).
 ## Guiding principles
 
 1. **The panel is fragile.** It has a slow TLS handshake, copes badly with parallel requests, and can hang under load. Every design decision puts the panel's stability first: one connection, strictly sequential requests, never more load than the official app, and back off on trouble.
-2. **Verify, don't assume.** The panel's behaviour depends on its configuration. The same command can succeed, be silently ignored (200 with the old state) or be rejected (409). The integration therefore never infers success from a status code; it checks the resulting state.
+2. **Verify, don't assume.** The panel's behaviour depends on its configuration. The same command can succeed, be silently ignored (200 with the old state) or be rejected (409, 403). The integration therefore never infers the outcome from a status code alone: after every command — also after an error response — it first reads the real state, and only then reports success or an error.
 3. **Fail safe on authentication.** Failed logins at the panel's web interface and at the keypad are known to raise a code tamper alarm. Whether failed authentication at the REST API counts as well is unknown and deliberately not tested. As a precaution, a failed authentication stops all requests until the user provides new credentials — the integration never causes several failed logins in a row.
 4. **Logic never relies on texts.** Texts from the panel (`desc`, `ui-string`, zone and partition names) come from its language pack and user settings; they are only displayed. Logic uses structured fields such as `type`, `id` and states. The single, documented exception is the optional entry delay detection, whose text pattern is configurable.
 5. **No surprises for users.** Everything is configured in the UI. Every failure explains itself in the UI, in English or German.
@@ -131,15 +131,18 @@ entity action (e.g. arm away)
          the entity keeps showing its previous state until the sequence ends
       1. if switching between armed modes: disarm first (verified);
          if disarming during an alarm (*-alarm): acknowledge first (verified)
-      2. PUT partition state
-           409 → ArmingBlockedError with faults → user-facing error
-      3. verification refresh: partition (+ faults, zones)
-      4. target state reached?  yes → done
-                                no  → arming_failed with the likely reason
+      2. PUT partition state; keep the response (200, 409 with faults, 403, …)
+      3. verification refresh: partition (+ faults, zones) — always, also after
+         an error response
+      4. target state reached?  yes → done (even if step 2 answered an error)
+                                no  → arming_failed; the reason comes from the
+                                      error response and the fresh state
                                       (see "Failed arming")
 ```
 
 The verification refresh replaces the next regular polling round, so a command doesn't add a burst of extra requests.
+
+**Error responses are verified too.** An error response is never reported directly: the fresh state decides. If the target state was reached anyway (e.g. someone armed at the keypad at the same moment), the command counts as successful. The same applies to omitting zones: after a 403, the zone is read again, and its `omitted` and `omittable` decide the outcome and the message. Exceptions are the responses after which no further request is sent: a 401 (authentication gate) and the installer lock (every request fails); there the error is reported with the last known state.
 
 **Disarming during an alarm:** the official app only allows `unset` from `set`/`partset` or from `acknowledged`. Disarming a partition in an alarm state (`set-alarm`, `partset-alarm`, `unset-alarm`) therefore first acknowledges the alarm and then disarms, each step verified, like switching between armed modes. A direct `unset` from an alarm state is never sent (see "No guessed requests").
 
@@ -147,7 +150,7 @@ The verification refresh replaces the next regular polling round, so a command d
 
 ### Failed arming
 
-The panel reports a refused arming in two ways, depending on its configuration: `409` with the blocking faults, or `200` with the unchanged state ("silently ignored"). Both are **the same failure for the user** and are reported the same way:
+The panel reports a refused arming in several ways: `409` with the blocking faults, `200` with the unchanged state ("silently ignored", depending on its configuration), or an empty `403` when the user may not operate the partition. All are **the same failure for the user** and are reported the same way:
 
 - The action fails with one error type (`arming_failed`), shown in the UI like any failed action and visible in automation traces.
 - An `arming_failed` event is fired with partition, requested state and reason, so automations can react (e.g. send a notification).
@@ -157,7 +160,8 @@ Only the reason differs:
 
 | Panel answer | Reason in the message |
 |---|---|
-| `409` with faults | The blocking zones and faults from the response (certain). |
+| `409` with faults | The blocking zones and faults from the response (certain). An empty list (partition without zones): "the panel refused without naming a reason". |
+| `403`, empty body | The user has no permission for this partition (certain). |
 | `200`, state unchanged | Derived in the background (likely): the zones of the partition that are open and not omitted; if there are none, the current faults with `prevents-set`; otherwise "the panel did not arm; reason unknown". The message marks this as the likely reason. |
 
 ## Error handling
@@ -165,9 +169,9 @@ Only the reason differs:
 | Error | Integration behaviour |
 |---|---|
 | `AuthenticationError` | Stop all requests, start the reauthentication flow, repair issue. Never retried (precaution, see principle 3). |
-| `InstallerLockedError` | Keep last known states, mark the panel as locked (attribute and binary sensor), poll at a reduced rate, commands fail with a clear message. |
+| `InstallerLockedError` | Keep last known states, mark the panel as locked (attribute and binary sensor), commands fail with a clear message. The polling round stops at the first request that reports the lock; the interval stays unchanged. While the lock lasts, each round therefore costs a single request, and the first round after the lock is lifted refreshes everything. |
 | `ArmingBlockedError` | Command fails; the message lists the blocking faults and zones. |
-| `NotAllowedError` | Command fails (e.g. zone not omittable). |
+| `NotAllowedError` | Command fails. The panel gives the same empty 403 for a zone that isn't omittable and for a partition the user may not operate (omitting zones and changing the partition state); for zones the message tells the two apart by the zone's `omittable`. |
 | `InvalidRequestError`, `NotFoundError` | Indicate a bug or a panel that differs from the specification. The command fails, the response is logged; during polling they are handled like a `CommunicationError`. |
 | `CommunicationError` | Backoff with increasing delay; after several consecutive failures a pause; entities become unavailable only after the pause starts. |
 | Unknown values in responses | Kept raw, logged once, shown as attributes; never crash. |
@@ -213,6 +217,8 @@ The panel's partitions are independent of each other, so everything that belongs
 | Config entry options | Selected partitions, excluded zones (advanced), device class per zone, status and log intervals, optional features |
 
 The user selects **partitions**, not zones. The zones are derived from the selected partitions (union; a zone in several partitions is created once), so new detectors in a selected partition appear automatically after a reload. Partitions without zones are deselected by default. Individual zones can be excluded in the advanced options.
+
+**Panel user:** a separate panel user of level "normal user" is enough — with rights for a partition, it reads, omits zones, arms and disarms like an administrator. The panel's partition rights are not visible in reads (every user sees all partitions), so the flow can't hide partitions the user may not operate; a command there fails with an empty 403 and is reported as "no permission". The documentation recommends giving the Home Assistant user rights for exactly the partitions it should operate.
 
 Changing options reloads the entry.
 
