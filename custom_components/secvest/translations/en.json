@@ -73,6 +73,14 @@
       },
       "zone_problem": {
         "name": "Problem"
+      },
+      "problem": {
+        "name": "Problem"
+      }
+    },
+    "sensor": {
+      "faults": {
+        "name": "Faults"
       }
     }
   },

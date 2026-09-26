@@ -29,7 +29,8 @@ async def async_setup_entry(
     coordinator = entry.runtime_data
     device_classes = entry.options.get(CONF_ZONE_DEVICE_CLASSES, {})
     entities: list[BinarySensorEntity] = [
-        InstallerLockSensor(coordinator, "installer_lock")
+        InstallerLockSensor(coordinator, "installer_lock"),
+        ProblemSensor(coordinator, "problem"),
     ]
     for zone in coordinator.data.zones.values():
         entities.append(ZoneSensor(coordinator, zone, device_classes.get(zone.id)))
@@ -47,6 +48,22 @@ class InstallerLockSensor(SecvestEntity, BinarySensorEntity):
     def is_on(self) -> bool:
         """Return whether the panel is locked."""
         return self.coordinator.installer_locked
+
+
+class ProblemSensor(SecvestEntity, BinarySensorEntity):
+    """On while any fault other than an open zone is present."""
+
+    _attr_translation_key = "problem"
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+
+    @property
+    def is_on(self) -> bool:
+        """Return whether the panel reports a fault other than an open zone."""
+        # "zone open" appears for every open omittable zone, even when
+        # disarmed; the zone sensors and "arming blocked" cover it
+        return any(
+            fault.type != FaultType.ZONE_OPEN for fault in self.coordinator.data.faults
+        )
 
 
 class ZoneSensor(SecvestZoneEntity, BinarySensorEntity):

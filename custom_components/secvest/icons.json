@@ -7,6 +7,11 @@
           "on": "mdi:account-hard-hat"
         }
       }
+    },
+    "sensor": {
+      "faults": {
+        "default": "mdi:alert-circle-outline"
+      }
     }
   }
 }
