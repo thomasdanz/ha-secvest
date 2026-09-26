@@ -1,0 +1,47 @@
+# Weekly tests against the upcoming Home Assistant release (ADR 0003).
+#
+# Uses the newest pytest-homeassistant-custom-component, which pins the
+# current beta while one is out (the last week of each month) and the latest
+# release otherwise. A failure opens an issue but doesn't block anything.
+name: Home Assistant beta
+
+on:
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Tests (upcoming Home Assistant)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+      - run: uv sync --locked
+      - run: uv pip install --upgrade pytest-homeassistant-custom-component
+      - run: uv run --no-sync python -c "from homeassistant.const import __version__; print(__version__)"
+      - run: uv run --no-sync pytest
+
+  report:
+    name: Open an issue on failure
+    needs: tests
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TITLE: Tests fail against the upcoming Home Assistant release
+    steps:
+      - run: |
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          existing=$(gh issue list --state open --search "in:title \"$TITLE\"" --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Still failing: $run_url"
+          else
+            gh issue create --title "$TITLE" --body "The weekly test run against the upcoming Home Assistant release failed: $run_url"
+          fi

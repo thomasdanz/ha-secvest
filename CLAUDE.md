@@ -48,3 +48,5 @@ uv run mypy custom_components tests  # type checks
 ```
 
 The dev dependencies pin `pytest-homeassistant-custom-component` to the current Home Assistant release (ADR 0003); `uv.lock` is committed.
+
+CI (`.github/workflows/ci.yml`) runs the same checks, the tests against the current and the previous Home Assistant release, hassfest and the HACS validation; `beta.yml` tests weekly against the upcoming release. How to move the version window is described at the top of `ci.yml`.

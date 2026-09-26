@@ -1,0 +1,77 @@
+# Linting, type checks, tests, hassfest and HACS validation.
+#
+# Supported Home Assistant versions (ADR 0003): the current and the previous
+# release. When a new release comes out:
+#   1. pyproject.toml: pin pytest-homeassistant-custom-component to the
+#      version for the new release, then run `uv lock`.
+#   2. Below: move the old current release to the "previous" entry, with the
+#      pytest-homeassistant-custom-component version it was pinned to.
+#   3. README ("Tested Home Assistant versions") and changelog.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint and type checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy custom_components tests
+
+  tests:
+    name: Tests (Home Assistant ${{ matrix.home-assistant }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # current release: the version pinned in pyproject.toml / uv.lock
+          - home-assistant: "2026.9"
+            pytest-ha: locked
+          # previous release
+          - home-assistant: "2026.8"
+            pytest-ha: "0.13.357"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+      - run: uv sync --locked
+      - if: matrix.pytest-ha != 'locked'
+        run: uv pip install "pytest-homeassistant-custom-component==${{ matrix.pytest-ha }}"
+      - run: uv run --no-sync python -c "from homeassistant.const import __version__; print(__version__)"
+      - run: uv run --no-sync pytest
+
+  hassfest:
+    name: hassfest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: home-assistant/actions/hassfest@master
+
+  # Validates the repository on GitHub (default branch and settings), not the
+  # checked-out commit: in a pull request, changes to hacs.json or the
+  # manifest only count once they are on main. HACS reads hacs.json and the
+  # manifest anonymously from raw.githubusercontent.com, which fails for a
+  # private repository, so the job runs only once the repository is public.
+  hacs:
+    name: HACS validation
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: hacs/action@22.5.0
+        with:
+          category: integration
+          # the integration is not listed in home-assistant/brands (yet)
+          ignore: brands
+          comment: false
