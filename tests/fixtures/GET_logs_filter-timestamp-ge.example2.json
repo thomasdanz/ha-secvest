@@ -1,0 +1,191 @@
+[
+  {
+    "id": "458315695360",
+    "type": "normal",
+    "desc": "Ben 001 TB 1 deaktiv",
+    "events": [
+      {
+        "timestamp": "1790295685",
+        "partition": "0",
+        "user": "1",
+        "username": "REDACTED"
+      }
+    ]
+  },
+  {
+    "id": "458315694848",
+    "type": "normal",
+    "desc": "Eing gest. Z219",
+    "events": [
+      {
+        "timestamp": "1790295683"
+      }
+    ]
+  },
+  {
+    "id": "458315671297",
+    "type": "normal",
+    "desc": "Ben001 TB 1 intern aktiv",
+    "events": [
+      {
+        "timestamp": "1790295591",
+        "partition": "0",
+        "user": "1",
+        "username": "REDACTED"
+      }
+    ]
+  },
+  {
+    "id": "458315671296",
+    "type": "normal",
+    "desc": "Ben001TB 1 Übergehen",
+    "events": [
+      {
+        "timestamp": "1790295591",
+        "partition": "0"
+      }
+    ]
+  },
+  {
+    "id": "458315668993",
+    "type": "normal",
+    "desc": "Ben 000 Log out",
+    "events": [
+      {
+        "timestamp": "1790295582",
+        "user": "0",
+        "username": "REDACTED"
+      }
+    ]
+  },
+  {
+    "id": "458315668992",
+    "type": "normal",
+    "desc": "Ben000 Log out(Web)",
+    "events": [
+      {
+        "timestamp": "1790295582",
+        "user": "0",
+        "username": "REDACTED"
+      }
+    ]
+  },
+  {
+    "id": "458315665153",
+    "type": "normal",
+    "desc": "Ben 000 Log in",
+    "events": [
+      {
+        "timestamp": "1790295567",
+        "user": "0",
+        "username": "REDACTED"
+      }
+    ]
+  },
+  {
+    "id": "458315665152",
+    "type": "normal",
+    "desc": "Ben000 Log in (Web)",
+    "events": [
+      {
+        "timestamp": "1790295567",
+        "user": "0",
+        "username": "REDACTED"
+      }
+    ]
+  },
+  {
+    "id": "458315651584",
+    "type": "normal",
+    "desc": "Ben 001 TB 1 deaktiv",
+    "events": [
+      {
+        "timestamp": "1790295514",
+        "partition": "0",
+        "user": "1",
+        "username": "REDACTED"
+      }
+    ]
+  },
+  {
+    "id": "458315650560",
+    "type": "normal",
+    "desc": "Eing gest. Z219",
+    "events": [
+      {
+        "timestamp": "1790295510"
+      }
+    ]
+  },
+  {
+    "id": "458315644161",
+    "type": "normal",
+    "desc": "Ben 001 TB 1 aktiv",
+    "events": [
+      {
+        "timestamp": "1790295485",
+        "partition": "0",
+        "user": "1",
+        "username": "REDACTED"
+      }
+    ]
+  },
+  {
+    "id": "458315644160",
+    "type": "normal",
+    "desc": "Ben001TB 1 Übergehen",
+    "events": [
+      {
+        "timestamp": "1790295485",
+        "partition": "0"
+      }
+    ]
+  },
+  {
+    "id": "458315640320",
+    "type": "normal",
+    "desc": "Ben 001 TB 1 deaktiv",
+    "events": [
+      {
+        "timestamp": "1790295470",
+        "partition": "0",
+        "user": "1",
+        "username": "REDACTED"
+      }
+    ]
+  },
+  {
+    "id": "458315639552",
+    "type": "normal",
+    "desc": "Eing gest. Z219",
+    "events": [
+      {
+        "timestamp": "1790295467"
+      }
+    ]
+  },
+  {
+    "id": "458315637505",
+    "type": "normal",
+    "desc": "Ben 001 TB 1 aktiv",
+    "events": [
+      {
+        "timestamp": "1790295459",
+        "partition": "0",
+        "user": "1",
+        "username": "REDACTED"
+      }
+    ]
+  },
+  {
+    "id": "458315637504",
+    "type": "normal",
+    "desc": "Ben001TB 1 Übergehen",
+    "events": [
+      {
+        "timestamp": "1790295459",
+        "partition": "0"
+      }
+    ]
+  }
+]

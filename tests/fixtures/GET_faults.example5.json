@@ -1,0 +1,64 @@
+[
+  {
+    "type": "1170",
+    "id": "1104",
+    "ui-string": "REP01 Batt schwach",
+    "affects-partition": [
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "prevents-set": false,
+    "prevents-reset": false,
+    "is-rf-warning": false
+  },
+  {
+    "type": "5000",
+    "id": "1506",
+    "ui-string": "Z201 A Room 1",
+    "affects-partition": [
+      "1"
+    ],
+    "affects-zone": "201",
+    "prevents-set": true,
+    "prevents-reset": false,
+    "is-rf-warning": false
+  },
+  {
+    "type": "5000",
+    "id": "1514",
+    "ui-string": "Z209 A Room 6 L",
+    "affects-partition": [
+      "1"
+    ],
+    "affects-zone": "209",
+    "prevents-set": true,
+    "prevents-reset": false,
+    "is-rf-warning": false
+  },
+  {
+    "type": "5000",
+    "id": "1517",
+    "ui-string": "Z212 A Room 7",
+    "affects-partition": [
+      "1"
+    ],
+    "affects-zone": "212",
+    "prevents-set": true,
+    "prevents-reset": false,
+    "is-rf-warning": false
+  },
+  {
+    "type": "5000",
+    "id": "1518",
+    "ui-string": "Z213 A Room 8 L",
+    "affects-partition": [
+      "1"
+    ],
+    "affects-zone": "213",
+    "prevents-set": true,
+    "prevents-reset": false,
+    "is-rf-warning": false
+  }
+]

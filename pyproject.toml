@@ -33,6 +33,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101"]
+"scripts/**" = ["S603", "S607", "T201"]  # developer scripts calling git and printing
 
 [tool.ruff.lint.isort]
 known-first-party = ["custom_components"]

@@ -1,0 +1,16 @@
+[
+  {
+    "type": "1170",
+    "id": "1104",
+    "ui-string": "REP01 Batt schwach",
+    "affects-partition": [
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "prevents-set": false,
+    "prevents-reset": false,
+    "is-rf-warning": false
+  }
+]
