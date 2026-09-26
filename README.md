@@ -32,6 +32,7 @@ While the installer is logged in at the panel, its API is locked. The diagnostic
 ## Entities
 
 - **Alarm panel** per selected partition, named after the partition: disarmed, armed home (internally armed), armed away or triggered. An acknowledged alarm is still shown as triggered, with the attribute `acknowledged`; the attribute `panel_state` holds the panel's own state. Arming and disarming follow in a later version.
+- **Zones:** each zone of the selected partitions is its own device below the panel device, so you can assign it to an area. Its binary sensor is on while the zone is open; other zone states (such as tamper) show as unknown, with the panel's value in the attribute `zone_state`. The API doesn't tell detector types apart, so the sensors have no device class yet; choosing one per zone comes with the options.
 - **Installer lock** (diagnostic) on the panel device.
 
 ## Documentation

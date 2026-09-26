@@ -139,6 +139,8 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         self.backoff = Backoff()
         # the installer is logged in at the panel, which locks the API (#21)
         self.installer_locked = False
+        # set by setup once the panel device is registered
+        self.panel_device_id = ""
 
     @property
     def available(self) -> bool:

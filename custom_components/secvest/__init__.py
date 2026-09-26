@@ -4,11 +4,18 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_URL, CONF_VERIFY_SSL, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import device_registry as dr
 
 from .api.client import Client
 from .api.transport import Transport
 from .config_flow import default_user_agent
-from .const import CONF_AUTH_FAILED, CONF_USER_AGENT, CONF_USER_CODE, DOMAIN
+from .const import (
+    CONF_AUTH_FAILED,
+    CONF_USER_AGENT,
+    CONF_USER_CODE,
+    DOMAIN,
+    MANUFACTURER,
+)
 from .coordinator import SecvestCoordinator
 
 PLATFORMS = [Platform.ALARM_CONTROL_PANEL, Platform.BINARY_SENSOR]
@@ -39,6 +46,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> b
         # a failed setup is not unloaded; stop the transport's thread here
         await transport.close()
         raise
+    # registered first, so that the zone devices can refer to it
+    panel = dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, entry.entry_id)},
+        manufacturer=MANUFACTURER,
+        name=entry.title,
+    )
+    coordinator.panel_device_id = panel.id
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
