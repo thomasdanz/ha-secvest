@@ -35,7 +35,7 @@ ignore = [
 "tests/**" = [
     "S101",
     # the fake panel mirrors the panel's many cases
-    "PLR0911", "PLR0912", "PLR0913",
+    "PLR0911", "PLR0912", "PLR0913", "PLR0917",
     "S105", "S106", "S107",  # test credentials
 ]
 "scripts/**" = ["S603", "S607", "T201"]  # developer scripts calling git and printing
