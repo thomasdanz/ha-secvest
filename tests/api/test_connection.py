@@ -2,6 +2,7 @@
 
 import asyncio
 from collections.abc import AsyncIterator
+import logging
 import ssl
 import time
 
@@ -10,12 +11,13 @@ import pytest
 from custom_components.secvest.api import transport as transport_module
 from custom_components.secvest.api.errors import (
     ArmingBlockedError,
+    AuthenticationError,
     CommunicationError,
     ConnectionLostError,
     InstallerLockedError,
     NotFoundError,
 )
-from custom_components.secvest.api.transport import Transport
+from custom_components.secvest.api.transport import Transport, basic_auth
 
 from ..fake_panel import FakePanel, Injection
 
@@ -239,6 +241,64 @@ async def test_user_agent(
     finally:
         await transport.close()
     assert fake_panel.stats.user_agents == [expected]
+
+
+async def test_no_request_after_a_401(fake_panel: FakePanel) -> None:
+    """After a 401 nothing is sent with these credentials again (#6)."""
+    transport = Transport(fake_panel.url, fake_panel.user_code, "wrong")
+    try:
+        results = await asyncio.gather(
+            *(transport.request("GET", "/system/") for _ in range(3)),
+            return_exceptions=True,
+        )
+        with pytest.raises(AuthenticationError):
+            await transport.request("PUT", "/system/partitions-1/", {"state": "set"})
+    finally:
+        await transport.close()
+    assert all(isinstance(result, AuthenticationError) for result in results)
+    assert transport.authentication_failed
+    # only the first request reached the panel; the fake panel would also
+    # have recorded a violation for repeated credentials
+    assert fake_panel.stats.requests == [("GET", "/system/")]
+
+
+async def test_new_credentials_mean_a_new_transport(fake_panel: FakePanel) -> None:
+    """A transport with the corrected credentials works again."""
+    failed = Transport(fake_panel.url, fake_panel.user_code, "wrong")
+    try:
+        with pytest.raises(AuthenticationError):
+            await failed.request("GET", "/system/")
+    finally:
+        await failed.close()
+    transport = Transport(fake_panel.url, fake_panel.user_code, fake_panel.password)
+    try:
+        assert await transport.request("GET", "/system/")
+    finally:
+        await transport.close()
+    assert not transport.authentication_failed
+
+
+def test_credentials_not_in_errors_or_logs(
+    fake_panel: FakePanel, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Credentials never show up in errors or logs (#50)."""
+    caplog.set_level(logging.DEBUG)
+    secret = "s3cr3t-pw"
+    transport = Transport(fake_panel.url, "9876", secret)
+    token = basic_auth("9876", secret).removeprefix("Basic ")
+
+    async def run() -> AuthenticationError:
+        try:
+            await transport.request("GET", "/system/")
+        except AuthenticationError as err:
+            return err
+        finally:
+            await transport.close()
+        raise AssertionError
+
+    error = asyncio.run(run())
+    texts = [str(error), repr(error), caplog.text]
+    assert not any(secret in text or "9876" in text or token in text for text in texts)
 
 
 def test_address_must_be_https() -> None:
