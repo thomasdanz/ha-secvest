@@ -27,7 +27,10 @@ async def test_one_panel_per_selected_partition(
         for entity in entities
         if entity.domain == "alarm_control_panel"
     )
-    assert panels == [f"{entry.entry_id}_partition_1", f"{entry.entry_id}_partition_3"]
+    assert panels == [
+        f"{entry.entry_id}_partition_1_alarm",
+        f"{entry.entry_id}_partition_3_alarm",
+    ]
     state = hass.states.get(PANEL)
     assert state is not None
     assert state.state == AlarmControlPanelState.DISARMED

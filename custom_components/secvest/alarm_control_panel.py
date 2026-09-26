@@ -55,7 +55,7 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
 
     def __init__(self, coordinator: SecvestCoordinator, partition: Partition) -> None:
         """Name the entity after the partition."""
-        super().__init__(coordinator, f"partition_{partition.number}")
+        super().__init__(coordinator, f"partition_{partition.number}_alarm")
         self.number = partition.number
         self._attr_name = partition.name
 
