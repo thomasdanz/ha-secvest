@@ -14,12 +14,13 @@ from custom_components.secvest.api.errors import CommunicationError
 from custom_components.secvest.config_flow import normalize_address
 from custom_components.secvest.const import (
     CONF_ADVANCED,
+    CONF_PARTITIONS,
     CONF_USER_AGENT,
     CONF_USER_CODE,
     DOMAIN,
 )
 
-from .fake_panel import FakePanel
+from .fake_panel import FakePanel, Injection
 
 
 def _input(panel: FakePanel, **changes: Any) -> dict[str, Any]:
@@ -46,9 +47,18 @@ async def _submit(hass: HomeAssistant, user_input: dict[str, Any]) -> Any:
     return await hass.config_entries.flow.async_configure(result["flow_id"], user_input)
 
 
+async def _select(hass: HomeAssistant, result: Any, partitions: list[str]) -> Any:
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "partitions"
+    return await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_PARTITIONS: partitions}
+    )
+
+
 async def test_create_entry(hass: HomeAssistant, fake_panel: FakePanel) -> None:
-    """Valid credentials create the entry after exactly one request."""
+    """Valid credentials lead to the selection, then create the entry."""
     result = await _submit(hass, _input(fake_panel))
+    result = await _select(hass, result, ["1"])
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "Alarmanlage"
     assert result["data"] == {
@@ -58,9 +68,46 @@ async def test_create_entry(hass: HomeAssistant, fake_panel: FakePanel) -> None:
         CONF_VERIFY_SSL: False,
         CONF_USER_AGENT: "",
     }
+    assert result["options"] == {CONF_PARTITIONS: [1]}
     assert result["result"].unique_id == f"{fake_panel.host}:{fake_panel.port}"
-    assert fake_panel.stats.requests == [("GET", "/system/")]
-    assert fake_panel.stats.user_agents == ["ha-secvest/0.0.0"]
+    # both reads share one connection; the selection sends nothing
+    assert fake_panel.stats.requests == [
+        ("GET", "/system/"),
+        ("GET", "/system/partitions/"),
+    ]
+    assert fake_panel.stats.connections == 1
+    assert fake_panel.stats.user_agents == ["ha-secvest/0.0.0"] * 2
+
+
+async def test_partitions_offered(hass: HomeAssistant, fake_panel: FakePanel) -> None:
+    """All partitions are offered; those without zones are deselected."""
+    result = await _submit(hass, _input(fake_panel))
+    schema = result["data_schema"].schema
+    (key,) = schema
+    assert key == CONF_PARTITIONS
+    assert key.default() == ["1"]
+    options = schema[key].config["options"]
+    assert [option["value"] for option in options] == ["1", "2", "3", "4"]
+    assert options[1]["label"] == "2: Teilber. 2"
+
+
+async def test_several_partitions(hass: HomeAssistant, fake_panel: FakePanel) -> None:
+    """Several partitions are stored as sorted numbers."""
+    result = await _submit(hass, _input(fake_panel))
+    result = await _select(hass, result, ["3", "1"])
+    assert result["options"] == {CONF_PARTITIONS: [1, 3]}
+
+
+async def test_no_partition_selected(
+    hass: HomeAssistant, fake_panel: FakePanel
+) -> None:
+    """At least one partition has to be selected; nothing is sent again."""
+    result = await _submit(hass, _input(fake_panel))
+    result = await _select(hass, result, [])
+    assert result["errors"] == {"base": "no_partitions"}
+    result = await _select(hass, result, ["1"])
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert len(fake_panel.stats.requests) == 2
 
 
 async def test_user_agent_override(hass: HomeAssistant, fake_panel: FakePanel) -> None:
@@ -68,8 +115,9 @@ async def test_user_agent_override(hass: HomeAssistant, fake_panel: FakePanel) -
     result = await _submit(
         hass, _input(fake_panel, **{CONF_ADVANCED: {CONF_USER_AGENT: " Proxy/1 "}})
     )
+    result = await _select(hass, result, ["1"])
     assert result["data"][CONF_USER_AGENT] == "Proxy/1"
-    assert fake_panel.stats.user_agents == ["Proxy/1"]
+    assert fake_panel.stats.user_agents == ["Proxy/1"] * 2
 
 
 async def test_invalid_auth(hass: HomeAssistant, fake_panel: FakePanel) -> None:
@@ -77,13 +125,25 @@ async def test_invalid_auth(hass: HomeAssistant, fake_panel: FakePanel) -> None:
     result = await _submit(hass, _input(fake_panel, **{CONF_PASSWORD: "wrong"}))
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "invalid_auth"}
-    assert len(fake_panel.stats.requests) == 1
+    # the partitions aren't read with rejected credentials
+    assert fake_panel.stats.requests == [("GET", "/system/")]
     # nothing is retried; the user corrects the password
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], _input(fake_panel)
     )
+    result = await _select(hass, result, ["1"])
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert len(fake_panel.stats.requests) == 2
+    assert len(fake_panel.stats.requests) == 3
+
+
+async def test_partitions_unreadable(
+    hass: HomeAssistant, fake_panel: FakePanel
+) -> None:
+    """If the partitions can't be read, setup stays on the first step."""
+    fake_panel.inject(Injection("GET", "/system/partitions/", "drop_before", times=2))
+    result = await _submit(hass, _input(fake_panel))
+    assert result["step_id"] == "user"
+    assert result["errors"] == {"base": "cannot_connect"}
 
 
 async def test_installer_locked(hass: HomeAssistant, fake_panel: FakePanel) -> None:

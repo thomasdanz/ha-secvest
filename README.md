@@ -21,6 +21,8 @@ Add the integration in Home Assistant (Settings → Devices & services → Add i
 
 The credentials are checked with a single request. If the panel rejects them, nothing is retried automatically.
 
+Then select the **partitions** Home Assistant should show and operate; their zones are added automatically. The panel doesn't reveal which partitions the user may operate, so all of them are listed; partitions without zones are deselected.
+
 ## Documentation
 
 - [Architecture](docs/architecture.md)
