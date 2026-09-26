@@ -18,7 +18,7 @@ from .const import (
 )
 from .coordinator import SecvestCoordinator
 
-PLATFORMS = [Platform.ALARM_CONTROL_PANEL, Platform.BINARY_SENSOR]
+PLATFORMS = [Platform.ALARM_CONTROL_PANEL, Platform.BINARY_SENSOR, Platform.SENSOR]
 
 type SecvestConfigEntry = ConfigEntry[SecvestCoordinator]
 
