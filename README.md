@@ -35,6 +35,7 @@ While the installer is logged in at the panel, its API is locked. The diagnostic
 - **Zones:** each zone of the selected partitions is its own device below the panel device, so you can assign it to an area. Its binary sensor is on while the zone is open; other zone states (such as tamper) show as unknown, with the panel's value in the attribute `zone_state`. The API doesn't tell detector types apart, so the sensors have no device class yet; choosing one per zone comes with the options. A diagnostic **Problem** sensor per zone is on for such other states or while a fault (other than "zone open") affects the zone.
 - **Faults** on the panel device: the number of current faults, all of them in the attribute `faults` and a readable list in `summary` (one line per fault). This includes faults of components the API doesn't list otherwise, such as a repeater's low battery.
 - **Problem** on the panel device: on while any fault other than an open zone is present. The panel reports every open zone as a fault, even when disarmed; those are left out here.
+- **Arming blocked** per selected partition: on while a fault that prevents arming affects the partition; the attributes name the blocking zones and faults. The panel checks some conditions only when arming is requested (depending on its configuration, e.g. an open entry door), so arming can still fail while this sensor is off.
 - **Installer lock** (diagnostic) on the panel device.
 
 To show the faults on a dashboard, use a Markdown card:
