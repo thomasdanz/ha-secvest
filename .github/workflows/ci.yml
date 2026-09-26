@@ -61,9 +61,12 @@ jobs:
 
   # Validates the repository on GitHub (default branch and settings), not the
   # checked-out commit: in a pull request, changes to hacs.json or the
-  # manifest only count once they are on main.
+  # manifest only count once they are on main. HACS reads hacs.json and the
+  # manifest anonymously from raw.githubusercontent.com, which fails for a
+  # private repository, so the job runs only once the repository is public.
   hacs:
     name: HACS validation
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     steps:
       - uses: hacs/action@22.5.0
