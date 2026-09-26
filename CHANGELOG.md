@@ -21,3 +21,4 @@ All notable changes to this project are documented in this file. The format is b
 - Backoff after failed polling rounds, doubling up to 5 minutes, and a 15-minute pause after 5 failures in a row; entities stay available until the pause starts (#7).
 - Installer lock: a diagnostic binary sensor on the panel device; while the installer is logged in, entities keep their last state and each polling round costs a single request (#21).
 - Reauthentication: after the panel rejects the credentials nothing is sent with them anymore, also after a restart, until new credentials are entered and checked with a single request (#41, #6).
+- Alarm panel per selected partition showing its state, including triggered and acknowledged alarms; arming follows later (#15).

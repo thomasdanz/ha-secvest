@@ -29,6 +29,11 @@ After setup the integration polls the panel every 30 seconds, never more often t
 
 While the installer is logged in at the panel, its API is locked. The diagnostic sensor **Installer lock** on the panel device is on meanwhile; the other entities keep their last state, and each polling round costs a single request until the installer has logged out.
 
+## Entities
+
+- **Alarm panel** per selected partition, named after the partition: disarmed, armed home (internally armed), armed away or triggered. An acknowledged alarm is still shown as triggered, with the attribute `acknowledged`; the attribute `panel_state` holds the panel's own state. Arming and disarming follow in a later version.
+- **Installer lock** (diagnostic) on the panel device.
+
 ## Documentation
 
 - [Architecture](docs/architecture.md)

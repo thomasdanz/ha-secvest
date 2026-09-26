@@ -11,7 +11,7 @@ from .config_flow import default_user_agent
 from .const import CONF_AUTH_FAILED, CONF_USER_AGENT, CONF_USER_CODE, DOMAIN
 from .coordinator import SecvestCoordinator
 
-PLATFORMS = [Platform.BINARY_SENSOR]
+PLATFORMS = [Platform.ALARM_CONTROL_PANEL, Platform.BINARY_SENSOR]
 
 type SecvestConfigEntry = ConfigEntry[SecvestCoordinator]
 
