@@ -2,13 +2,31 @@
 
 A Home Assistant custom integration for the ABUS Secvest alarm panel. It talks to the panel's local REST API, the one the official app uses, as documented in [`secvest-api`](https://github.com/thomasdanz/secvest-api).
 
-> **Status:** under development, not usable yet. The first release (v0.1, read-only) is tracked in the [milestones](https://github.com/thomasdanz/ha-secvest/milestones).
-
-**Tested panel:** Secvest Touch FUAA50500 with firmware v3.01.31. Other firmware versions are untested.
-
-**Tested Home Assistant versions:** 2026.9 and 2026.8.
+> **Status:** v0.1 is read-only: it shows the state of partitions, zones and faults. Arming and disarming follow with v0.2 (see the [milestones](https://github.com/thomasdanz/ha-secvest/milestones)).
 
 > **Disclaimer:** This is an unofficial community project, not affiliated with or endorsed by ABUS. The panel is security equipment: use this integration at your own risk.
+
+## Supported versions
+
+- **Panel:** tested with the Secvest Touch FUAA50500 running firmware v3.01.31. The API doesn't report the firmware version, so the integration can't check it; other models and firmware versions are untested. Unknown values from the panel are kept and logged once instead of breaking anything.
+- **Reported to work with:** no other models or firmware versions yet. If it works (or doesn't) on yours, please open an issue with the panel model and firmware version.
+- **Home Assistant:** tested with 2026.9 and 2026.8, the current and the previous release. Older versions aren't tested.
+
+## Safety notes
+
+- The panel is security equipment in an inhabited building. Test automations that use it carefully.
+- **Use a separate panel user** for Home Assistant: the level "normal user" is enough, with rights for exactly the partitions Home Assistant should operate. Every user sees all partitions, but the panel refuses commands on the others.
+- **Polling limits:** the integration never polls more often than every 24 seconds, the official app's own cycle, and backs off when the panel doesn't answer. An overloaded panel can stop responding and may need a power cycle.
+- **No automatic retries after failed logins:** failed logins may count towards a code tamper alarm, so the integration never repeats rejected credentials.
+- **Don't expose the panel's API to the internet unprotected.** The panel neither noticed nor limited failed logins at its REST API in tests (see [`secvest-api`](https://github.com/thomasdanz/secvest-api)).
+
+## Installation
+
+**HACS:** add this repository as a custom repository (HACS → ⋮ → Custom repositories, type "Integration"), install "ABUS Secvest" and restart Home Assistant.
+
+**Manually:** copy the folder `custom_components/secvest` of a release into the `custom_components` folder of your Home Assistant configuration and restart Home Assistant. To update, replace the folder and restart again.
+
+**Connection:** the integration works directly against the panel (its own HTTPS port 4433 with a self-signed certificate) and through a reverse proxy in front of it. The proxy may hold its own TLS session to the panel; the polling limits apply either way, since every request still reaches the panel.
 
 ## Setup
 
@@ -21,13 +39,7 @@ Add the integration in Home Assistant (Settings → Devices & services → Add i
 
 The credentials are checked with a single request. If the panel rejects them, nothing is retried automatically.
 
-If the panel later rejects the credentials (for example after the password was changed at the panel), the integration stops sending anything, also after a restart of Home Assistant, and asks you to reauthenticate: enter user code and password again; they are checked with a single request.
-
 Then select the **partitions** Home Assistant should show and operate; their zones are added automatically. The panel doesn't reveal which partitions the user may operate, so all of them are listed; partitions without zones are deselected.
-
-After setup the integration polls the panel every 30 seconds, never more often than every 24 seconds (the official app's own cycle). To poll on demand, use the action `homeassistant.update_entity` with any of the integration's entities; the same limit applies. If the panel doesn't answer, the integration waits longer after each failed attempt (up to 5 minutes) and pauses for 15 minutes after 5 failures in a row; entities keep their last state until the pause starts.
-
-While the installer is logged in at the panel, its API is locked. The diagnostic sensor **Installer lock** on the panel device is on meanwhile; the other entities keep their last state, and each polling round costs a single request until the installer has logged out.
 
 ## Options
 
@@ -54,6 +66,23 @@ content: >
 ```
 
 Replace `sensor.alarmanlage_faults` with the entity id of your faults sensor.
+
+## How it works
+
+After setup the integration polls the panel every 30 seconds, never more often than every 24 seconds (the official app's own cycle). To poll on demand, use the action `homeassistant.update_entity` with any of the integration's entities; the same limit applies. If the panel doesn't answer, the integration waits longer after each failed attempt (up to 5 minutes) and pauses for 15 minutes after 5 failures in a row; entities keep their last state until the pause starts.
+
+While the installer is logged in at the panel, its API is locked. The diagnostic sensor **Installer lock** on the panel device is on meanwhile; the other entities keep their last state, and each polling round costs a single request until the installer has logged out.
+
+If the panel later rejects the credentials (for example after the password was changed at the panel), the integration stops sending anything, also after a restart of Home Assistant, and asks you to reauthenticate: enter user code and password again; they are checked with a single request.
+
+## Limitations
+
+- **Read-only for now:** v0.1 doesn't arm, disarm, omit zones or acknowledge alarms.
+- **Delay:** changes show up with the next polling round, by default within 30 seconds.
+- **No exit or entry delay states:** the API reports no transitional state; arming takes effect immediately, and during an entry delay the partition keeps reporting its armed state.
+- **Arming blocked** is only what the panel reports as a fault; it checks some conditions only when arming is requested.
+- **Faults:** the sensor shows the list the panel returns; whether the panel shortens very long lists is unknown.
+- **Entities are tied to the config entry:** the API reports no serial number, so removing and re-adding the integration creates new entities. Their entity ids can be renamed back in Home Assistant.
 
 ## Documentation
 
