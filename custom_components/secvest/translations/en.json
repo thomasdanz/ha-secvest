@@ -1,0 +1,44 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to the ABUS Secvest panel",
+        "description": "Tested with the {model} running firmware {firmware}; other panels and firmware versions are untested.\n\nUse a separate panel user for Home Assistant: the level \"normal user\" is enough, with rights for exactly the partitions Home Assistant should operate. The installer code doesn't work, the panel's API accepts users only.",
+        "data": {
+          "url": "Address",
+          "user_code": "User code",
+          "password": "Password",
+          "verify_ssl": "Verify certificate"
+        },
+        "data_description": {
+          "url": "The panel's address, e.g. 192.168.1.10 (port 4433) or 192.168.1.10:4433, or the https URL of a reverse proxy in front of it.",
+          "user_code": "The code of the panel user Home Assistant logs in with.",
+          "password": "The password of that panel user.",
+          "verify_ssl": "Leave off for the panel's own self-signed certificate; turn on behind a reverse proxy with a valid certificate."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Advanced",
+            "data": {
+              "user_agent": "User-Agent"
+            },
+            "data_description": {
+              "user_agent": "Sent with every request. Leave empty for the default, ha-secvest/ followed by the version; only needed for a reverse proxy that filters by User-Agent."
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "invalid_address": "Enter a host name or IP address, optionally with a port, or an https URL.",
+      "invalid_auth": "The panel rejected the user code or password. Nothing is retried automatically; check the credentials and try again.",
+      "installer_locked": "The installer is logged in at the panel, which locks the API. Try again after the installer has logged out.",
+      "cannot_connect": "The panel could not be reached. Check the address and the network.",
+      "timeout": "The panel did not answer in time. Check the address; the panel may be busy.",
+      "unexpected_response": "The address answered, but not like a Secvest panel. Check the address (and the path behind a reverse proxy)."
+    },
+    "abort": {
+      "already_configured": "This panel is already set up."
+    }
+  }
+}

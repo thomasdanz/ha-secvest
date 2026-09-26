@@ -227,6 +227,8 @@ A zone belongs to at most one group; zones without a group keep their own device
 | Config entry data | Address, user code, password, certificate verification, User-Agent override (advanced; empty = `ha-secvest/<version>`) |
 | Config entry options | Selected partitions, excluded zones (advanced), device class per zone, zone groups, status and log intervals, optional features |
 
+**Address:** stored normalised as `https://host:port[/path]`. Without a scheme the panel's own port 4433 applies unless one is given; an https URL without a port means 443 (e.g. a reverse proxy). The normalised address (host, port and path) is the entry's unique id, since the API reports no serial number. Setup validates the credentials with exactly one request (`GET /system/`) and takes the entry's title from the installation name.
+
 The user selects **partitions**, not zones. The zones are derived from the selected partitions (union; a zone in several partitions is created once), so new detectors in a selected partition appear automatically after a reload. Partitions without zones are deselected by default. Individual zones can be excluded in the advanced options.
 
 **Panel user:** a separate panel user of level "normal user" is enough — with rights for a partition, it reads, omits zones, arms and disarms like an administrator. The panel's partition rights are not visible in reads (every user sees all partitions), so the flow can't hide partitions the user may not operate; a command there fails with an empty 403 and is reported as "no permission". The documentation recommends giving the Home Assistant user rights for exactly the partitions it should operate.

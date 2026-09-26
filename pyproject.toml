@@ -51,6 +51,11 @@ strict = true
 warn_unreachable = true
 explicit_package_bases = true
 
+[[tool.mypy.overrides]]
+# ships no type information
+module = ["pytest_homeassistant_custom_component.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"

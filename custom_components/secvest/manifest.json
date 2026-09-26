@@ -1,7 +1,10 @@
 {
   "domain": "secvest",
   "name": "ABUS Secvest",
-  "codeowners": ["@thomasdanz"],
+  "codeowners": [
+    "@thomasdanz"
+  ],
+  "config_flow": true,
   "documentation": "https://github.com/thomasdanz/ha-secvest",
   "integration_type": "hub",
   "iot_class": "local_polling",

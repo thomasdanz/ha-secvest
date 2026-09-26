@@ -216,11 +216,8 @@ class Transport:
         self._base_path = parts.path.rstrip("/")
         self._authorization = basic_auth(user_code, password)
         self._user_agent = user_agent or DEFAULT_USER_AGENT
-        self.ssl_context = ssl.create_default_context()
-        if not verify_ssl:
-            # the panel uses a self-signed certificate
-            self.ssl_context.check_hostname = False
-            self.ssl_context.verify_mode = ssl.CERT_NONE
+        self._verify_ssl = verify_ssl
+        self._ssl_context: ssl.SSLContext | None = None
         self.tls_session: ssl.SSLSession | None = None
         self.stats = TransportStats()
         self._conn: _Connection | None = None
@@ -232,6 +229,22 @@ class Transport:
         # so nothing is sent with these credentials again. New credentials
         # mean a new transport.
         self._auth_failed = False
+
+    @property
+    def ssl_context(self) -> ssl.SSLContext:
+        """TLS settings, created on first use in the transport's thread.
+
+        Loading the CA certificates is blocking I/O, which must not run in
+        the event loop.
+        """
+        if self._ssl_context is None:
+            context = ssl.create_default_context()
+            if not self._verify_ssl:
+                # the panel uses a self-signed certificate
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_NONE
+            self._ssl_context = context
+        return self._ssl_context
 
     @asynccontextmanager
     async def hold(self, *, priority: bool = False) -> AsyncIterator[None]:
