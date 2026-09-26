@@ -22,3 +22,4 @@ All notable changes to this project are documented in this file. The format is b
 - Installer lock: a diagnostic binary sensor on the panel device; while the installer is logged in, entities keep their last state and each polling round costs a single request (#21).
 - Reauthentication: after the panel rejects the credentials nothing is sent with them anymore, also after a restart, until new credentials are entered and checked with a single request (#41, #6).
 - Alarm panel per selected partition showing its state, including triggered and acknowledged alarms; arming follows later (#15).
+- One device per zone below the panel device, with a binary sensor for open/closed and the zone's details as attributes (#24, #26).

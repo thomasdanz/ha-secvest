@@ -207,11 +207,11 @@ The panel's partitions are independent of each other, so everything that belongs
 | Arming blocked | binary_sensor | On while a fault with `prevents-set` affects the partition |
 | Acknowledge alarm | button | Available only while the partition is in alarm |
 
-**Per selected zone** (one device per zone, linked to the panel device, so each detector can be assigned to an area)
+**Per selected zone** (one device per zone, named after the zone and linked to the panel device via its device id, so each detector can be assigned to an area; the panel device is registered at setup before the platforms)
 
 | Entity | Platform | Content |
 |---|---|---|
-| Zone | binary_sensor | Open / closed; device class configurable (door, window, garage door, motion, smoke, …); attributes: zone id, partitions, `omittable`, `omitted`, `inner` |
+| Zone | binary_sensor | Open / closed, unknown for any other zone state; the device's main entity (named after the zone); device class from the options (`zone_device_classes`: door, window, garage door, motion, smoke, …), none by default since the API has no detector type; attributes: zone id, raw zone state, all partitions the zone belongs to, `omittable`, `omitted`, `inner` |
 | Zone problem | binary_sensor | On for tamper/fault states or a fault affecting the zone |
 | Omit zone | switch | Only for omittable zones; turns off by itself when the panel includes the zone again at disarm |
 

@@ -1,6 +1,7 @@
 """Constants for the ABUS Secvest integration."""
 
 DOMAIN = "secvest"
+MANUFACTURER = "ABUS"
 
 CONF_USER_CODE = "user_code"
 CONF_USER_AGENT = "user_agent"
@@ -10,6 +11,8 @@ CONF_ADVANCED = "advanced"
 CONF_AUTH_FAILED = "auth_failed"
 CONF_PARTITIONS = "partitions"
 CONF_SCAN_INTERVAL = "scan_interval"
+# device class per zone id; set in the options (#40)
+CONF_ZONE_DEVICE_CLASSES = "zone_device_classes"
 
 # the panel's own HTTPS port; a URL with https:// and no port means 443
 DEFAULT_PORT = 4433
