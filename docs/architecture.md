@@ -182,7 +182,7 @@ Only the reason differs:
 | `ArmingBlockedError` | Command fails; the message lists the blocking faults and zones. |
 | `NotAllowedError` | Command fails. The panel gives the same empty 403 for a zone that isn't omittable and for a partition the user may not operate (omitting zones and changing the partition state); for zones the message tells the two apart by the zone's `omittable`. |
 | `InvalidRequestError`, `NotFoundError` | Indicate a bug or a panel that differs from the specification. The command fails, the response is logged; during polling they are handled like a `CommunicationError`. |
-| `CommunicationError` | Backoff with increasing delay; after several consecutive failures a pause; entities become unavailable only after the pause starts. |
+| `CommunicationError` | Backoff: after each failed round the delay before the next one doubles, starting from the status interval, up to 5 minutes; after 5 failed rounds in a row polling pauses for 15 minutes (one round per pause). The last state is kept; entities become unavailable only once the pause starts, so they don't flap. A manual refresh doesn't shorten the delay. A successful round resets everything. The backoff state is part of the diagnostics. A failed first round at setup uses Home Assistant's setup retry instead (its own growing delay), with the same minimum spacing. |
 | Unknown values in responses | Kept raw, logged once, shown as attributes; never crash. |
 
 ## Entity model
