@@ -56,7 +56,7 @@ The API client is a self-contained Python package without any Home Assistant dep
 | `client.py` | One method per API operation the integration uses (push registration is deliberately not included): `get_system`, `get_partitions`, `get_zones`, `get_alarms`, `get_faults`, `get_log`, `get_log_since`, `set_partition_state`, `set_zone_omitted`. Returns models, raises errors. No retries, no verification — that is the coordinator's job. |
 | `models.py` | Frozen dataclasses (`System`, `Partition`, `Zone`, `PanelEvent` for faults and alarms, `LogEntry`, `LogEvent`) and enums. Partitions are identified by their one-based number everywhere, although the log counts them from zero. Outputs and cameras aren't modelled, since the integration doesn't read them. Faults and alarms share one event model, because the panel emits both in the same format; all fields except the identifying ones are optional. Unknown enum values are kept as raw strings instead of failing. |
 | `parsing.py` | Lenient JSON parsing (control characters, ids as strings), both spellings of alarm states, conversion of log timestamps from panel local time. |
-| `errors.py` | `SecvestError` and subclasses: `AuthenticationError` (401), `InstallerLockedError` (403 installer), `NotAllowedError` (403 empty), `NotFoundError` (404), `InvalidRequestError` (400), `ArmingBlockedError` (409, carries the faults), `CommunicationError` (timeouts, connection errors, unexpected responses). |
+| `errors.py` | `SecvestError` and subclasses: `AuthenticationError` (401), `InstallerLockedError` (403 installer), `NotAllowedError` (403 empty), `NotFoundError` (404), `InvalidRequestError` (400), `ArmingBlockedError` (409, carries the faults), `CommunicationError` (timeouts, connection errors, unexpected responses) with its subclass `ConnectionLostError` (the connection broke after a command was sent, so its outcome is unknown). |
 
 **Later (web interface epic):** reading data from the panel's web interface (e.g. signal strength, components such as repeaters) is a different interface with its own login, session and safety rules. It will live in a separate subpackage `webui/` next to the REST client, so the REST client stays unaffected and the feature can be disabled or left out entirely.
 
@@ -84,8 +84,10 @@ The API client is a self-contained Python package without any Home Assistant dep
 All communication with one panel goes through one queue in `transport.py`:
 
 - **One connection, resumed TLS sessions.** One HTTPS connection at a time. The panel closes idle connections after 10–30 s, so most polling rounds need a new connection; each reconnect resumes the previous TLS session (about 13 ms instead of a 6.5 s handshake). This needs a blocking client run in the executor (see [ADR 0001](adr/0001-http-client.md)).
+- **Fresh connection when idle.** A connection idle for more than a few seconds, or already closed by the panel, is replaced before the next request, so a command is rarely sent into a connection the panel is just closing. Reads within a polling round share one connection.
 - **Strict order.** A request starts only after the previous one has finished. User commands are placed ahead of pending polling requests but never interrupt a running request.
 - **Timeouts.** A generous connect timeout covers the slow TLS handshake; shorter read timeouts afterwards; a longer one for the log.
+- **Headers.** Every request carries Basic Auth (preemptively, the panel sends no challenge), `Accept` and `Content-Type: application/json` and a User-Agent: `ha-secvest/<version>` unless the user overrides it (e.g. for a reverse proxy that filters by User-Agent). No `Connection: close`.
 - **Authentication gate.** After a 401 the queue rejects every further request until the credentials change.
 - **Direct access and reverse proxy.** The integration must work both directly against the panel (the design case) and through a TLS-terminating reverse proxy in front of it. A proxy holds its own TLS session to the panel, so the slow handshake doesn't occur on that path; session resumption towards the proxy is harmless. The load rules apply unchanged, since every request still reaches the panel.
 
@@ -147,7 +149,7 @@ The verification refresh replaces the next regular polling round, so a command d
 
 **Disarming during an alarm:** the official app only allows `unset` from `set`/`partset` or from `acknowledged`. Disarming a partition in an alarm state (`set-alarm`, `partset-alarm`, `unset-alarm`) therefore first acknowledges the alarm and then disarms, each step verified, like switching between armed modes. A direct `unset` from an alarm state is never sent (see "No guessed requests").
 
-**Connection lost after sending a command:** the command may or may not have reached the panel. The integration first runs the verification refresh; only if the target state was not reached, it sends the command **once** more (verified again). This is the single exception to "no automatic retries of commands" and is safe because a state change the panel already applied is not applied twice.
+**Connection lost after sending a command** (`ConnectionLostError`): the command may or may not have reached the panel. The integration first runs the verification refresh; only if the target state was not reached, it sends the command **once** more (verified again). This is the single exception to "no automatic retries of commands" and is safe because a state change the panel already applied is not applied twice.
 
 ### Failed arming
 
@@ -222,7 +224,7 @@ A zone belongs to at most one group; zones without a group keep their own device
 
 | Stored in | Content |
 |---|---|
-| Config entry data | Address, user code, password, certificate verification |
+| Config entry data | Address, user code, password, certificate verification, User-Agent override (advanced; empty = `ha-secvest/<version>`) |
 | Config entry options | Selected partitions, excluded zones (advanced), device class per zone, zone groups, status and log intervals, optional features |
 
 The user selects **partitions**, not zones. The zones are derived from the selected partitions (union; a zone in several partitions is created once), so new detectors in a selected partition appear automatically after a reload. Partitions without zones are deselected by default. Individual zones can be excluded in the advanced options.

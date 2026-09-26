@@ -122,6 +122,7 @@ class Stats:
     full_handshakes: int = 0
     resumed_handshakes: int = 0
     requests: list[tuple[str, str]] = field(default_factory=list)
+    user_agents: list[str | None] = field(default_factory=list)
 
 
 class FakePanel:
@@ -598,6 +599,7 @@ class _Handler(BaseHTTPRequestHandler):
         body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
         with panel._lock:
             panel.stats.requests.append((method, self.path))
+            panel.stats.user_agents.append(self.headers.get("User-Agent"))
             if self.headers.get("Connection", "").lower() == "close":
                 panel.violations.append(f"Connection: close on {method} {self.path}")
             injection = self._take_injection(method)

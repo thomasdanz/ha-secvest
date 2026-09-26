@@ -11,6 +11,14 @@ class CommunicationError(SecvestError):
     """The panel could not be reached or sent an unexpected response."""
 
 
+class ConnectionLostError(CommunicationError):
+    """The connection broke after a command was sent.
+
+    The panel may or may not have received it, so the caller has to read the
+    real state before deciding anything (see the architecture).
+    """
+
+
 class AuthenticationError(SecvestError):
     """The panel rejected the credentials (401); never retry."""
 

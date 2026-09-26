@@ -1,20 +1,33 @@
 """HTTP handling for the panel.
 
-Maps the panel's responses and connection problems to results and typed
-errors. The connection itself (ADR 0001) follows with #2.
+One HTTPS connection per panel with TLS session resumption (ADR 0001),
+strictly sequential requests through one queue, and the mapping of the
+panel's responses and connection problems to results and typed errors.
 """
 
+import asyncio
 from base64 import b64encode
-from collections.abc import Iterator
-from contextlib import contextmanager
+from collections.abc import AsyncIterator, Iterator
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import asynccontextmanager, contextmanager
+from dataclasses import dataclass
+import heapq
 import http.client
+import itertools
+import json
 import logging
+import select
+import socket
+import ssl
+import time
 from typing import Any
+from urllib.parse import urlsplit
 
 from .errors import (
     ArmingBlockedError,
     AuthenticationError,
     CommunicationError,
+    ConnectionLostError,
     InstallerLockedError,
     InvalidRequestError,
     NotAllowedError,
@@ -81,3 +94,280 @@ def _arming_blocked(body: bytes) -> ArmingBlockedError:
         _LOGGER.warning("Could not read the faults of a 409 response")
         faults = ()
     return ArmingBlockedError(faults)
+
+
+CONNECT_TIMEOUT = 15.0  # covers the panel's 6.5 s full TLS handshake
+READ_TIMEOUT = 10.0
+LOG_READ_TIMEOUT = 30.0  # log requests take about 6 s
+# reconnect instead of reusing a connection idle for longer; the panel
+# closes idle connections after 10-30 s, and a resumed reconnect is cheap
+MAX_IDLE = 5.0
+# the integration passes its version; users may override it (e.g. for a proxy)
+DEFAULT_USER_AGENT = "ha-secvest"
+
+_CLOSED_BY_PEER = (
+    http.client.RemoteDisconnected,
+    BrokenPipeError,
+    ConnectionResetError,
+    ConnectionAbortedError,
+)
+
+
+class _NotSentError(ConnectionError):
+    """The connection broke before the request was sent completely."""
+
+
+@dataclass
+class TransportStats:
+    """Connection counters for diagnostics."""
+
+    requests: int = 0
+    connections: int = 0
+    full_handshakes: int = 0
+    resumed_handshakes: int = 0
+    reconnects: int = 0
+    last_connect_time: float | None = None
+
+
+class _Connection(http.client.HTTPSConnection):
+    """HTTPS connection that resumes the transport's TLS session."""
+
+    def __init__(self, transport: Transport, timeout: float) -> None:
+        super().__init__(
+            transport.host,
+            transport.port,
+            timeout=timeout,
+            context=transport.ssl_context,
+        )
+        self._transport = transport
+
+    def connect(self) -> None:
+        transport = self._transport
+        started = time.monotonic()
+        sock = socket.create_connection((self.host, self.port), CONNECT_TIMEOUT)
+        try:
+            sock.settimeout(CONNECT_TIMEOUT)
+            # an unusable session is ignored and a full handshake follows
+            tls = transport.ssl_context.wrap_socket(
+                sock, server_hostname=self.host, session=transport.tls_session
+            )
+        except BaseException:
+            sock.close()
+            raise
+        tls.settimeout(self.timeout)
+        self.sock = tls
+        transport.on_connected(tls, time.monotonic() - started)
+
+
+class _RequestQueue:
+    """Grants the connection to one holder at a time; commands go first."""
+
+    def __init__(self) -> None:
+        self._locked = False
+        self._waiters: list[tuple[int, int, asyncio.Future[None]]] = []
+        self._order = itertools.count()
+
+    async def acquire(self, priority: bool) -> None:
+        if not self._locked and not self._waiters:
+            self._locked = True
+            return
+        future: asyncio.Future[None] = asyncio.get_running_loop().create_future()
+        heapq.heappush(self._waiters, (0 if priority else 1, next(self._order), future))
+        try:
+            await future
+        except asyncio.CancelledError:
+            if future.done() and not future.cancelled():
+                # granted just before the cancellation: pass it on
+                self.release()
+            raise
+
+    def release(self) -> None:
+        while self._waiters:
+            _, _, future = heapq.heappop(self._waiters)
+            if not future.done():
+                future.set_result(None)
+                return
+        self._locked = False
+
+
+class Transport:
+    """The single, sequential HTTPS connection to one panel.
+
+    Blocking http.client calls run in a dedicated thread, because asyncio
+    can't resume TLS sessions (ADR 0001). Requests are strictly
+    sequential; callers can hold the queue for a sequence of requests.
+    """
+
+    def __init__(
+        self,
+        url: str,
+        user_code: str,
+        password: str,
+        *,
+        verify_ssl: bool = False,
+        user_agent: str = DEFAULT_USER_AGENT,
+    ) -> None:
+        """Prepare the connection; nothing is sent yet."""
+        parts = urlsplit(url)
+        if parts.scheme != "https" or not parts.hostname:
+            raise ValueError("the panel's address must be an https URL")
+        self.host = parts.hostname
+        self.port = parts.port or 443
+        self._base_path = parts.path.rstrip("/")
+        self._authorization = basic_auth(user_code, password)
+        self._user_agent = user_agent or DEFAULT_USER_AGENT
+        self.ssl_context = ssl.create_default_context()
+        if not verify_ssl:
+            # the panel uses a self-signed certificate
+            self.ssl_context.check_hostname = False
+            self.ssl_context.verify_mode = ssl.CERT_NONE
+        self.tls_session: ssl.SSLSession | None = None
+        self.stats = TransportStats()
+        self._conn: _Connection | None = None
+        self._last_used = 0.0
+        self._queue = _RequestQueue()
+        self._holder: asyncio.Task[Any] | None = None
+        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="secvest")
+
+    @asynccontextmanager
+    async def hold(self, *, priority: bool = False) -> AsyncIterator[None]:
+        """Hold the queue for a sequence of requests, e.g. a command.
+
+        With priority (user commands), the hold is granted before pending
+        polling requests, but never interrupts a running request.
+        """
+        task = asyncio.current_task()
+        if task is not None and task is self._holder:
+            yield
+            return
+        await self._queue.acquire(priority)
+        self._holder = task
+        try:
+            yield
+        finally:
+            self._holder = None
+            self._queue.release()
+
+    async def request(
+        self,
+        method: str,
+        path: str,
+        body: dict[str, Any] | None = None,
+        *,
+        read_timeout: float = READ_TIMEOUT,
+    ) -> Any:
+        """Send one request and return the decoded JSON of the answer."""
+        async with self.hold():
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(
+                self._executor, self._request_sync, method, path, body, read_timeout
+            )
+
+    async def close(self) -> None:
+        """Close the connection and stop the thread."""
+        async with self.hold(priority=True):
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(self._executor, self._disconnect)
+        self._executor.shutdown(wait=True)
+
+    def on_connected(self, tls: ssl.SSLSocket, duration: float) -> None:
+        """Count the handshake and keep the session for the next one."""
+        stats = self.stats
+        if stats.connections:
+            stats.reconnects += 1
+        stats.connections += 1
+        if tls.session_reused:
+            stats.resumed_handshakes += 1
+        else:
+            stats.full_handshakes += 1
+        stats.last_connect_time = duration
+        self.tls_session = tls.session
+
+    # blocking part, runs in the transport's thread
+
+    def _request_sync(
+        self, method: str, path: str, body: dict[str, Any] | None, timeout: float
+    ) -> Any:
+        data = None if body is None else json.dumps(body).encode()
+        headers = {
+            "Authorization": self._authorization,
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": self._user_agent,
+        }
+        with translate_errors():
+            try:
+                status, payload = self._exchange(method, path, data, headers, timeout)
+            except _NotSentError:
+                # closed by the panel before the request went out
+                _LOGGER.debug("Connection closed by the panel, reconnecting")
+                status, payload = self._exchange(method, path, data, headers, timeout)
+            except _CLOSED_BY_PEER as err:
+                if method != "GET":
+                    raise ConnectionLostError(
+                        "the connection broke after the command was sent"
+                    ) from err
+                _LOGGER.debug("Connection closed by the panel, reconnecting")
+                status, payload = self._exchange(method, path, data, headers, timeout)
+        return check_response(status, payload)
+
+    def _exchange(
+        self,
+        method: str,
+        path: str,
+        data: bytes | None,
+        headers: dict[str, str],
+        timeout: float,
+    ) -> tuple[int, bytes]:
+        conn = self._connection(timeout)
+        self.stats.requests += 1
+        try:
+            try:
+                conn.request(method, self._base_path + path, body=data, headers=headers)
+            except _CLOSED_BY_PEER as err:
+                raise _NotSentError from err
+            response = conn.getresponse()
+            payload = response.read()
+        except BaseException:
+            self._disconnect()
+            raise
+        self._last_used = time.monotonic()
+        if conn.sock is not None:
+            # TLS 1.3 sends its tickets after the handshake
+            self.tls_session = conn.sock.session
+        if response.will_close:
+            self._disconnect()
+        return response.status, payload
+
+    def _connection(self, timeout: float) -> _Connection:
+        conn = self._conn
+        if conn is not None and (
+            time.monotonic() - self._last_used > MAX_IDLE or _closed(conn)
+        ):
+            self._disconnect()
+            conn = None
+        if conn is None:
+            conn = _Connection(self, timeout)
+            conn.connect()
+            self._conn = conn
+        elif conn.sock is not None:
+            conn.sock.settimeout(timeout)
+        conn.timeout = timeout
+        return conn
+
+    def _disconnect(self) -> None:
+        if self._conn is not None:
+            self._conn.close()
+            self._conn = None
+
+
+def _closed(conn: http.client.HTTPSConnection) -> bool:
+    """Whether the panel has closed the idle connection (EOF is readable)."""
+    sock = conn.sock
+    if sock is None:
+        return True
+    try:
+        readable, _, _ = select.select([sock], [], [], 0)
+    except OSError, ValueError:
+        return True
+    return bool(readable)
