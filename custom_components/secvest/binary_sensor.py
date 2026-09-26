@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import SecvestConfigEntry
-from .api.models import Zone, ZoneState
+from .api.models import FaultType, Zone, ZoneState
 from .const import CONF_ZONE_DEVICE_CLASSES
 from .coordinator import SecvestCoordinator
 from .entity import SecvestEntity, SecvestZoneEntity
@@ -31,10 +31,9 @@ async def async_setup_entry(
     entities: list[BinarySensorEntity] = [
         InstallerLockSensor(coordinator, "installer_lock")
     ]
-    entities.extend(
-        ZoneSensor(coordinator, zone, device_classes.get(zone.id))
-        for zone in coordinator.data.zones.values()
-    )
+    for zone in coordinator.data.zones.values():
+        entities.append(ZoneSensor(coordinator, zone, device_classes.get(zone.id)))
+        entities.append(ZoneProblemSensor(coordinator, zone, "problem"))
     async_add_entities(entities)
 
 
@@ -91,3 +90,26 @@ class ZoneSensor(SecvestZoneEntity, BinarySensorEntity):
             "omitted": zone.omitted,
             "inner": zone.inner,
         }
+
+
+class ZoneProblemSensor(SecvestZoneEntity, BinarySensorEntity):
+    """On for a zone state other than open/closed or a fault on the zone."""
+
+    _attr_translation_key = "zone_problem"
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return whether the zone has a problem."""
+        zone = self.zone
+        if zone is None:
+            return None
+        if zone.state not in (ZoneState.OPEN, ZoneState.CLOSED):
+            return True
+        # "zone open" appears for every open omittable zone, even when
+        # disarmed; the zone sensor already shows it
+        return any(
+            fault.zone_id == zone.id and fault.type != FaultType.ZONE_OPEN
+            for fault in self.coordinator.data.faults
+        )

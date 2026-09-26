@@ -134,3 +134,48 @@ async def test_zone_disappears(
     fake_panel.partitions[1].zone_ids.remove("209")
     await coordinator_of(entry).async_refresh()
     assert hass.states.get(ZONE).state == STATE_UNAVAILABLE  # type: ignore[union-attr]
+
+
+PROBLEM = "binary_sensor.room_6_l_problem"
+
+
+async def test_zone_problem(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """A problem is a state other than open/closed or a fault on the zone."""
+    entry = await setup()
+    coordinator = coordinator_of(entry)
+    registry = er.async_get(hass)
+    entity = registry.async_get(PROBLEM)
+    assert entity is not None
+    assert entity.unique_id == f"{entry.entry_id}_zone_209_problem"
+    state = hass.states.get(PROBLEM)
+    assert state is not None
+    assert state.state == STATE_OFF
+    assert state.attributes[ATTR_DEVICE_CLASS] == BinarySensorDeviceClass.PROBLEM
+
+    # an open zone is no problem, although the panel lists it as a fault
+    fake_panel.open_zone("209")
+    await coordinator.async_refresh()
+    assert hass.states.get(PROBLEM).state == STATE_OFF  # type: ignore[union-attr]
+
+    fake_panel.zones["209"].state = "tamper"
+    await coordinator.async_refresh()
+    assert hass.states.get(PROBLEM).state == STATE_ON  # type: ignore[union-attr]
+
+    fake_panel.zones["209"].state = "closed"
+    fake_panel.static_faults.append(
+        {
+            "type": "1234",
+            "id": "42",
+            "ui-string": "Z209 battery",
+            "affects-partition": ["1"],
+            "affects-zone": "209",
+            "prevents-set": False,
+            "prevents-reset": False,
+            "is-rf-warning": True,
+        }
+    )
+    await coordinator.async_refresh()
+    assert hass.states.get(PROBLEM).state == STATE_ON  # type: ignore[union-attr]
+    assert hass.states.get("binary_sensor.room_1_problem").state == STATE_OFF  # type: ignore[union-attr]

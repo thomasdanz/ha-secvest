@@ -70,6 +70,9 @@
           "on": "Gesperrt",
           "off": "Nicht gesperrt"
         }
+      },
+      "zone_problem": {
+        "name": "Problem"
       }
     }
   },

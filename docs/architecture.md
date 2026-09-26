@@ -212,7 +212,7 @@ The panel's partitions are independent of each other, so everything that belongs
 | Entity | Platform | Content |
 |---|---|---|
 | Zone | binary_sensor | Open / closed, unknown for any other zone state; the device's main entity (named after the zone); device class from the options (`zone_device_classes`: door, window, garage door, motion, smoke, …), none by default since the API has no detector type; attributes: zone id, raw zone state, all partitions the zone belongs to, `omittable`, `omitted`, `inner` |
-| Zone problem | binary_sensor | On for tamper/fault states or a fault affecting the zone |
+| Zone problem | binary_sensor (problem, diagnostic) | On for any zone state other than open/closed (tamper, fault, …) or a fault affecting the zone; "zone open" faults (type 5000) are ignored, since they appear for every open omittable zone and the zone sensor already shows them |
 | Omit zone | switch | Only for omittable zones; turns off by itself when the panel includes the zone again at disarm |
 
 **Zone groups** (optional, configured manually): several zones that belong to one opening, e.g. the two wings of a window, share one device instead of one device each. The group device holds the entities of all member zones plus one more:
