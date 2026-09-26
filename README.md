@@ -23,6 +23,8 @@ The credentials are checked with a single request. If the panel rejects them, no
 
 Then select the **partitions** Home Assistant should show and operate; their zones are added automatically. The panel doesn't reveal which partitions the user may operate, so all of them are listed; partitions without zones are deselected.
 
+After setup the integration polls the panel every 30 seconds, never more often than every 24 seconds (the official app's own cycle). To poll on demand, use the action `homeassistant.update_entity` with any of the integration's entities; the same limit applies.
+
 ## Documentation
 
 - [Architecture](docs/architecture.md)

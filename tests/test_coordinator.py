@@ -1,0 +1,222 @@
+"""Tests for setup and the status polling round (#10)."""
+
+import asyncio
+from collections.abc import AsyncIterator, Awaitable, Callable
+from datetime import timedelta
+import time
+from typing import Any
+
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import CONF_PASSWORD, CONF_URL, CONF_VERIFY_SSL
+from homeassistant.core import HomeAssistant
+import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from custom_components.secvest import coordinator as coordinator_module
+from custom_components.secvest.api.models import ZoneState
+from custom_components.secvest.const import (
+    CONF_PARTITIONS,
+    CONF_SCAN_INTERVAL,
+    CONF_USER_AGENT,
+    CONF_USER_CODE,
+    DOMAIN,
+)
+from custom_components.secvest.coordinator import SecvestCoordinator, scan_interval
+
+from .fake_panel import FakePanel, Injection
+
+ROUND = [
+    ("GET", "/system/partitions/"),
+    ("GET", "/alarms/"),
+    ("GET", "/faults/"),
+    ("GET", "/system/partitions-1/zones/"),
+]
+
+type Setup = Callable[..., Awaitable[MockConfigEntry]]
+
+
+@pytest.fixture(autouse=True)
+def short_spacing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the minimum spacing between rounds short in tests."""
+    monkeypatch.setattr(coordinator_module, "MIN_SCAN_INTERVAL", 0.05)
+
+
+@pytest.fixture
+async def setup(hass: HomeAssistant, fake_panel: FakePanel) -> AsyncIterator[Setup]:
+    """Set up an entry for the fake panel; unload it afterwards."""
+    entries: list[MockConfigEntry] = []
+
+    async def _setup(password: str | None = None, **options: Any) -> MockConfigEntry:
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title=fake_panel.name,
+            data={
+                CONF_URL: fake_panel.url,
+                CONF_USER_CODE: fake_panel.user_code,
+                CONF_PASSWORD: password or fake_panel.password,
+                CONF_VERIFY_SSL: False,
+                CONF_USER_AGENT: "",
+            },
+            options={CONF_PARTITIONS: [1], **options},
+        )
+        entry.add_to_hass(hass)
+        entries.append(entry)
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        return entry
+
+    yield _setup
+    for entry in entries:
+        if entry.state is ConfigEntryState.LOADED:
+            assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+def _coordinator(entry: MockConfigEntry) -> SecvestCoordinator:
+    coordinator: SecvestCoordinator = entry.runtime_data
+    return coordinator
+
+
+async def test_first_round_at_setup(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """Setup runs one round; the state holds the selected partitions' zones."""
+    fake_panel.open_zone("209")
+    entry = await setup()
+    assert entry.state is ConfigEntryState.LOADED
+    assert fake_panel.stats.requests == ROUND
+    assert fake_panel.stats.connections == 1
+    state = _coordinator(entry).data
+    assert list(state.partitions) == [1, 2, 3, 4]
+    assert len(state.zones) == len(fake_panel.partitions[1].zone_ids)
+    assert state.zones["209"].state is ZoneState.OPEN
+    assert [fault.zone_id for fault in state.faults] == ["209"]
+    assert state.alarms == ()
+    with pytest.raises(TypeError):
+        state.zones["x"] = state.zones["209"]  # type: ignore[index]
+
+
+async def test_zone_in_several_partitions(fake_panel: FakePanel, setup: Setup) -> None:
+    """Only the selected partitions' zones are read; shared zones once."""
+    fake_panel.partitions[2].zone_ids.append("209")
+    entry = await setup(**{CONF_PARTITIONS: [1, 2]})
+    assert [path for _, path in fake_panel.stats.requests][3:] == [
+        "/system/partitions-1/zones/",
+        "/system/partitions-2/zones/",
+    ]
+    zones = _coordinator(entry).data.zones
+    assert len(zones) == len(fake_panel.partitions[1].zone_ids)
+
+
+async def test_missing_partition_skipped(
+    fake_panel: FakePanel, setup: Setup, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A selected partition the panel doesn't have isn't requested."""
+    entry = await setup(**{CONF_PARTITIONS: [1, 9]})
+    await _coordinator(entry).async_refresh()
+    assert "/system/partitions-9/zones/" not in {
+        path for _, path in fake_panel.stats.requests
+    }
+    assert caplog.text.count("Selected partition 9 doesn't exist") == 1
+
+
+@pytest.mark.parametrize(
+    ("options", "seconds"),
+    [({}, 30), ({CONF_SCAN_INTERVAL: 60}, 60), ({CONF_SCAN_INTERVAL: 10}, 24)],
+)
+def test_scan_interval(
+    options: dict[str, Any], seconds: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The interval defaults to 30 s and never goes below 24 s."""
+    monkeypatch.setattr(coordinator_module, "MIN_SCAN_INTERVAL", 24)
+    assert scan_interval(options) == timedelta(seconds=seconds)
+
+
+async def test_rounds_never_overlap(fake_panel: FakePanel, setup: Setup) -> None:
+    """Concurrent refreshes run one after another."""
+    entry = await setup()
+    coordinator = _coordinator(entry)
+    await asyncio.gather(coordinator.async_refresh(), coordinator.async_refresh())
+    assert fake_panel.stats.requests == ROUND * 3
+    assert fake_panel.stats.max_open_connections == 1
+
+
+async def test_minimum_spacing(
+    fake_panel: FakePanel, setup: Setup, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A round never starts sooner than the minimum after the last one."""
+    monkeypatch.setattr(coordinator_module, "MIN_SCAN_INTERVAL", 0.5)
+    entry = await setup()
+    started = time.monotonic()
+    await _coordinator(entry).async_refresh()
+    assert time.monotonic() - started >= 0.4
+    assert fake_panel.stats.requests == ROUND * 2
+
+
+async def test_spacing_survives_a_reload(
+    hass: HomeAssistant,
+    fake_panel: FakePanel,
+    setup: Setup,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A reload creates a new coordinator but keeps the spacing."""
+    monkeypatch.setattr(coordinator_module, "MIN_SCAN_INTERVAL", 0.5)
+    entry = await setup()
+    started = time.monotonic()
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    assert time.monotonic() - started >= 0.4
+    assert fake_panel.stats.requests == ROUND * 2
+
+
+async def test_requested_refresh(
+    fake_panel: FakePanel, setup: Setup, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A manual refresh (update_entity) keeps the minimum spacing too."""
+    monkeypatch.setattr(coordinator_module, "MIN_SCAN_INTERVAL", 0.5)
+    entry = await setup()
+    started = time.monotonic()
+    await _coordinator(entry).async_request_refresh()
+    assert time.monotonic() - started >= 0.4
+    assert fake_panel.stats.requests == ROUND * 2
+
+
+async def test_failed_round(fake_panel: FakePanel, setup: Setup) -> None:
+    """A failed round marks the data as stale and keeps the last state."""
+    entry = await setup()
+    coordinator = _coordinator(entry)
+    state = coordinator.data
+    fake_panel.inject(Injection("GET", "/alarms/", "drop_before", times=2))
+    await coordinator.async_refresh()
+    assert not coordinator.last_update_success
+    assert coordinator.data is state
+
+
+async def test_rejected_credentials_at_setup(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """A 401 at setup stops the entry without a retry."""
+    entry = await setup(password="wrong")
+    assert entry.state is ConfigEntryState.SETUP_ERROR
+    assert fake_panel.stats.requests == [("GET", "/system/partitions/")]
+
+
+async def test_rejected_credentials_later(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """A 401 during polling stops the rounds; nothing is sent again."""
+    entry = await setup()
+    coordinator = _coordinator(entry)
+    fake_panel.password = "changed"
+    await coordinator.async_refresh()
+    assert not coordinator.last_update_success
+    assert coordinator.client.transport.authentication_failed
+    await coordinator.async_refresh()
+    assert fake_panel.stats.requests == [*ROUND, ("GET", "/system/partitions/")]
+
+
+async def test_unreachable_at_setup(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """An unreachable panel lets Home Assistant retry the setup later."""
+    fake_panel.inject(Injection("GET", "/system/partitions/", "drop_before", times=2))
+    entry = await setup()
+    assert entry.state is ConfigEntryState.SETUP_RETRY

@@ -70,11 +70,11 @@ The API client is a self-contained Python package without any Home Assistant dep
 | `alarm_control_panel.py` | One panel per selected partition. Maps the partition state to Home Assistant states; an alarm is detected from the partition state itself (`*-alarm`, `acknowledged`), `/alarms/` only adds details. Arm/disarm call the coordinator. |
 | `binary_sensor.py` | Zone open/closed, zone problem, arming blocked per partition, installer lock. |
 | `switch.py` | Omit switch per omittable zone. |
-| `button.py` | Acknowledge alarm per partition, manual refresh. |
+| `button.py` | Acknowledge alarm per partition. |
 | `sensor.py` | Faults count with details. |
 | `event.py` | Log entries as events. |
 | `config_flow.py` | Setup, partition/zone selection, options (including zone groups), reauthentication. |
-| `repairs.py` | Repair issues for maintenance faults and blocked authentication. |
+| `repairs.py` | Repair issues for maintenance faults, blocked authentication and selected partitions the panel no longer reports. |
 | `diagnostics.py` | Redacted diagnostics download. |
 | `log_patterns.py` | Text patterns for the optional entry delay detection, one per panel language, plus the user's custom pattern. The only place where logic depends on panel texts (see principle 4). |
 | `translations/` | `en.json`, `de.json`. |
@@ -124,6 +124,12 @@ every log interval (default 5 min):
 The partition state alone tells whether a partition is in alarm, so an alarm is detected even if `/alarms/` fails. `/alarms/` is still part of the round for the alarm type and other details.
 
 The coordinator merges the results into one immutable `PanelState` and notifies the entities. A round never overlaps with another round; if a round takes longer than the interval, the next one starts late instead of piling up.
+
+- **Setup** runs the first round; the entry is loaded only once it succeeded. A 401 there stops the entry without a retry (reauthentication, see "Error handling"); other failures let Home Assistant retry the setup later.
+- **Minimum spacing:** a round never starts sooner than 24 s after the previous one started, whatever triggers it (interval, a manual refresh, setup retry, reload after an options change). The time of the last round is kept outside the coordinator, so a new coordinator after a reload or setup retry keeps the spacing; a round that comes too early waits.
+- **Manual refresh:** there is no refresh button; Home Assistant's `homeassistant.update_entity` action on any of the integration's entities runs a round, within the same minimum spacing.
+- **Commands go first:** a round doesn't hold the request queue, so a command can go ahead between two of its reads.
+- **Zones:** only the zone lists of the selected partitions are read; a zone in several selected partitions is kept once. A selected partition the panel no longer reports is skipped and logged once; a repair issue leads the user to the options to change the selection.
 
 ### Commands and verification
 
@@ -191,7 +197,6 @@ The panel's partitions are independent of each other, so everything that belongs
 | Problem | binary_sensor | On while any fault other than an open zone is present (faults of type 5000 = zone open are ignored here: they appear for every open omittable zone, even when disarmed, and are covered by the zone sensors and "arming blocked") |
 | Installer lock | binary_sensor | On while the installer is logged in at the panel |
 | Log | event | New log entries |
-| Refresh | button | Manual refresh |
 | Diagnostics | sensor (diagnostic) | Last round duration, connection setup time, reconnects, backoff state |
 
 **Per selected partition** (entities on the panel device, named after the partition)
