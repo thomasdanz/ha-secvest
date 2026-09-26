@@ -74,7 +74,7 @@ The API client is a self-contained Python package without any Home Assistant dep
 | `sensor.py` | Faults count with details. |
 | `event.py` | Log entries as events. |
 | `config_flow.py` | Setup, partition/zone selection, options (including zone groups), reauthentication. |
-| `repairs.py` | Repair issues for maintenance faults, blocked authentication and selected partitions the panel no longer reports. |
+| `repairs.py` | Repair issues for maintenance faults and selected partitions the panel no longer reports. |
 | `diagnostics.py` | Redacted diagnostics download. |
 | `log_patterns.py` | Text patterns for the optional entry delay detection, one per panel language, plus the user's custom pattern. The only place where logic depends on panel texts (see principle 4). |
 | `translations/` | `en.json`, `de.json`. |
@@ -177,7 +177,7 @@ Only the reason differs:
 
 | Error | Integration behaviour |
 |---|---|
-| `AuthenticationError` | Stop all requests, start the reauthentication flow, repair issue. Never retried (precaution, see principle 3). The 401 is remembered in the config entry, so a restart of Home Assistant doesn't send the rejected credentials again; only a successful reauthentication clears it and reloads the entry with a new transport. |
+| `AuthenticationError` | Stop all requests, start the reauthentication flow (Home Assistant shows it prominently, so no separate repair issue); entities become unavailable. Never retried (precaution, see principle 3). The 401 is remembered in the config entry (`auth_failed`), so a restart of Home Assistant doesn't send the rejected credentials again: while it is set, setup starts the reauthentication without any request. The reauthentication asks for user code and password and checks them with exactly one request (`GET /system/`); only its success clears the flag and reloads the entry with a new transport. |
 | `InstallerLockedError` | Keep last known states, mark the panel as locked (attribute and binary sensor), commands fail with a clear message. The polling round stops at the first request that reports the lock; the interval stays unchanged. While the lock lasts, each round therefore costs a single request, and the first round after the lock is lifted refreshes everything. The lock doesn't count towards the backoff and keeps the entities available. During setup it lets Home Assistant retry the setup later. |
 | `ArmingBlockedError` | Command fails; the message lists the blocking faults and zones. |
 | `NotAllowedError` | Command fails. The panel gives the same empty 403 for a zone that isn't omittable and for a partition the user may not operate (omitting zones and changing the partition state); for zones the message tells the two apart by the zone's `omittable`. |
@@ -229,7 +229,7 @@ A zone belongs to at most one group; zones without a group keep their own device
 
 | Stored in | Content |
 |---|---|
-| Config entry data | Address, user code, password, certificate verification, User-Agent override (advanced; empty = `ha-secvest/<version>`) |
+| Config entry data | Address, user code, password, certificate verification, User-Agent override (advanced; empty = `ha-secvest/<version>`), `auth_failed` after a 401 |
 | Config entry options | Selected partitions, excluded zones (advanced), device class per zone, zone groups, status and log intervals, optional features |
 
 **Address:** stored normalised as `https://host:port[/path]`. Without a scheme the panel's own port 4433 applies unless one is given; an https URL without a port means 443 (e.g. a reverse proxy). The normalised address (host, port and path) is the entry's unique id, since the API reports no serial number. Setup validates the credentials with exactly one request (`GET /system/`) and takes the entry's title from the installation name. Only once the credentials are accepted, it reads the partitions (`GET /system/partitions/`) on the same connection for the selection; nothing else is sent during setup.

@@ -20,6 +20,7 @@ from .api.errors import AuthenticationError, InstallerLockedError, SecvestError
 from .api.models import PanelEvent, Partition, Zone
 from .const import (
     BACKOFF_MAX,
+    CONF_AUTH_FAILED,
     CONF_PARTITIONS,
     CONF_SCAN_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
@@ -144,9 +145,14 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         """Return whether entities are available.
 
         Single failed rounds keep the last state; entities become unavailable
-        only once polling pauses, so they don't flap.
+        only once polling pauses, so they don't flap, or once the panel
+        rejected the credentials.
         """
-        return self.data is not None and not self.backoff.paused
+        return (
+            self.data is not None
+            and not self.backoff.paused
+            and not self.client.transport.authentication_failed
+        )
 
     async def _async_update_data(self) -> PanelState:
         """Run one round, never sooner than the minimum after the last one."""
@@ -165,8 +171,15 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         try:
             state = await self._round()
         except AuthenticationError as err:
-            # never retried; the transport already blocks further requests
-            raise ConfigEntryAuthFailed(str(err)) from err
+            # never retried: the transport already blocks further requests,
+            # and the flag keeps setup from sending the credentials again
+            self.hass.config_entries.async_update_entry(
+                self.config_entry,
+                data={**self.config_entry.data, CONF_AUTH_FAILED: True},
+            )
+            raise ConfigEntryAuthFailed(
+                translation_domain=DOMAIN, translation_key="auth_failed"
+            ) from err
         except InstallerLockedError as err:
             # the panel answers, so no backoff and the interval stays; the
             # round stopped at its first request, and the last state is kept

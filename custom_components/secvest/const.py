@@ -5,6 +5,9 @@ DOMAIN = "secvest"
 CONF_USER_CODE = "user_code"
 CONF_USER_AGENT = "user_agent"
 CONF_ADVANCED = "advanced"
+# set after a 401; nothing is sent with the stored credentials until
+# a reauthentication succeeds (#6, #41)
+CONF_AUTH_FAILED = "auth_failed"
 CONF_PARTITIONS = "partitions"
 CONF_SCAN_INTERVAL = "scan_interval"
 
