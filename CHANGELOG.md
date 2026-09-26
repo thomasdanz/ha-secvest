@@ -15,3 +15,4 @@ All notable changes to this project are documented in this file. The format is b
 - API client: one HTTPS connection per panel with TLS session resumption, strictly sequential requests with commands ahead of polling, a User-Agent that can be overridden, and connection counters for diagnostics (#2).
 - API client: after the panel rejects the credentials (401), no further request is sent with them, not even queued ones (#6).
 - API client: one method per API operation the integration uses, returning models (#75).
+- Setup in the UI: address, user code, password, certificate verification and an optional User-Agent, checked with a single request; English and German texts (#38).

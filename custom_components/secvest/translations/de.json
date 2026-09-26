@@ -1,0 +1,44 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Mit der ABUS Secvest verbinden",
+        "description": "Getestet mit der {model} und Firmware {firmware}; andere Zentralen und Firmware-Versionen sind ungetestet.\n\nVerwende für Home Assistant einen eigenen Benutzer der Zentrale: Die Stufe „Normaler Benutzer“ reicht, mit Rechten für genau die Teilbereiche, die Home Assistant bedienen soll. Der Errichtercode funktioniert nicht, die API der Zentrale nimmt nur Benutzer an.",
+        "data": {
+          "url": "Adresse",
+          "user_code": "Benutzercode",
+          "password": "Passwort",
+          "verify_ssl": "Zertifikat prüfen"
+        },
+        "data_description": {
+          "url": "Adresse der Zentrale, z. B. 192.168.1.10 (Port 4433) oder 192.168.1.10:4433, oder die https-URL eines Reverse-Proxys davor.",
+          "user_code": "Der Code des Benutzers der Zentrale, mit dem sich Home Assistant anmeldet.",
+          "password": "Das Passwort dieses Benutzers.",
+          "verify_ssl": "Für das selbstsignierte Zertifikat der Zentrale ausgeschaltet lassen; hinter einem Reverse-Proxy mit gültigem Zertifikat einschalten."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Erweitert",
+            "data": {
+              "user_agent": "User-Agent"
+            },
+            "data_description": {
+              "user_agent": "Wird mit jeder Anfrage gesendet. Leer lassen für den Standard, ha-secvest/ mit der Versionsnummer; nur nötig für einen Reverse-Proxy, der nach User-Agent filtert."
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "invalid_address": "Gib einen Hostnamen oder eine IP-Adresse ein, optional mit Port, oder eine https-URL.",
+      "invalid_auth": "Die Zentrale hat Benutzercode oder Passwort abgelehnt. Es wird nichts automatisch wiederholt; prüfe die Zugangsdaten und versuche es erneut.",
+      "installer_locked": "Der Errichter ist an der Zentrale angemeldet, das sperrt die API. Versuche es erneut, wenn sich der Errichter abgemeldet hat.",
+      "cannot_connect": "Die Zentrale ist nicht erreichbar. Prüfe Adresse und Netzwerk.",
+      "timeout": "Die Zentrale hat nicht rechtzeitig geantwortet. Prüfe die Adresse; die Zentrale ist eventuell ausgelastet.",
+      "unexpected_response": "Unter der Adresse antwortet etwas, aber nicht wie eine Secvest. Prüfe die Adresse (und hinter einem Reverse-Proxy den Pfad)."
+    },
+    "abort": {
+      "already_configured": "Diese Zentrale ist bereits eingerichtet."
+    }
+  }
+}

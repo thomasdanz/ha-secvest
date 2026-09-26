@@ -10,6 +10,17 @@ A Home Assistant custom integration for the ABUS Secvest alarm panel. It talks t
 
 > **Disclaimer:** This is an unofficial community project, not affiliated with or endorsed by ABUS. The panel is security equipment: use this integration at your own risk.
 
+## Setup
+
+Add the integration in Home Assistant (Settings → Devices & services → Add integration → ABUS Secvest) and enter:
+
+- **Address:** the panel's IP address or host name, optionally with a port (default 4433), or the https URL of a reverse proxy in front of it.
+- **User code** and **password** of a panel user. Use a separate user for Home Assistant: the level "normal user" is enough, with rights for exactly the partitions Home Assistant should operate. The installer code doesn't work.
+- **Verify certificate:** leave off for the panel's own self-signed certificate.
+- **Advanced → User-Agent:** only needed for a reverse proxy that filters by User-Agent.
+
+The credentials are checked with a single request. If the panel rejects them, nothing is retried automatically.
+
 ## Documentation
 
 - [Architecture](docs/architecture.md)
