@@ -34,6 +34,18 @@
         "data": {
           "partitions": "Teilbereiche"
         }
+      },
+      "reauth_confirm": {
+        "title": "Erneut anmelden",
+        "description": "Die Zentrale hat Benutzercode oder Passwort für {name} abgelehnt. Mit den alten Zugangsdaten wird nichts mehr an die Zentrale gesendet. Gib die Zugangsdaten des Benutzers der Zentrale erneut ein; sie werden mit einer einzigen Anfrage geprüft.",
+        "data": {
+          "user_code": "Benutzercode",
+          "password": "Passwort"
+        },
+        "data_description": {
+          "user_code": "Der Code des Benutzers der Zentrale, mit dem sich Home Assistant anmeldet.",
+          "password": "Das Passwort dieses Benutzers."
+        }
       }
     },
     "error": {
@@ -46,7 +58,8 @@
       "no_partitions": "Wähle mindestens einen Teilbereich aus."
     },
     "abort": {
-      "already_configured": "Diese Zentrale ist bereits eingerichtet."
+      "already_configured": "Diese Zentrale ist bereits eingerichtet.",
+      "reauth_successful": "Die Zugangsdaten wurden aktualisiert."
     }
   },
   "entity": {
@@ -58,6 +71,11 @@
           "off": "Nicht gesperrt"
         }
       }
+    }
+  },
+  "exceptions": {
+    "auth_failed": {
+      "message": "Die Zentrale hat Benutzercode oder Passwort abgelehnt. Damit wird nichts mehr gesendet; melde dich erneut an, um fortzufahren."
     }
   }
 }

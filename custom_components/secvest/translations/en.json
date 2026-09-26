@@ -34,6 +34,18 @@
         "data": {
           "partitions": "Partitions"
         }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate",
+        "description": "The panel rejected the user code or password for {name}. Nothing is sent to the panel with the old credentials anymore. Enter the credentials of the panel user again; they are checked with a single request.",
+        "data": {
+          "user_code": "User code",
+          "password": "Password"
+        },
+        "data_description": {
+          "user_code": "The code of the panel user Home Assistant logs in with.",
+          "password": "The password of that panel user."
+        }
       }
     },
     "error": {
@@ -46,7 +58,8 @@
       "no_partitions": "Select at least one partition."
     },
     "abort": {
-      "already_configured": "This panel is already set up."
+      "already_configured": "This panel is already set up.",
+      "reauth_successful": "The credentials were updated."
     }
   },
   "entity": {
@@ -58,6 +71,11 @@
           "off": "Unlocked"
         }
       }
+    }
+  },
+  "exceptions": {
+    "auth_failed": {
+      "message": "The panel rejected the user code or password. Nothing is sent with them anymore; reauthenticate to continue."
     }
   }
 }

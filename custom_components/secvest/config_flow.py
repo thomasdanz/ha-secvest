@@ -1,5 +1,6 @@
 """Config flow for the ABUS Secvest integration."""
 
+from collections.abc import Mapping
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -29,6 +30,7 @@ from .api.models import Partition
 from .api.transport import Transport
 from .const import (
     CONF_ADVANCED,
+    CONF_AUTH_FAILED,
     CONF_PARTITIONS,
     CONF_USER_AGENT,
     CONF_USER_CODE,
@@ -36,6 +38,15 @@ from .const import (
     DOMAIN,
     TESTED_FIRMWARE,
     TESTED_MODEL,
+)
+
+STEP_REAUTH_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_USER_CODE): TextSelector(),
+        vol.Required(CONF_PASSWORD): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.PASSWORD)
+        ),
+    }
 )
 
 STEP_USER_SCHEMA = vol.Schema(
@@ -112,7 +123,7 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_VERIFY_SSL: user_input[CONF_VERIFY_SSL],
                     CONF_USER_AGENT: user_agent,
                 }
-                error = await self._validate(data)
+                error = await self._validate(data, read_partitions=True)
                 if error is None:
                     self._data = data
                     return await self.async_step_partitions()
@@ -166,7 +177,50 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="partitions", data_schema=schema, errors=errors
         )
 
-    async def _validate(self, data: dict[str, Any]) -> str | None:
+    async def async_step_reauth(
+        self, entry_data: Mapping[str, Any]
+    ) -> ConfigFlowResult:
+        """Start after the panel rejected the stored credentials."""
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Ask for new credentials and check them with exactly one request."""
+        entry = self._get_reauth_entry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            data = {
+                **entry.data,
+                CONF_USER_CODE: user_input[CONF_USER_CODE].strip(),
+                CONF_PASSWORD: user_input[CONF_PASSWORD],
+            }
+            error = await self._validate(data, read_partitions=False)
+            if error is None:
+                # the reload creates a new transport with these credentials
+                return self.async_update_reload_and_abort(
+                    entry,
+                    data_updates={
+                        CONF_USER_CODE: data[CONF_USER_CODE],
+                        CONF_PASSWORD: data[CONF_PASSWORD],
+                        CONF_AUTH_FAILED: False,
+                    },
+                )
+            errors["base"] = error
+        # the password is never suggested
+        user_code = (user_input or entry.data)[CONF_USER_CODE]
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=self.add_suggested_values_to_schema(
+                STEP_REAUTH_SCHEMA, {CONF_USER_CODE: user_code}
+            ),
+            errors=errors,
+            description_placeholders={"name": entry.title},
+        )
+
+    async def _validate(
+        self, data: Mapping[str, Any], *, read_partitions: bool
+    ) -> str | None:
         """Check the credentials, then read the partitions; never retried.
 
         The partitions are only read once the credentials were accepted.
@@ -181,7 +235,8 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
         try:
             client = Client(transport)
             system = await client.get_system()
-            self._partitions = await client.get_partitions()
+            if read_partitions:
+                self._partitions = await client.get_partitions()
         except AuthenticationError:
             return "invalid_auth"
         except InstallerLockedError:

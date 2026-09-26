@@ -87,7 +87,11 @@ async def setup(hass: HomeAssistant, fake_panel: FakePanel) -> AsyncIterator[Set
     """Set up an entry for the fake panel; unload it afterwards."""
     entries: list[MockConfigEntry] = []
 
-    async def _setup(password: str | None = None, **options: Any) -> MockConfigEntry:
+    async def _setup(
+        password: str | None = None,
+        data: dict[str, Any] | None = None,
+        **options: Any,
+    ) -> MockConfigEntry:
         entry = MockConfigEntry(
             domain=DOMAIN,
             title=fake_panel.name,
@@ -97,6 +101,7 @@ async def setup(hass: HomeAssistant, fake_panel: FakePanel) -> AsyncIterator[Set
                 CONF_PASSWORD: password or fake_panel.password,
                 CONF_VERIFY_SSL: False,
                 CONF_USER_AGENT: "",
+                **(data or {}),
             },
             options={CONF_PARTITIONS: [1], **options},
         )
