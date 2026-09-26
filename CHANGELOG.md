@@ -27,3 +27,5 @@ All notable changes to this project are documented in this file. The format is b
 - Faults sensor with all current faults as attributes and a readable summary, and a problem sensor on the panel device that ignores open zones (#29).
 - Arming blocked sensor per selected partition, naming the blocking zones and faults (#30).
 - Options: partitions, status interval, User-Agent, excluded zones and a device class per zone; a repair issue for a selected partition the panel no longer reports; devices of zones no longer selected are removed (#40).
+- README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
+- Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
