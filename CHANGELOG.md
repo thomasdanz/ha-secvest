@@ -17,3 +17,4 @@ All notable changes to this project are documented in this file. The format is b
 - API client: one method per API operation the integration uses, returning models (#75).
 - Setup in the UI: address, user code, password, certificate verification and an optional User-Agent, checked with a single request; English and German texts (#38).
 - Setup in the UI: selection of the partitions; partitions without zones are deselected by default (#39).
+- Status polling every 30 s (never below 24 s) of partitions, alarms, faults and the selected partitions' zones (#10).

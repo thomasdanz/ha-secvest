@@ -1,9 +1,10 @@
 """Tests for the config flow (#38)."""
 
+from collections.abc import Iterator
 from typing import Any
 from unittest.mock import patch
 
-from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
+from homeassistant.config_entries import SOURCE_USER
 from homeassistant.const import CONF_PASSWORD, CONF_URL, CONF_VERIFY_SSL
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -21,6 +22,13 @@ from custom_components.secvest.const import (
 )
 
 from .fake_panel import FakePanel, Injection
+
+
+@pytest.fixture(autouse=True)
+def no_setup() -> Iterator[None]:
+    """Only the flow is tested here; setup is tested with the coordinator."""
+    with patch("custom_components.secvest.async_setup_entry", return_value=True):
+        yield
 
 
 def _input(panel: FakePanel, **changes: Any) -> dict[str, Any]:
@@ -238,26 +246,3 @@ async def test_already_configured(hass: HomeAssistant, fake_panel: FakePanel) ->
 def test_normalize_address(value: str, expected: str) -> None:
     """Addresses are normalised; without a scheme the panel's port applies."""
     assert normalize_address(value) == expected
-
-
-async def test_setup_and_unload(hass: HomeAssistant, fake_panel: FakePanel) -> None:
-    """Setting up the entry sends nothing; unloading stops the transport."""
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={
-            CONF_URL: fake_panel.url,
-            CONF_USER_CODE: fake_panel.user_code,
-            CONF_PASSWORD: fake_panel.password,
-            CONF_VERIFY_SSL: False,
-            CONF_USER_AGENT: "",
-        },
-    )
-    entry.add_to_hass(hass)
-    assert await hass.config_entries.async_setup(entry.entry_id)
-    assert entry.state is ConfigEntryState.LOADED
-    assert fake_panel.stats.requests == []
-    assert await entry.runtime_data.get_faults() == []
-    assert await hass.config_entries.async_unload(entry.entry_id)
-    unloaded = hass.config_entries.async_get_entry(entry.entry_id)
-    assert unloaded is not None
-    assert unloaded.state is ConfigEntryState.NOT_LOADED
