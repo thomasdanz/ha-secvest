@@ -1,0 +1,14 @@
+[
+  {
+    "type": "5000",
+    "id": "1524",
+    "ui-string": "Z219 A Garagentür",
+    "affects-partition": [
+      "1"
+    ],
+    "affects-zone": "219",
+    "prevents-set": true,
+    "prevents-reset": false,
+    "is-rf-warning": false
+  }
+]

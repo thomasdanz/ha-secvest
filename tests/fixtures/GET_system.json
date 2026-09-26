@@ -1,0 +1,9 @@
+{
+  "name": "Alarmanlage",
+  "partitions": [
+    "1",
+    "2",
+    "3",
+    "4"
+  ]
+}

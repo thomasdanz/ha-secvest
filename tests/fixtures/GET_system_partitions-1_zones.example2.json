@@ -1,0 +1,154 @@
+[
+  {
+    "id": "201",
+    "name": "Room 1",
+    "state": "closed",
+    "inner": true,
+    "omittable": true,
+    "omitted": false
+  },
+  {
+    "id": "202",
+    "name": "Room 2",
+    "state": "closed",
+    "inner": true,
+    "omittable": true,
+    "omitted": false
+  },
+  {
+    "id": "203",
+    "name": "Room 3 L",
+    "state": "closed",
+    "inner": true,
+    "omittable": true,
+    "omitted": false
+  },
+  {
+    "id": "204",
+    "name": "Room 3 R",
+    "state": "closed",
+    "inner": true,
+    "omittable": true,
+    "omitted": false
+  },
+  {
+    "id": "205",
+    "name": "Room 4 R",
+    "state": "closed",
+    "inner": true,
+    "omittable": true,
+    "omitted": false
+  },
+  {
+    "id": "206",
+    "name": "Room 4 L",
+    "state": "closed",
+    "inner": true,
+    "omittable": true,
+    "omitted": false
+  },
+  {
+    "id": "207",
+    "name": "Room 5 L",
+    "state": "closed",
+    "inner": true,
+    "omittable": true,
+    "omitted": false
+  },
+  {
+    "id": "208",
+    "name": "Room 5 R",
+    "state": "closed",
+    "inner": true,
+    "omittable": true,
+    "omitted": false
+  },
+  {
+    "id": "209",
+    "name": "Room 6 L",
+    "state": "closed",
+    "inner": true,
+    "omittable": true,
+    "omitted": false
+  },
+  {
+    "id": "210",
+    "name": "Room 6 R",
+    "state": "closed",
+    "inner": true,
+    "omittable": true,
+    "omitted": false
+  },
+  {
+    "id": "211",
+    "name": "Haustür",
+    "state": "open",
+    "inner": true,
+    "omittable": false,
+    "omitted": false
+  },
+  {
+    "id": "212",
+    "name": "Room 7",
+    "state": "closed",
+    "inner": true,
+    "omittable": true,
+    "omitted": false
+  },
+  {
+    "id": "213",
+    "name": "Room 8 L",
+    "state": "closed",
+    "inner": true,
+    "omittable": true,
+    "omitted": false
+  },
+  {
+    "id": "214",
+    "name": "Room 8 R",
+    "state": "closed",
+    "inner": true,
+    "omittable": true,
+    "omitted": false
+  },
+  {
+    "id": "215",
+    "name": "Room 9 R",
+    "state": "closed",
+    "inner": true,
+    "omittable": true,
+    "omitted": false
+  },
+  {
+    "id": "216",
+    "name": "Room 9 L",
+    "state": "closed",
+    "inner": true,
+    "omittable": true,
+    "omitted": false
+  },
+  {
+    "id": "217",
+    "name": "Room 10 L",
+    "state": "closed",
+    "inner": true,
+    "omittable": true,
+    "omitted": false
+  },
+  {
+    "id": "218",
+    "name": "Room 10 R",
+    "state": "closed",
+    "inner": true,
+    "omittable": true,
+    "omitted": false
+  },
+  {
+    "id": "219",
+    "name": "Garagentür",
+    "state": "open",
+    "inner": true,
+    "omittable": false,
+    "omitted": false
+  }
+]
