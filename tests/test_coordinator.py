@@ -9,10 +9,12 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_PASSWORD, CONF_URL, CONF_VERIFY_SSL
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.update_coordinator import UpdateFailed
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest import coordinator as coordinator_module
+from custom_components.secvest.api.errors import CommunicationError
 from custom_components.secvest.api.models import ZoneState
 from custom_components.secvest.const import (
     CONF_PARTITIONS,
@@ -21,7 +23,11 @@ from custom_components.secvest.const import (
     CONF_USER_CODE,
     DOMAIN,
 )
-from custom_components.secvest.coordinator import SecvestCoordinator, scan_interval
+from custom_components.secvest.coordinator import (
+    Backoff,
+    SecvestCoordinator,
+    scan_interval,
+)
 
 from .fake_panel import FakePanel, Injection
 
@@ -69,6 +75,11 @@ async def setup(hass: HomeAssistant, fake_panel: FakePanel) -> AsyncIterator[Set
     for entry in entries:
         if entry.state is ConfigEntryState.LOADED:
             assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+def _available(coordinator: SecvestCoordinator) -> bool:
+    # a function call, so that mypy doesn't narrow the property
+    return coordinator.available
 
 
 def _coordinator(entry: MockConfigEntry) -> SecvestCoordinator:
@@ -220,3 +231,79 @@ async def test_unreachable_at_setup(
     fake_panel.inject(Injection("GET", "/system/partitions/", "drop_before", times=2))
     entry = await setup()
     assert entry.state is ConfigEntryState.SETUP_RETRY
+
+
+def test_backoff_sequence() -> None:
+    """The delay doubles up to the maximum, then polling pauses."""
+    backoff = Backoff()
+    error = CommunicationError("timed out")
+    delays = [backoff.failed(error, 30) for _ in range(6)]
+    assert delays == [60, 120, 240, 300, 900, 900]
+    assert backoff.paused
+    assert backoff.as_dict() == {
+        "consecutive_failures": 6,
+        "paused": True,
+        "last_error": "CommunicationError: timed out",
+    }
+    backoff.succeeded()
+    assert backoff.as_dict() == {
+        "consecutive_failures": 0,
+        "paused": False,
+        "last_error": None,
+    }
+    assert backoff.not_before == 0
+
+
+async def test_backoff_and_pause(
+    fake_panel: FakePanel, setup: Setup, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Failures back off, pause after several in a row, success resets."""
+    monkeypatch.setattr(coordinator_module, "PAUSE_AFTER", 2)
+    entry = await setup()
+    coordinator = _coordinator(entry)
+    fake_panel.inject(Injection("GET", "/alarms/", "drop_before", times=4))
+
+    await coordinator.async_refresh()
+    assert coordinator.backoff.failures == 1
+    # a single failure keeps the last state and the entities available
+    assert _available(coordinator)
+
+    # a manual refresh doesn't shorten the backoff: nothing is sent
+    sent = len(fake_panel.stats.requests)
+    await coordinator.async_refresh()
+    assert len(fake_panel.stats.requests) == sent
+    assert coordinator.backoff.failures == 1
+
+    coordinator.backoff.not_before = 0
+    await coordinator.async_refresh()
+    assert coordinator.backoff.paused
+    assert not _available(coordinator)
+
+    coordinator.backoff.not_before = 0
+    await coordinator.async_refresh()
+    assert coordinator.last_update_success
+    assert coordinator.backoff.failures == 0
+    assert _available(coordinator)
+
+
+async def test_retry_after_is_the_backoff(fake_panel: FakePanel, setup: Setup) -> None:
+    """The next round is scheduled after the backoff delay."""
+    entry = await setup()
+    coordinator = _coordinator(entry)
+    fake_panel.inject(Injection("GET", "/alarms/", "drop_before", times=2))
+    await coordinator.async_refresh()
+    assert isinstance(coordinator.last_exception, UpdateFailed)
+    assert coordinator.last_exception.retry_after == 60
+
+
+async def test_installer_lock_is_no_failure(
+    fake_panel: FakePanel, setup: Setup
+) -> None:
+    """The installer lock doesn't count towards the backoff (#21)."""
+    entry = await setup()
+    coordinator = _coordinator(entry)
+    fake_panel.installer_locked = True
+    await coordinator.async_refresh()
+    assert not coordinator.last_update_success
+    assert coordinator.backoff.failures == 0
+    assert fake_panel.stats.requests[len(ROUND) :] == [("GET", "/system/partitions/")]

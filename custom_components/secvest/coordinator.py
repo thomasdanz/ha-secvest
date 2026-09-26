@@ -16,14 +16,17 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api.client import Client
-from .api.errors import AuthenticationError, SecvestError
+from .api.errors import AuthenticationError, InstallerLockedError, SecvestError
 from .api.models import PanelEvent, Partition, Zone
 from .const import (
+    BACKOFF_MAX,
     CONF_PARTITIONS,
     CONF_SCAN_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     MIN_SCAN_INTERVAL,
+    PAUSE,
+    PAUSE_AFTER,
 )
 
 if TYPE_CHECKING:
@@ -57,6 +60,51 @@ def scan_interval(options: Mapping[str, object]) -> timedelta:
     return timedelta(seconds=seconds)
 
 
+@dataclass(slots=True)
+class Backoff:
+    """Consecutive failed rounds and the delay they cause.
+
+    The panel may need a power cycle when overloaded, so failures never make
+    the integration poll harder: each failure doubles the delay up to
+    BACKOFF_MAX, and after PAUSE_AFTER failures in a row polling pauses.
+    """
+
+    failures: int = 0
+    last_error: str | None = None
+    # monotonic time before which no round may start
+    not_before: float = 0.0
+
+    @property
+    def paused(self) -> bool:
+        """Return whether polling is paused."""
+        return self.failures >= PAUSE_AFTER
+
+    def failed(self, error: Exception, interval: float) -> float:
+        """Count a failed round and return the delay before the next one."""
+        self.failures += 1
+        self.last_error = f"{type(error).__name__}: {error}"
+        if self.paused:
+            delay = float(PAUSE)
+        else:
+            delay = float(min(interval * 2**self.failures, BACKOFF_MAX))
+        self.not_before = time.monotonic() + delay
+        return delay
+
+    def succeeded(self) -> None:
+        """Reset after a successful round."""
+        self.failures = 0
+        self.last_error = None
+        self.not_before = 0.0
+
+    def as_dict(self) -> dict[str, object]:
+        """Return the state for diagnostics (#13, #43)."""
+        return {
+            "consecutive_failures": self.failures,
+            "paused": self.paused,
+            "last_error": self.last_error,
+        }
+
+
 def _round_starts(hass: HomeAssistant) -> dict[str, float]:
     # kept outside the coordinator, so that reloads and setup retries (which
     # create a new coordinator) keep the spacing too
@@ -87,9 +135,23 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
             entry.options.get(CONF_PARTITIONS, ())
         )
         self._missing_reported: set[int] = set()
+        self.backoff = Backoff()
+
+    @property
+    def available(self) -> bool:
+        """Return whether entities are available.
+
+        Single failed rounds keep the last state; entities become unavailable
+        only once polling pauses, so they don't flap.
+        """
+        return self.data is not None and not self.backoff.paused
 
     async def _async_update_data(self) -> PanelState:
         """Run one round, never sooner than the minimum after the last one."""
+        # a manual refresh doesn't shorten the backoff or the pause; it only
+        # keeps the round that is already scheduled
+        if (remaining := self.backoff.not_before - time.monotonic()) > 0:
+            raise UpdateFailed("waiting after failed rounds", retry_after=remaining)
         starts = _round_starts(self.hass)
         entry_id = self.config_entry.entry_id
         if (last := starts.get(entry_id)) is not None:
@@ -99,12 +161,28 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
                 await asyncio.sleep(wait)
         starts[entry_id] = time.monotonic()
         try:
-            return await self._round()
+            state = await self._round()
         except AuthenticationError as err:
             # never retried; the transport already blocks further requests
             raise ConfigEntryAuthFailed(str(err)) from err
-        except SecvestError as err:
+        except InstallerLockedError as err:
+            # the panel answers; the lock doesn't change the interval (#21)
             raise UpdateFailed(str(err)) from err
+        except SecvestError as err:
+            # timeouts, lost connections, server errors and answers that
+            # don't fit the specification
+            interval = (self.update_interval or scan_interval({})).total_seconds()
+            delay = self.backoff.failed(err, interval)
+            if self.backoff.failures == PAUSE_AFTER:
+                _LOGGER.warning(
+                    "%s failed rounds in a row, pausing polling for %s s: %s",
+                    PAUSE_AFTER,
+                    PAUSE,
+                    err,
+                )
+            raise UpdateFailed(str(err), retry_after=delay) from err
+        self.backoff.succeeded()
+        return state
 
     async def _round(self) -> PanelState:
         """Fetch everything one after another, with the client's operations.

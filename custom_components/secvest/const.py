@@ -15,6 +15,12 @@ DEFAULT_PORT = 4433
 DEFAULT_SCAN_INTERVAL = 30
 MIN_SCAN_INTERVAL = 24
 
+# after failed rounds: the delay doubles up to BACKOFF_MAX; after
+# PAUSE_AFTER failures in a row polling pauses for PAUSE (seconds)
+BACKOFF_MAX = 300
+PAUSE_AFTER = 5
+PAUSE = 900
+
 # tested model and firmware (ADR 0005)
 TESTED_MODEL = "Secvest Touch FUAA50500"
 TESTED_FIRMWARE = "v3.01.31"
