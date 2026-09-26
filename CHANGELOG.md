@@ -19,3 +19,4 @@ All notable changes to this project are documented in this file. The format is b
 - Setup in the UI: selection of the partitions; partitions without zones are deselected by default (#39).
 - Status polling every 30 s (never below 24 s) of partitions, alarms, faults and the selected partitions' zones (#10).
 - Backoff after failed polling rounds, doubling up to 5 minutes, and a 15-minute pause after 5 failures in a row; entities stay available until the pause starts (#7).
+- Installer lock: a diagnostic binary sensor on the panel device; while the installer is logged in, entities keep their last state and each polling round costs a single request (#21).

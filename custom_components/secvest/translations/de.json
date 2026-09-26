@@ -48,5 +48,16 @@
     "abort": {
       "already_configured": "Diese Zentrale ist bereits eingerichtet."
     }
+  },
+  "entity": {
+    "binary_sensor": {
+      "installer_lock": {
+        "name": "Errichtersperre",
+        "state": {
+          "on": "Gesperrt",
+          "off": "Nicht gesperrt"
+        }
+      }
+    }
   }
 }

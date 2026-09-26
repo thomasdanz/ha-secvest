@@ -1,0 +1,12 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "installer_lock": {
+        "default": "mdi:account-hard-hat-outline",
+        "state": {
+          "on": "mdi:account-hard-hat"
+        }
+      }
+    }
+  }
+}

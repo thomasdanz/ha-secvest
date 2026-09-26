@@ -136,6 +136,8 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         )
         self._missing_reported: set[int] = set()
         self.backoff = Backoff()
+        # the installer is logged in at the panel, which locks the API (#21)
+        self.installer_locked = False
 
     @property
     def available(self) -> bool:
@@ -166,7 +168,11 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
             # never retried; the transport already blocks further requests
             raise ConfigEntryAuthFailed(str(err)) from err
         except InstallerLockedError as err:
-            # the panel answers; the lock doesn't change the interval (#21)
+            # the panel answers, so no backoff and the interval stays; the
+            # round stopped at its first request, and the last state is kept
+            if not self.installer_locked:
+                _LOGGER.info("The installer is logged in; the panel is locked")
+                self.installer_locked = True
             raise UpdateFailed(str(err)) from err
         except SecvestError as err:
             # timeouts, lost connections, server errors and answers that
@@ -182,6 +188,9 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
                 )
             raise UpdateFailed(str(err), retry_after=delay) from err
         self.backoff.succeeded()
+        if self.installer_locked:
+            _LOGGER.info("The installer logged out; the panel is unlocked")
+            self.installer_locked = False
         return state
 
     async def _round(self) -> PanelState:

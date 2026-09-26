@@ -48,5 +48,16 @@
     "abort": {
       "already_configured": "This panel is already set up."
     }
+  },
+  "entity": {
+    "binary_sensor": {
+      "installer_lock": {
+        "name": "Installer lock",
+        "state": {
+          "on": "Locked",
+          "off": "Unlocked"
+        }
+      }
+    }
   }
 }

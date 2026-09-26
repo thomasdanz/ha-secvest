@@ -1,17 +1,14 @@
 """Tests for setup and the status polling round (#10)."""
 
 import asyncio
-from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import timedelta
 import time
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import CONF_PASSWORD, CONF_URL, CONF_VERIFY_SSL
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import UpdateFailed
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest import coordinator as coordinator_module
 from custom_components.secvest.api.errors import CommunicationError
@@ -19,9 +16,6 @@ from custom_components.secvest.api.models import ZoneState
 from custom_components.secvest.const import (
     CONF_PARTITIONS,
     CONF_SCAN_INTERVAL,
-    CONF_USER_AGENT,
-    CONF_USER_CODE,
-    DOMAIN,
 )
 from custom_components.secvest.coordinator import (
     Backoff,
@@ -29,62 +23,13 @@ from custom_components.secvest.coordinator import (
     scan_interval,
 )
 
+from .common import ROUND, Setup, coordinator_of
 from .fake_panel import FakePanel, Injection
-
-ROUND = [
-    ("GET", "/system/partitions/"),
-    ("GET", "/alarms/"),
-    ("GET", "/faults/"),
-    ("GET", "/system/partitions-1/zones/"),
-]
-
-type Setup = Callable[..., Awaitable[MockConfigEntry]]
-
-
-@pytest.fixture(autouse=True)
-def short_spacing(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Keep the minimum spacing between rounds short in tests."""
-    monkeypatch.setattr(coordinator_module, "MIN_SCAN_INTERVAL", 0.05)
-
-
-@pytest.fixture
-async def setup(hass: HomeAssistant, fake_panel: FakePanel) -> AsyncIterator[Setup]:
-    """Set up an entry for the fake panel; unload it afterwards."""
-    entries: list[MockConfigEntry] = []
-
-    async def _setup(password: str | None = None, **options: Any) -> MockConfigEntry:
-        entry = MockConfigEntry(
-            domain=DOMAIN,
-            title=fake_panel.name,
-            data={
-                CONF_URL: fake_panel.url,
-                CONF_USER_CODE: fake_panel.user_code,
-                CONF_PASSWORD: password or fake_panel.password,
-                CONF_VERIFY_SSL: False,
-                CONF_USER_AGENT: "",
-            },
-            options={CONF_PARTITIONS: [1], **options},
-        )
-        entry.add_to_hass(hass)
-        entries.append(entry)
-        await hass.config_entries.async_setup(entry.entry_id)
-        await hass.async_block_till_done()
-        return entry
-
-    yield _setup
-    for entry in entries:
-        if entry.state is ConfigEntryState.LOADED:
-            assert await hass.config_entries.async_unload(entry.entry_id)
 
 
 def _available(coordinator: SecvestCoordinator) -> bool:
     # a function call, so that mypy doesn't narrow the property
     return coordinator.available
-
-
-def _coordinator(entry: MockConfigEntry) -> SecvestCoordinator:
-    coordinator: SecvestCoordinator = entry.runtime_data
-    return coordinator
 
 
 async def test_first_round_at_setup(
@@ -96,7 +41,7 @@ async def test_first_round_at_setup(
     assert entry.state is ConfigEntryState.LOADED
     assert fake_panel.stats.requests == ROUND
     assert fake_panel.stats.connections == 1
-    state = _coordinator(entry).data
+    state = coordinator_of(entry).data
     assert list(state.partitions) == [1, 2, 3, 4]
     assert len(state.zones) == len(fake_panel.partitions[1].zone_ids)
     assert state.zones["209"].state is ZoneState.OPEN
@@ -114,7 +59,7 @@ async def test_zone_in_several_partitions(fake_panel: FakePanel, setup: Setup) -
         "/system/partitions-1/zones/",
         "/system/partitions-2/zones/",
     ]
-    zones = _coordinator(entry).data.zones
+    zones = coordinator_of(entry).data.zones
     assert len(zones) == len(fake_panel.partitions[1].zone_ids)
 
 
@@ -123,7 +68,7 @@ async def test_missing_partition_skipped(
 ) -> None:
     """A selected partition the panel doesn't have isn't requested."""
     entry = await setup(**{CONF_PARTITIONS: [1, 9]})
-    await _coordinator(entry).async_refresh()
+    await coordinator_of(entry).async_refresh()
     assert "/system/partitions-9/zones/" not in {
         path for _, path in fake_panel.stats.requests
     }
@@ -145,7 +90,7 @@ def test_scan_interval(
 async def test_rounds_never_overlap(fake_panel: FakePanel, setup: Setup) -> None:
     """Concurrent refreshes run one after another."""
     entry = await setup()
-    coordinator = _coordinator(entry)
+    coordinator = coordinator_of(entry)
     await asyncio.gather(coordinator.async_refresh(), coordinator.async_refresh())
     assert fake_panel.stats.requests == ROUND * 3
     assert fake_panel.stats.max_open_connections == 1
@@ -158,7 +103,7 @@ async def test_minimum_spacing(
     monkeypatch.setattr(coordinator_module, "MIN_SCAN_INTERVAL", 0.5)
     entry = await setup()
     started = time.monotonic()
-    await _coordinator(entry).async_refresh()
+    await coordinator_of(entry).async_refresh()
     assert time.monotonic() - started >= 0.4
     assert fake_panel.stats.requests == ROUND * 2
 
@@ -185,7 +130,7 @@ async def test_requested_refresh(
     monkeypatch.setattr(coordinator_module, "MIN_SCAN_INTERVAL", 0.5)
     entry = await setup()
     started = time.monotonic()
-    await _coordinator(entry).async_request_refresh()
+    await coordinator_of(entry).async_request_refresh()
     assert time.monotonic() - started >= 0.4
     assert fake_panel.stats.requests == ROUND * 2
 
@@ -193,7 +138,7 @@ async def test_requested_refresh(
 async def test_failed_round(fake_panel: FakePanel, setup: Setup) -> None:
     """A failed round marks the data as stale and keeps the last state."""
     entry = await setup()
-    coordinator = _coordinator(entry)
+    coordinator = coordinator_of(entry)
     state = coordinator.data
     fake_panel.inject(Injection("GET", "/alarms/", "drop_before", times=2))
     await coordinator.async_refresh()
@@ -215,7 +160,7 @@ async def test_rejected_credentials_later(
 ) -> None:
     """A 401 during polling stops the rounds; nothing is sent again."""
     entry = await setup()
-    coordinator = _coordinator(entry)
+    coordinator = coordinator_of(entry)
     fake_panel.password = "changed"
     await coordinator.async_refresh()
     assert not coordinator.last_update_success
@@ -260,7 +205,7 @@ async def test_backoff_and_pause(
     """Failures back off, pause after several in a row, success resets."""
     monkeypatch.setattr(coordinator_module, "PAUSE_AFTER", 2)
     entry = await setup()
-    coordinator = _coordinator(entry)
+    coordinator = coordinator_of(entry)
     fake_panel.inject(Injection("GET", "/alarms/", "drop_before", times=4))
 
     await coordinator.async_refresh()
@@ -289,21 +234,8 @@ async def test_backoff_and_pause(
 async def test_retry_after_is_the_backoff(fake_panel: FakePanel, setup: Setup) -> None:
     """The next round is scheduled after the backoff delay."""
     entry = await setup()
-    coordinator = _coordinator(entry)
+    coordinator = coordinator_of(entry)
     fake_panel.inject(Injection("GET", "/alarms/", "drop_before", times=2))
     await coordinator.async_refresh()
     assert isinstance(coordinator.last_exception, UpdateFailed)
     assert coordinator.last_exception.retry_after == 60
-
-
-async def test_installer_lock_is_no_failure(
-    fake_panel: FakePanel, setup: Setup
-) -> None:
-    """The installer lock doesn't count towards the backoff (#21)."""
-    entry = await setup()
-    coordinator = _coordinator(entry)
-    fake_panel.installer_locked = True
-    await coordinator.async_refresh()
-    assert not coordinator.last_update_success
-    assert coordinator.backoff.failures == 0
-    assert fake_panel.stats.requests[len(ROUND) :] == [("GET", "/system/partitions/")]
