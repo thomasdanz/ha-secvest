@@ -228,6 +228,10 @@ class Transport:
         self._queue = _RequestQueue()
         self._holder: asyncio.Task[Any] | None = None
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="secvest")
+        # set by a 401; failed logins may count towards a code tamper alarm,
+        # so nothing is sent with these credentials again. New credentials
+        # mean a new transport.
+        self._auth_failed = False
 
     @asynccontextmanager
     async def hold(self, *, priority: bool = False) -> AsyncIterator[None]:
@@ -285,9 +289,19 @@ class Transport:
 
     # blocking part, runs in the transport's thread
 
+    @property
+    def authentication_failed(self) -> bool:
+        """Whether the panel rejected the credentials; no request is sent then."""
+        return self._auth_failed
+
     def _request_sync(
         self, method: str, path: str, body: dict[str, Any] | None, timeout: float
     ) -> Any:
+        if self._auth_failed:
+            # also stops requests that were queued before the 401
+            raise AuthenticationError(
+                "no request sent: the panel rejected these credentials before"
+            )
         data = None if body is None else json.dumps(body).encode()
         headers = {
             "Authorization": self._authorization,
@@ -309,6 +323,13 @@ class Transport:
                     ) from err
                 _LOGGER.debug("Connection closed by the panel, reconnecting")
                 status, payload = self._exchange(method, path, data, headers, timeout)
+        if status == http.client.UNAUTHORIZED:
+            self._auth_failed = True
+            self._disconnect()
+            _LOGGER.warning(
+                "The panel rejected the credentials; no further requests are sent "
+                "until they are entered again"
+            )
         return check_response(status, payload)
 
     def _exchange(

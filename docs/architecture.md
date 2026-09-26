@@ -88,7 +88,7 @@ All communication with one panel goes through one queue in `transport.py`:
 - **Strict order.** A request starts only after the previous one has finished. User commands are placed ahead of pending polling requests but never interrupt a running request.
 - **Timeouts.** A generous connect timeout covers the slow TLS handshake; shorter read timeouts afterwards; a longer one for the log.
 - **Headers.** Every request carries Basic Auth (preemptively, the panel sends no challenge), `Accept` and `Content-Type: application/json` and a User-Agent: `ha-secvest/<version>` unless the user overrides it (e.g. for a reverse proxy that filters by User-Agent). No `Connection: close`.
-- **Authentication gate.** After a 401 the queue rejects every further request until the credentials change.
+- **Authentication gate.** After a 401 the transport rejects every further request, also those already queued, without sending them. New credentials mean a new transport: the entry is reloaded after reauthentication.
 - **Direct access and reverse proxy.** The integration must work both directly against the panel (the design case) and through a TLS-terminating reverse proxy in front of it. A proxy holds its own TLS session to the panel, so the slow handshake doesn't occur on that path; session resumption towards the proxy is harmless. The load rules apply unchanged, since every request still reaches the panel.
 
 ### Don'ts
@@ -171,7 +171,7 @@ Only the reason differs:
 
 | Error | Integration behaviour |
 |---|---|
-| `AuthenticationError` | Stop all requests, start the reauthentication flow, repair issue. Never retried (precaution, see principle 3). |
+| `AuthenticationError` | Stop all requests, start the reauthentication flow, repair issue. Never retried (precaution, see principle 3). The 401 is remembered in the config entry, so a restart of Home Assistant doesn't send the rejected credentials again; only a successful reauthentication clears it and reloads the entry with a new transport. |
 | `InstallerLockedError` | Keep last known states, mark the panel as locked (attribute and binary sensor), commands fail with a clear message. The polling round stops at the first request that reports the lock; the interval stays unchanged. While the lock lasts, each round therefore costs a single request, and the first round after the lock is lifted refreshes everything. |
 | `ArmingBlockedError` | Command fails; the message lists the blocking faults and zones. |
 | `NotAllowedError` | Command fails. The panel gives the same empty 403 for a zone that isn't omittable and for a partition the user may not operate (omitting zones and changing the partition state); for zones the message tells the two apart by the zone's `omittable`. |
