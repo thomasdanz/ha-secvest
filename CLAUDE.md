@@ -37,4 +37,14 @@ The panel is security equipment and fragile. These rules are not negotiable:
 
 ## Commands
 
-To be added with the project skeleton (#45).
+Development uses [uv](https://docs.astral.sh/uv/) with Python 3.14 (`.python-version`).
+
+```bash
+uv sync                          # create .venv with the dev tools
+uv run pytest                    # tests
+uv run ruff check .              # lint
+uv run ruff format .             # format
+uv run mypy custom_components tests  # type checks
+```
+
+The dev dependencies pin `pytest-homeassistant-custom-component` to the current Home Assistant release (ADR 0003); `uv.lock` is committed.
