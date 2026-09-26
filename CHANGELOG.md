@@ -25,3 +25,4 @@ All notable changes to this project are documented in this file. The format is b
 - One device per zone below the panel device, with a binary sensor for open/closed and the zone's details as attributes (#24, #26).
 - Problem sensor per zone for tamper and fault states and for faults affecting the zone (#25).
 - Faults sensor with all current faults as attributes and a readable summary, and a problem sensor on the panel device that ignores open zones (#29).
+- Arming blocked sensor per selected partition, naming the blocking zones and faults (#30).

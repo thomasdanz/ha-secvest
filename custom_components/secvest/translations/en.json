@@ -76,6 +76,9 @@
       },
       "problem": {
         "name": "Problem"
+      },
+      "arming_blocked": {
+        "name": "{partition} arming blocked"
       }
     },
     "sensor": {

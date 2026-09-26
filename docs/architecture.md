@@ -204,7 +204,7 @@ The panel's partitions are independent of each other, so everything that belongs
 | Entity | Platform | Content |
 |---|---|---|
 | Alarm panel | alarm_control_panel | disarmed / armed_home / armed_away / triggered (and optionally pending), unknown for an unknown state; named after the partition; attributes: panel state (raw, the app's underscore spelling normalised), acknowledged, alarm type (#19). Unavailable while the panel doesn't report the partition. |
-| Arming blocked | binary_sensor | On while a fault with `prevents-set` affects the partition |
+| Arming blocked | binary_sensor (problem) | On while a fault with `prevents-set` affects the partition; attributes: blocking zones and faults. Limitation: the panel evaluates blocking conditions for the requested state, so arming can still fail while it is off (e.g. an open entry door on the reference panel is no fault) |
 | Acknowledge alarm | button | Available only while the partition is in alarm |
 
 **Per selected zone** (one device per zone, named after the zone and linked to the panel device via its device id, so each detector can be assigned to an area; the panel device is registered at setup before the platforms)
