@@ -29,10 +29,16 @@ After setup the integration polls the panel every 30 seconds, never more often t
 
 While the installer is logged in at the panel, its API is locked. The diagnostic sensor **Installer lock** on the panel device is on meanwhile; the other entities keep their last state, and each polling round costs a single request until the installer has logged out.
 
+## Options
+
+In the integration's options (Settings → Devices & services → ABUS Secvest → Configure) you can change the selected partitions, the status interval (at least 24 seconds) and, under Advanced, the User-Agent. The second step lists the zones of the selected partitions: choose a device class per zone (door, window, motion, …; the panel doesn't tell detector types apart) and exclude zones you don't want in Home Assistant. Saving reloads the integration; nothing is sent to the panel while you change the options.
+
+If a selected partition disappears from the panel, a repair issue asks you to change the selection.
+
 ## Entities
 
 - **Alarm panel** per selected partition, named after the partition: disarmed, armed home (internally armed), armed away or triggered. An acknowledged alarm is still shown as triggered, with the attribute `acknowledged`; the attribute `panel_state` holds the panel's own state. Arming and disarming follow in a later version.
-- **Zones:** each zone of the selected partitions is its own device below the panel device, so you can assign it to an area. Its binary sensor is on while the zone is open; other zone states (such as tamper) show as unknown, with the panel's value in the attribute `zone_state`. The API doesn't tell detector types apart, so the sensors have no device class yet; choosing one per zone comes with the options. A diagnostic **Problem** sensor per zone is on for such other states or while a fault (other than "zone open") affects the zone.
+- **Zones:** each zone of the selected partitions is its own device below the panel device, so you can assign it to an area. Its binary sensor is on while the zone is open; other zone states (such as tamper) show as unknown, with the panel's value in the attribute `zone_state`. The API doesn't tell detector types apart, so the sensors have no device class until you choose one per zone in the options. A diagnostic **Problem** sensor per zone is on for such other states or while a fault (other than "zone open") affects the zone.
 - **Faults** on the panel device: the number of current faults, all of them in the attribute `faults` and a readable list in `summary` (one line per fault). This includes faults of components the API doesn't list otherwise, such as a repeater's low battery.
 - **Problem** on the panel device: on while any fault other than an open zone is present. The panel reports every open zone as a fault, even when disarmed; those are left out here.
 - **Arming blocked** per selected partition: on while a fault that prevents arming affects the partition; the attributes name the blocking zones and faults. The panel checks some conditions only when arming is requested (depending on its configuration, e.g. an open entry door), so arming can still fail while this sensor is off.

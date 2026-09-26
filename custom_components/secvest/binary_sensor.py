@@ -12,7 +12,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import SecvestConfigEntry
 from .api.models import FaultType, PanelEvent, Partition, Zone, ZoneState
-from .const import CONF_ZONE_DEVICE_CLASSES
+from .const import CONF_EXCLUDED_ZONES, CONF_ZONE_DEVICE_CLASSES
 from .coordinator import SecvestCoordinator
 from .entity import SecvestEntity, SecvestZoneEntity
 
@@ -28,6 +28,7 @@ async def async_setup_entry(
     """Add the binary sensors of a panel and its zones."""
     coordinator = entry.runtime_data
     device_classes = entry.options.get(CONF_ZONE_DEVICE_CLASSES, {})
+    excluded = set(entry.options.get(CONF_EXCLUDED_ZONES, []))
     entities: list[BinarySensorEntity] = [
         InstallerLockSensor(coordinator, "installer_lock"),
         ProblemSensor(coordinator, "problem"),
@@ -39,6 +40,8 @@ async def async_setup_entry(
         if number in partitions
     )
     for zone in coordinator.data.zones.values():
+        if zone.id in excluded:
+            continue
         entities.append(ZoneSensor(coordinator, zone, device_classes.get(zone.id)))
         entities.append(ZoneProblemSensor(coordinator, zone, "problem"))
     async_add_entities(entities)

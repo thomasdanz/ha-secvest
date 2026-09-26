@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import timedelta
 import logging
@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api.client import Client
@@ -104,6 +105,25 @@ class Backoff:
             "paused": self.paused,
             "last_error": self.last_error,
         }
+
+
+def _partition_issue_id(entry_id: str, number: int) -> str:
+    return f"missing_partition_{entry_id}_{number}"
+
+
+def clear_partition_issues(
+    hass: HomeAssistant, entry_id: str, keep: Iterable[int]
+) -> None:
+    """Delete the missing partition issues of an entry, except those in keep."""
+    keep_ids = {_partition_issue_id(entry_id, number) for number in keep}
+    prefix = _partition_issue_id(entry_id, 0).removesuffix("0")
+    for domain, issue_id in list(ir.async_get(hass).issues):
+        if (
+            domain == DOMAIN
+            and issue_id.startswith(prefix)
+            and issue_id not in keep_ids
+        ):
+            ir.async_delete_issue(hass, DOMAIN, issue_id)
 
 
 def _round_starts(hass: HomeAssistant) -> dict[str, float]:
@@ -208,6 +228,31 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
             self.installer_locked = False
         return state
 
+    def clear_partition_issues(self) -> None:
+        """Delete the issues of partitions that are no longer selected."""
+        clear_partition_issues(
+            self.hass, self.config_entry.entry_id, keep=self._missing_reported
+        )
+
+    def _report_missing(self, number: int) -> None:
+        """Log once and raise a repair issue that leads to the options."""
+        if number in self._missing_reported:
+            return
+        self._missing_reported.add(number)
+        _LOGGER.warning("Selected partition %s doesn't exist", number)
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            _partition_issue_id(self.config_entry.entry_id, number),
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="missing_partition",
+            translation_placeholders={
+                "partition": str(number),
+                "name": self.config_entry.title,
+            },
+        )
+
     async def _round(self) -> PanelState:
         """Fetch everything one after another, with the client's operations.
 
@@ -219,10 +264,15 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         zones: dict[str, Zone] = {}
         for number in self.selected_partitions:
             if number not in partitions:
-                if number not in self._missing_reported:
-                    self._missing_reported.add(number)
-                    _LOGGER.warning("Selected partition %s doesn't exist", number)
+                self._report_missing(number)
                 continue
+            if number in self._missing_reported:
+                self._missing_reported.discard(number)
+                ir.async_delete_issue(
+                    self.hass,
+                    DOMAIN,
+                    _partition_issue_id(self.config_entry.entry_id, number),
+                )
             for zone in await self.client.get_zones(number):
                 zones.setdefault(zone.id, zone)
         return PanelState(

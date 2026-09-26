@@ -230,7 +230,7 @@ A zone belongs to at most one group; zones without a group keep their own device
 | Stored in | Content |
 |---|---|
 | Config entry data | Address, user code, password, certificate verification, User-Agent override (advanced; empty = `ha-secvest/<version>`), `auth_failed` after a 401 |
-| Config entry options | Selected partitions, excluded zones (advanced), device class per zone, zone groups, status and log intervals, optional features |
+| Config entry options | Selected partitions (`partitions`), status interval (`scan_interval`), excluded zones (`excluded_zones`), device class per zone (`zone_device_classes`); later zone groups, the log interval and optional features |
 
 **Address:** stored normalised as `https://host:port[/path]`. Without a scheme the panel's own port 4433 applies unless one is given; an https URL without a port means 443 (e.g. a reverse proxy). The normalised address (host, port and path) is the entry's unique id, since the API reports no serial number. Setup validates the credentials with exactly one request (`GET /system/`) and takes the entry's title from the installation name. Only once the credentials are accepted, it reads the partitions (`GET /system/partitions/`) on the same connection for the selection; nothing else is sent during setup.
 
@@ -238,7 +238,9 @@ The user selects **partitions**, not zones. The zones are derived from the selec
 
 **Panel user:** a separate panel user of level "normal user" is enough — with rights for a partition, it reads, omits zones, arms and disarms like an administrator. The panel's partition rights are not visible in reads (every user sees all partitions), so the flow can't hide partitions the user may not operate; a command there fails with an empty 403 and is reported as "no permission". The documentation recommends giving the Home Assistant user rights for exactly the partitions it should operate.
 
-Changing options reloads the entry. Devices follow the configuration: zones that disappear or are excluded drop out of their group, and empty groups and orphaned devices are removed.
+Changing options reloads the entry. The options flow sends nothing to the panel: it offers what the last polling round returned (zones of a newly selected partition are listed by id until the next round). It has two steps: partitions, status interval and (advanced) the User-Agent override, which is stored in the entry data; then the zones: excluded zones and a device class per zone (none by default). Device classes of zones that aren't shown, e.g. of a partition deselected for now, are kept.
+
+Devices follow the configuration: at setup, zone devices that are no longer selected or are excluded are removed. This is decided from the partitions' zone lists, not from the zones read, so a zone the panel briefly doesn't report keeps its device and settings. Later, zones that disappear or are excluded also drop out of their group, and empty groups are removed (#67).
 
 ## Testing
 

@@ -91,5 +91,71 @@
     "auth_failed": {
       "message": "The panel rejected the user code or password. Nothing is sent with them anymore; reauthenticate to continue."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options",
+        "description": "Changes reload the integration. Nothing is sent to the panel here; the choices come from the last polling round.",
+        "data": {
+          "partitions": "Partitions",
+          "scan_interval": "Status interval"
+        },
+        "data_description": {
+          "partitions": "The partitions Home Assistant shows and operates; their zones are added automatically.",
+          "scan_interval": "How often the panel is polled, in seconds. Never below 24 seconds, the official app's own cycle."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Advanced",
+            "data": {
+              "user_agent": "User-Agent"
+            },
+            "data_description": {
+              "user_agent": "Sent with every request. Leave empty for the default, ha-secvest/ followed by the version; only needed for a reverse proxy that filters by User-Agent."
+            }
+          }
+        }
+      },
+      "zones": {
+        "title": "Zones",
+        "description": "Choose what kind of detector each zone is; the panel doesn't tell. Excluded zones get no entities. Zones of a newly selected partition show their names after the next reload.",
+        "data": {
+          "excluded_zones": "Excluded zones"
+        },
+        "data_description": {
+          "excluded_zones": "These zones are still read with their partition but get no entities or device."
+        }
+      }
+    },
+    "error": {
+      "no_partitions": "Select at least one partition."
+    },
+    "abort": {
+      "not_loaded": "The integration isn't loaded. Fix the problem shown for it first (for example reauthenticate), then change the options."
+    }
+  },
+  "selector": {
+    "device_class": {
+      "options": {
+        "none": "None (on/off)",
+        "door": "Door",
+        "window": "Window",
+        "garage_door": "Garage door",
+        "opening": "Opening",
+        "motion": "Motion",
+        "smoke": "Smoke",
+        "moisture": "Moisture (water)",
+        "lock": "Lock (e.g. bolt contact)",
+        "tamper": "Tamper",
+        "vibration": "Vibration"
+      }
+    }
+  },
+  "issues": {
+    "missing_partition": {
+      "title": "Partition {partition} not found",
+      "description": "The panel of {name} no longer reports partition {partition}, which is selected in the integration's options. Its entities are unavailable. Open the integration's options and change the selection."
+    }
   }
 }

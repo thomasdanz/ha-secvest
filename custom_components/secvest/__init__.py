@@ -11,12 +11,13 @@ from .api.transport import Transport
 from .config_flow import default_user_agent
 from .const import (
     CONF_AUTH_FAILED,
+    CONF_EXCLUDED_ZONES,
     CONF_USER_AGENT,
     CONF_USER_CODE,
     DOMAIN,
     MANUFACTURER,
 )
-from .coordinator import SecvestCoordinator
+from .coordinator import SecvestCoordinator, clear_partition_issues
 
 PLATFORMS = [Platform.ALARM_CONTROL_PANEL, Platform.BINARY_SENSOR, Platform.SENSOR]
 
@@ -55,8 +56,40 @@ async def async_setup_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> b
     )
     coordinator.panel_device_id = panel.id
     entry.runtime_data = coordinator
+    _remove_orphaned_devices(hass, entry, coordinator)
+    coordinator.clear_partition_issues()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
+
+
+def _remove_orphaned_devices(
+    hass: HomeAssistant, entry: SecvestConfigEntry, coordinator: SecvestCoordinator
+) -> None:
+    """Remove the devices of zones that are no longer selected or excluded.
+
+    Decided from the partitions' zone lists, not from the zones read, so a
+    zone the panel briefly doesn't report keeps its device and settings.
+    """
+    partitions = coordinator.data.partitions
+    excluded = set(entry.options.get(CONF_EXCLUDED_ZONES, []))
+    wanted = {(DOMAIN, entry.entry_id)} | {
+        (DOMAIN, f"{entry.entry_id}_zone_{zone_id}")
+        for number in coordinator.selected_partitions
+        if number in partitions
+        for zone_id in partitions[number].zone_ids
+        if zone_id not in excluded
+    }
+    registry = dr.async_get(hass)
+    for device in dr.async_entries_for_config_entry(registry, entry.entry_id):
+        if not device.identifiers & wanted:
+            registry.async_update_device(
+                device.id, remove_config_entry_id=entry.entry_id
+            )
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> None:
+    """Remove the repair issues of a deleted entry."""
+    clear_partition_issues(hass, entry.entry_id, keep=())
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> bool:
