@@ -11,8 +11,23 @@ CONF_ADVANCED = "advanced"
 CONF_AUTH_FAILED = "auth_failed"
 CONF_PARTITIONS = "partitions"
 CONF_SCAN_INTERVAL = "scan_interval"
-# device class per zone id; set in the options (#40)
+# device class per zone id and zones without entities; set in the options
 CONF_ZONE_DEVICE_CLASSES = "zone_device_classes"
+CONF_EXCLUDED_ZONES = "excluded_zones"
+
+# offered per zone; the API has no detector type
+ZONE_DEVICE_CLASSES = (
+    "door",
+    "window",
+    "garage_door",
+    "opening",
+    "motion",
+    "smoke",
+    "moisture",
+    "lock",
+    "tamper",
+    "vibration",
+)
 
 # the panel's own HTTPS port; a URL with https:// and no port means 443
 DEFAULT_PORT = 4433
@@ -20,6 +35,7 @@ DEFAULT_PORT = 4433
 # status interval in seconds; never below the official app's own cycle
 DEFAULT_SCAN_INTERVAL = 30
 MIN_SCAN_INTERVAL = 24
+MAX_SCAN_INTERVAL = 3600
 
 # after failed rounds: the delay doubles up to BACKOFF_MAX; after
 # PAUSE_AFTER failures in a row polling pauses for PAUSE (seconds)

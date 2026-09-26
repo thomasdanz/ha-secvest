@@ -91,5 +91,71 @@
     "auth_failed": {
       "message": "Die Zentrale hat Benutzercode oder Passwort abgelehnt. Damit wird nichts mehr gesendet; melde dich erneut an, um fortzufahren."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Optionen",
+        "description": "Änderungen laden die Integration neu. Hier wird nichts an die Zentrale gesendet; die Auswahl stammt aus dem letzten Abruf.",
+        "data": {
+          "partitions": "Teilbereiche",
+          "scan_interval": "Abrufintervall"
+        },
+        "data_description": {
+          "partitions": "Die Teilbereiche, die Home Assistant anzeigt und bedient; ihre Zonen werden automatisch übernommen.",
+          "scan_interval": "Wie oft die Zentrale abgefragt wird, in Sekunden. Nie unter 24 Sekunden, dem Takt der offiziellen App."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Erweitert",
+            "data": {
+              "user_agent": "User-Agent"
+            },
+            "data_description": {
+              "user_agent": "Wird mit jeder Anfrage gesendet. Leer lassen für den Standard, ha-secvest/ mit der Versionsnummer; nur nötig für einen Reverse-Proxy, der nach User-Agent filtert."
+            }
+          }
+        }
+      },
+      "zones": {
+        "title": "Zonen",
+        "description": "Wähle, was für ein Melder jede Zone ist; die Zentrale verrät es nicht. Ausgeschlossene Zonen bekommen keine Entitäten. Zonen eines neu gewählten Teilbereichs zeigen ihre Namen nach dem nächsten Neuladen.",
+        "data": {
+          "excluded_zones": "Ausgeschlossene Zonen"
+        },
+        "data_description": {
+          "excluded_zones": "Diese Zonen werden mit ihrem Teilbereich weiter gelesen, bekommen aber keine Entitäten und kein Gerät."
+        }
+      }
+    },
+    "error": {
+      "no_partitions": "Wähle mindestens einen Teilbereich aus."
+    },
+    "abort": {
+      "not_loaded": "Die Integration ist nicht geladen. Behebe zuerst das angezeigte Problem (z. B. erneut anmelden) und ändere dann die Optionen."
+    }
+  },
+  "selector": {
+    "device_class": {
+      "options": {
+        "none": "Keine (an/aus)",
+        "door": "Tür",
+        "window": "Fenster",
+        "garage_door": "Garagentor",
+        "opening": "Öffnung",
+        "motion": "Bewegung",
+        "smoke": "Rauch",
+        "moisture": "Feuchtigkeit (Wasser)",
+        "lock": "Schloss (z. B. Riegelkontakt)",
+        "tamper": "Sabotage",
+        "vibration": "Erschütterung"
+      }
+    }
+  },
+  "issues": {
+    "missing_partition": {
+      "title": "Teilbereich {partition} nicht gefunden",
+      "description": "Die Zentrale von {name} meldet den Teilbereich {partition} nicht mehr, der in den Optionen der Integration ausgewählt ist. Seine Entitäten sind nicht verfügbar. Öffne die Optionen der Integration und ändere die Auswahl."
+    }
   }
 }

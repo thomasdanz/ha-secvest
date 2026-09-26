@@ -1,13 +1,25 @@
 """Config flow for the ABUS Secvest integration."""
 
-from collections.abc import Mapping
+from __future__ import annotations
+
+from collections.abc import Iterable, Mapping
 from typing import Any
 from urllib.parse import urlsplit
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigEntryState,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlowWithReload,
+)
 from homeassistant.const import CONF_PASSWORD, CONF_URL, CONF_VERIFY_SSL
+from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
     SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
@@ -31,13 +43,20 @@ from .api.transport import Transport
 from .const import (
     CONF_ADVANCED,
     CONF_AUTH_FAILED,
+    CONF_EXCLUDED_ZONES,
     CONF_PARTITIONS,
+    CONF_SCAN_INTERVAL,
     CONF_USER_AGENT,
     CONF_USER_CODE,
+    CONF_ZONE_DEVICE_CLASSES,
     DEFAULT_PORT,
+    DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    MAX_SCAN_INTERVAL,
+    MIN_SCAN_INTERVAL,
     TESTED_FIRMWARE,
     TESTED_MODEL,
+    ZONE_DEVICE_CLASSES,
 )
 
 STEP_REAUTH_SCHEMA = vol.Schema(
@@ -85,6 +104,20 @@ def normalize_address(value: str) -> str:
     return f"https://{host}:{port}{parts.path.rstrip('/')}"
 
 
+def partition_selector(partitions: Iterable[Partition]) -> SelectSelector:
+    """Offer partitions for selection, labelled with number and name."""
+    return SelectSelector(
+        SelectSelectorConfig(
+            options=[
+                SelectOptionDict(value=str(p.number), label=f"{p.number}: {p.name}")
+                for p in partitions
+            ],
+            multiple=True,
+            mode=SelectSelectorMode.LIST,
+        )
+    )
+
+
 async def default_user_agent(hass: Any) -> str:
     """Return ha-secvest/<version> from the manifest."""
     integration = await async_get_integration(hass, DOMAIN)
@@ -95,6 +128,12 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
     """Set up a panel."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> SecvestOptionsFlow:
+        """Change the selection and the settings of a panel."""
+        return SecvestOptionsFlow()
 
     def __init__(self) -> None:
         """Start without a checked connection."""
@@ -159,17 +198,8 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
         default = [str(p.number) for p in self._partitions if p.zone_ids]
         schema = vol.Schema(
             {
-                vol.Required(CONF_PARTITIONS, default=default): SelectSelector(
-                    SelectSelectorConfig(
-                        options=[
-                            SelectOptionDict(
-                                value=str(p.number), label=f"{p.number}: {p.name}"
-                            )
-                            for p in self._partitions
-                        ],
-                        multiple=True,
-                        mode=SelectSelectorMode.LIST,
-                    )
+                vol.Required(CONF_PARTITIONS, default=default): partition_selector(
+                    self._partitions
                 )
             }
         )
@@ -251,3 +281,161 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
             await transport.close()
         self._title = system.name
         return None
+
+
+class SecvestOptionsFlow(OptionsFlowWithReload):
+    """Change partitions, zones and settings; the entry reloads afterwards.
+
+    Nothing is sent to the panel: the choices come from the last polling
+    round.
+    """
+
+    def __init__(self) -> None:
+        """Start with the current options."""
+        self._options: dict[str, Any] = {}
+        self._user_agent: str | None = None
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Select the partitions and the polling interval."""
+        entry = self.config_entry
+        if entry.state is not ConfigEntryState.LOADED:
+            return self.async_abort(reason="not_loaded")
+        state = entry.runtime_data.data
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            selected = sorted(int(value) for value in user_input[CONF_PARTITIONS])
+            if selected:
+                self._options = {
+                    **entry.options,
+                    CONF_PARTITIONS: selected,
+                    CONF_SCAN_INTERVAL: int(user_input[CONF_SCAN_INTERVAL]),
+                }
+                user_agent = user_input[CONF_ADVANCED].get(CONF_USER_AGENT, "").strip()
+                if user_agent != entry.data.get(CONF_USER_AGENT, ""):
+                    self._user_agent = user_agent
+                return await self.async_step_zones()
+            errors["base"] = "no_partitions"
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_PARTITIONS): partition_selector(
+                    state.partitions.values()
+                ),
+                vol.Required(CONF_SCAN_INTERVAL): NumberSelector(
+                    NumberSelectorConfig(
+                        min=MIN_SCAN_INTERVAL,
+                        max=MAX_SCAN_INTERVAL,
+                        step=1,
+                        unit_of_measurement="s",
+                        mode=NumberSelectorMode.BOX,
+                    )
+                ),
+                vol.Required(CONF_ADVANCED): section(
+                    vol.Schema({vol.Optional(CONF_USER_AGENT): TextSelector()}),
+                    {"collapsed": True},
+                ),
+            }
+        )
+        current = {
+            CONF_PARTITIONS: [str(n) for n in entry.options.get(CONF_PARTITIONS, [])],
+            CONF_SCAN_INTERVAL: entry.options.get(
+                CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+            ),
+            CONF_ADVANCED: {CONF_USER_AGENT: entry.data.get(CONF_USER_AGENT, "")},
+        }
+        return self.async_show_form(
+            step_id="init",
+            data_schema=self.add_suggested_values_to_schema(
+                schema, user_input or current
+            ),
+            errors=errors,
+        )
+
+    async def async_step_zones(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Exclude zones and choose a device class per zone."""
+        entry = self.config_entry
+        zones = self._zones()
+        if user_input is not None or not zones:
+            user_input = user_input or {}
+            shown = {zone_id for zone_id, _ in zones}
+            excluded = [
+                zone_id
+                for zone_id, _ in zones
+                if zone_id in user_input.get(CONF_EXCLUDED_ZONES, [])
+            ]
+            # keep the classes of zones that aren't shown, e.g. of a partition
+            # that is deselected for now
+            classes = {
+                zone_id: device_class
+                for zone_id, device_class in entry.options.get(
+                    CONF_ZONE_DEVICE_CLASSES, {}
+                ).items()
+                if zone_id not in shown
+            }
+            for zone_id, label in zones:
+                if (device_class := user_input.get(label, "none")) != "none":
+                    classes[zone_id] = device_class
+            if self._user_agent is not None:
+                self.hass.config_entries.async_update_entry(
+                    entry, data={**entry.data, CONF_USER_AGENT: self._user_agent}
+                )
+            return self.async_create_entry(
+                data={
+                    **self._options,
+                    CONF_EXCLUDED_ZONES: excluded,
+                    CONF_ZONE_DEVICE_CLASSES: classes,
+                }
+            )
+        classes = entry.options.get(CONF_ZONE_DEVICE_CLASSES, {})
+        fields: dict[Any, Any] = {
+            vol.Optional(
+                CONF_EXCLUDED_ZONES,
+                default=[
+                    zone_id
+                    for zone_id in entry.options.get(CONF_EXCLUDED_ZONES, [])
+                    if zone_id in dict(zones)
+                ],
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=[
+                        SelectOptionDict(value=zone_id, label=label)
+                        for zone_id, label in zones
+                    ],
+                    multiple=True,
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            )
+        }
+        device_classes = SelectSelector(
+            SelectSelectorConfig(
+                options=["none", *ZONE_DEVICE_CLASSES],
+                translation_key="device_class",
+                mode=SelectSelectorMode.DROPDOWN,
+            )
+        )
+        # the zones are the panel's, so their labels are the field names
+        for zone_id, label in zones:
+            default = classes.get(zone_id, "none")
+            fields[vol.Required(label, default=default)] = device_classes
+        return self.async_show_form(step_id="zones", data_schema=vol.Schema(fields))
+
+    def _zones(self) -> list[tuple[str, str]]:
+        """Return (zone id, label) for the zones of the selected partitions."""
+        state = self.config_entry.runtime_data.data
+        zone_ids = {
+            zone_id
+            for number in self._options[CONF_PARTITIONS]
+            if (partition := state.partitions.get(number)) is not None
+            for zone_id in partition.zone_ids
+        }
+        zones = []
+        for zone_id in sorted(zone_ids, key=lambda value: (len(value), value)):
+            # zones of a newly selected partition are only known by their id
+            # until the next round
+            zone = state.zones.get(zone_id)
+            name = zone.name if zone is not None else "Zone"
+            zones.append((zone_id, f"{name} ({zone_id})"))
+        return zones
