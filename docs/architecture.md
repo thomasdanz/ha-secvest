@@ -73,7 +73,7 @@ The API client is a self-contained Python package without any Home Assistant dep
 | `button.py` | Acknowledge alarm per partition, manual refresh. |
 | `sensor.py` | Faults count with details. |
 | `event.py` | Log entries as events. |
-| `config_flow.py` | Setup, partition/zone selection, options, reauthentication. |
+| `config_flow.py` | Setup, partition/zone selection, options (including zone groups), reauthentication. |
 | `repairs.py` | Repair issues for maintenance faults and blocked authentication. |
 | `diagnostics.py` | Redacted diagnostics download. |
 | `log_patterns.py` | Text patterns for the optional entry delay detection, one per panel language, plus the user's custom pattern. The only place where logic depends on panel texts (see principle 4). |
@@ -207,20 +207,28 @@ The panel's partitions are independent of each other, so everything that belongs
 | Zone problem | binary_sensor | On for tamper/fault states or a fault affecting the zone |
 | Omit zone | switch | Only for omittable zones; turns off by itself when the panel includes the zone again at disarm |
 
-**Unique ids:** `<config entry id>_partition_<partition id>_<entity>` and `<config entry id>_zone_<zone id>_<entity>`. The API reports no serial number, so ids are tied to the config entry: removing and re-adding the integration creates new entities (entity ids can be renamed back in Home Assistant).
+**Zone groups** (optional, configured manually): several zones that belong to one opening, e.g. the two wings of a window, share one device instead of one device each. The group device holds the entities of all member zones plus one more:
+
+| Entity | Platform | Content |
+|---|---|---|
+| Group | binary_sensor | On while at least one member zone is open; device class configurable; attributes: member zone ids |
+
+A zone belongs to at most one group; zones without a group keep their own device. Groups are never formed from zone names (principle 4).
+
+**Unique ids:** `<config entry id>_partition_<partition id>_<entity>`, `<config entry id>_zone_<zone id>_<entity>` and `<config entry id>_group_<group id>_<entity>`. Zone entities keep their unique id when their zone joins or leaves a group; only the device changes. The API reports no serial number, so ids are tied to the config entry: removing and re-adding the integration creates new entities (entity ids can be renamed back in Home Assistant).
 
 ## Configuration
 
 | Stored in | Content |
 |---|---|
 | Config entry data | Address, user code, password, certificate verification |
-| Config entry options | Selected partitions, excluded zones (advanced), device class per zone, status and log intervals, optional features |
+| Config entry options | Selected partitions, excluded zones (advanced), device class per zone, zone groups, status and log intervals, optional features |
 
 The user selects **partitions**, not zones. The zones are derived from the selected partitions (union; a zone in several partitions is created once), so new detectors in a selected partition appear automatically after a reload. Partitions without zones are deselected by default. Individual zones can be excluded in the advanced options.
 
 **Panel user:** a separate panel user of level "normal user" is enough — with rights for a partition, it reads, omits zones, arms and disarms like an administrator. The panel's partition rights are not visible in reads (every user sees all partitions), so the flow can't hide partitions the user may not operate; a command there fails with an empty 403 and is reported as "no permission". The documentation recommends giving the Home Assistant user rights for exactly the partitions it should operate.
 
-Changing options reloads the entry.
+Changing options reloads the entry. Devices follow the configuration: zones that disappear or are excluded drop out of their group, and empty groups and orphaned devices are removed.
 
 ## Testing
 
