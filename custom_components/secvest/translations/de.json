@@ -27,6 +27,13 @@
             }
           }
         }
+      },
+      "partitions": {
+        "title": "Teilbereiche auswählen",
+        "description": "Wähle die Teilbereiche, die Home Assistant anzeigen und bedienen soll. Ihre Zonen werden automatisch übernommen.\n\nDie Zentrale verrät nicht, welche Teilbereiche der Benutzer bedienen darf, deshalb werden alle aufgelistet; Teilbereiche ohne Zonen sind abgewählt. Befehle für einen Teilbereich ohne Rechte lehnt die Zentrale ab.",
+        "data": {
+          "partitions": "Teilbereiche"
+        }
       }
     },
     "error": {
@@ -35,7 +42,8 @@
       "installer_locked": "Der Errichter ist an der Zentrale angemeldet, das sperrt die API. Versuche es erneut, wenn sich der Errichter abgemeldet hat.",
       "cannot_connect": "Die Zentrale ist nicht erreichbar. Prüfe Adresse und Netzwerk.",
       "timeout": "Die Zentrale hat nicht rechtzeitig geantwortet. Prüfe die Adresse; die Zentrale ist eventuell ausgelastet.",
-      "unexpected_response": "Unter der Adresse antwortet etwas, aber nicht wie eine Secvest. Prüfe die Adresse (und hinter einem Reverse-Proxy den Pfad)."
+      "unexpected_response": "Unter der Adresse antwortet etwas, aber nicht wie eine Secvest. Prüfe die Adresse (und hinter einem Reverse-Proxy den Pfad).",
+      "no_partitions": "Wähle mindestens einen Teilbereich aus."
     },
     "abort": {
       "already_configured": "Diese Zentrale ist bereits eingerichtet."

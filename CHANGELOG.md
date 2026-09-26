@@ -16,3 +16,4 @@ All notable changes to this project are documented in this file. The format is b
 - API client: after the panel rejects the credentials (401), no further request is sent with them, not even queued ones (#6).
 - API client: one method per API operation the integration uses, returning models (#75).
 - Setup in the UI: address, user code, password, certificate verification and an optional User-Agent, checked with a single request; English and German texts (#38).
+- Setup in the UI: selection of the partitions; partitions without zones are deselected by default (#39).

@@ -7,6 +7,10 @@ from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_PASSWORD, CONF_URL, CONF_VERIFY_SSL
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers.selector import (
+    SelectOptionDict,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
@@ -21,9 +25,11 @@ from .api.errors import (
     InstallerLockedError,
     SecvestError,
 )
+from .api.models import Partition
 from .api.transport import Transport
 from .const import (
     CONF_ADVANCED,
+    CONF_PARTITIONS,
     CONF_USER_AGENT,
     CONF_USER_CODE,
     DEFAULT_PORT,
@@ -79,6 +85,12 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    def __init__(self) -> None:
+        """Start without a checked connection."""
+        self._data: dict[str, Any] = {}
+        self._title = ""
+        self._partitions: list[Partition] = []
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -100,9 +112,10 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_VERIFY_SSL: user_input[CONF_VERIFY_SSL],
                     CONF_USER_AGENT: user_agent,
                 }
-                error, title = await self._validate(data)
+                error = await self._validate(data)
                 if error is None:
-                    return self.async_create_entry(title=title, data=data)
+                    self._data = data
+                    return await self.async_step_partitions()
                 errors["base"] = error
         return self.async_show_form(
             step_id="user",
@@ -116,8 +129,48 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
             },
         )
 
-    async def _validate(self, data: dict[str, Any]) -> tuple[str | None, str]:
-        """Send exactly one request; never retried automatically."""
+    async def async_step_partitions(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Let the user select the partitions; the zones follow from them."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            selected = sorted(int(value) for value in user_input[CONF_PARTITIONS])
+            if selected:
+                return self.async_create_entry(
+                    title=self._title,
+                    data=self._data,
+                    options={CONF_PARTITIONS: selected},
+                )
+            errors["base"] = "no_partitions"
+        # the panel doesn't reveal the user's rights, so all partitions are
+        # offered; those without zones are deselected by default
+        default = [str(p.number) for p in self._partitions if p.zone_ids]
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_PARTITIONS, default=default): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[
+                            SelectOptionDict(
+                                value=str(p.number), label=f"{p.number}: {p.name}"
+                            )
+                            for p in self._partitions
+                        ],
+                        multiple=True,
+                        mode=SelectSelectorMode.LIST,
+                    )
+                )
+            }
+        )
+        return self.async_show_form(
+            step_id="partitions", data_schema=schema, errors=errors
+        )
+
+    async def _validate(self, data: dict[str, Any]) -> str | None:
+        """Check the credentials, then read the partitions; never retried.
+
+        The partitions are only read once the credentials were accepted.
+        """
         transport = Transport(
             data[CONF_URL],
             data[CONF_USER_CODE],
@@ -126,17 +179,20 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
             user_agent=data[CONF_USER_AGENT] or await default_user_agent(self.hass),
         )
         try:
-            system = await Client(transport).get_system()
+            client = Client(transport)
+            system = await client.get_system()
+            self._partitions = await client.get_partitions()
         except AuthenticationError:
-            return "invalid_auth", ""
+            return "invalid_auth"
         except InstallerLockedError:
-            return "installer_locked", ""
+            return "installer_locked"
         except CommunicationError as err:
             if isinstance(err.__cause__, TimeoutError):
-                return "timeout", ""
-            return "cannot_connect", ""
+                return "timeout"
+            return "cannot_connect"
         except SecvestError:
-            return "unexpected_response", ""
+            return "unexpected_response"
         finally:
             await transport.close()
-        return None, system.name
+        self._title = system.name
+        return None
