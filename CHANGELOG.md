@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-27
+
+First version, read-only: the state of partitions, zones and faults.
+
 ### Added
 
 - Project skeleton: integration package with the API client subpackage, HACS metadata and development tooling (#45).
@@ -29,3 +33,6 @@ All notable changes to this project are documented in this file. The format is b
 - Options: partitions, status interval, User-Agent, excluded zones and a device class per zone; a repair issue for a selected partition the panel no longer reports; devices of zones no longer selected are removed (#40).
 - README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
 - Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
+
+[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/thomasdanz/ha-secvest/tree/v0.1.0

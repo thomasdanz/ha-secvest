@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+import tomllib
 
 from custom_components.secvest.const import DOMAIN
 
@@ -15,4 +16,7 @@ def test_manifest_matches_domain() -> None:
     )
     hacs = json.loads((ROOT / "hacs.json").read_text())
     assert manifest["domain"] == DOMAIN
+    # one version for the integration and the project
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    assert manifest["version"] == pyproject["project"]["version"]
     assert hacs["name"] == manifest["name"]
