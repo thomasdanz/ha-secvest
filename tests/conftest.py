@@ -1,15 +1,29 @@
 """Shared fixtures for the tests."""
 
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import CONF_PASSWORD, CONF_URL, CONF_VERIFY_SSL
+from homeassistant.core import HomeAssistant
 import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.secvest import coordinator as coordinator_module
+from custom_components.secvest.const import (
+    CONF_PARTITIONS,
+    CONF_USER_AGENT,
+    CONF_USER_CODE,
+    DOMAIN,
+)
+
+from .common import Setup
 from .fake_panel import FakePanel
 
 
@@ -60,3 +74,39 @@ def fake_panel(
     finally:
         panel.stop()
     panel.assert_no_violations()
+
+
+@pytest.fixture(autouse=True)
+def short_spacing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the minimum spacing between rounds short in tests."""
+    monkeypatch.setattr(coordinator_module, "MIN_SCAN_INTERVAL", 0.05)
+
+
+@pytest.fixture
+async def setup(hass: HomeAssistant, fake_panel: FakePanel) -> AsyncIterator[Setup]:
+    """Set up an entry for the fake panel; unload it afterwards."""
+    entries: list[MockConfigEntry] = []
+
+    async def _setup(password: str | None = None, **options: Any) -> MockConfigEntry:
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title=fake_panel.name,
+            data={
+                CONF_URL: fake_panel.url,
+                CONF_USER_CODE: fake_panel.user_code,
+                CONF_PASSWORD: password or fake_panel.password,
+                CONF_VERIFY_SSL: False,
+                CONF_USER_AGENT: "",
+            },
+            options={CONF_PARTITIONS: [1], **options},
+        )
+        entry.add_to_hass(hass)
+        entries.append(entry)
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        return entry
+
+    yield _setup
+    for entry in entries:
+        if entry.state is ConfigEntryState.LOADED:
+            assert await hass.config_entries.async_unload(entry.entry_id)

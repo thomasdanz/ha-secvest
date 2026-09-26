@@ -178,7 +178,7 @@ Only the reason differs:
 | Error | Integration behaviour |
 |---|---|
 | `AuthenticationError` | Stop all requests, start the reauthentication flow, repair issue. Never retried (precaution, see principle 3). The 401 is remembered in the config entry, so a restart of Home Assistant doesn't send the rejected credentials again; only a successful reauthentication clears it and reloads the entry with a new transport. |
-| `InstallerLockedError` | Keep last known states, mark the panel as locked (attribute and binary sensor), commands fail with a clear message. The polling round stops at the first request that reports the lock; the interval stays unchanged. While the lock lasts, each round therefore costs a single request, and the first round after the lock is lifted refreshes everything. |
+| `InstallerLockedError` | Keep last known states, mark the panel as locked (attribute and binary sensor), commands fail with a clear message. The polling round stops at the first request that reports the lock; the interval stays unchanged. While the lock lasts, each round therefore costs a single request, and the first round after the lock is lifted refreshes everything. The lock doesn't count towards the backoff and keeps the entities available. During setup it lets Home Assistant retry the setup later. |
 | `ArmingBlockedError` | Command fails; the message lists the blocking faults and zones. |
 | `NotAllowedError` | Command fails. The panel gives the same empty 403 for a zone that isn't omittable and for a partition the user may not operate (omitting zones and changing the partition state); for zones the message tells the two apart by the zone's `omittable`. |
 | `InvalidRequestError`, `NotFoundError` | Indicate a bug or a panel that differs from the specification. The command fails, the response is logged; during polling they are handled like a `CommunicationError`. |
@@ -195,7 +195,7 @@ The panel's partitions are independent of each other, so everything that belongs
 |---|---|---|
 | Faults | sensor | Number of current faults; list and readable summary as attributes |
 | Problem | binary_sensor | On while any fault other than an open zone is present (faults of type 5000 = zone open are ignored here: they appear for every open omittable zone, even when disarmed, and are covered by the zone sensors and "arming blocked") |
-| Installer lock | binary_sensor | On while the installer is logged in at the panel |
+| Installer lock | binary_sensor (diagnostic) | On while the installer is logged in at the panel |
 | Log | event | New log entries |
 | Diagnostics | sensor (diagnostic) | Last round duration, connection setup time, reconnects, backoff state |
 

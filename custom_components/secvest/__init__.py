@@ -10,8 +10,7 @@ from .config_flow import default_user_agent
 from .const import CONF_USER_AGENT, CONF_USER_CODE
 from .coordinator import SecvestCoordinator
 
-# the entity platforms follow with their stories
-PLATFORMS: list[Platform] = []
+PLATFORMS = [Platform.BINARY_SENSOR]
 
 type SecvestConfigEntry = ConfigEntry[SecvestCoordinator]
 
