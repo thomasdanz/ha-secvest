@@ -17,6 +17,8 @@ The panel's full TLS handshake takes about 6.5 s. Measured directly against a pa
 
 The panel closes idle connections after somewhere between 10 and 30 seconds. The polling interval must be at least 24 s (never faster than the official app), so every polling round would find the connection closed. Without session resumption every round would cost a full handshake — slow, and a load on the panel.
 
+A TLS-terminating reverse proxy in front of the panel (as in the maintainer's setup) holds its own session to the panel and hides this cost. The integration must still work for users who connect directly, so the design has to solve the problem itself instead of relying on a proxy.
+
 Home Assistant integrations usually use `aiohttp`. Neither `aiohttp`, `httpx` nor asyncio's TLS support let the caller resume a TLS session on a new connection. Python's blocking `http.client` does, by passing the previous session to `SSLContext.wrap_socket(..., session=...)`.
 
 ## Options
@@ -41,4 +43,6 @@ Option 3. The transport:
 - Polling rounds cost about 13 ms of TLS setup instead of 6.5 s, as long as the session ticket is valid (24 h); roughly once a day a full handshake happens.
 - The transport contains a little more code than an aiohttp call, and executor usage must be kept to one thread per panel.
 - A retry after a closed connection must only be done for requests that are safe to repeat. For state changes (PUT), a closed connection before the request was sent is safe to retry. If it closed after sending, the verification refresh runs first; only if the target state was not reached is the command sent once more.
+- Behind a reverse proxy the transport works unchanged; resumption then happens towards the proxy, which is harmless.
+- The maintainer's live tests go through a reverse proxy, so session resumption against the panel is covered only by the measurement above and by the fake panel in the tests.
 - If Python's asyncio gains support for TLS session resumption, option 4 becomes cheap and this decision can be revisited.

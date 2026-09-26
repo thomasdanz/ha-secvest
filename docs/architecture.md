@@ -87,6 +87,7 @@ All communication with one panel goes through one queue in `transport.py`:
 - **Strict order.** A request starts only after the previous one has finished. User commands are placed ahead of pending polling requests but never interrupt a running request.
 - **Timeouts.** A generous connect timeout covers the slow TLS handshake; shorter read timeouts afterwards; a longer one for the log.
 - **Authentication gate.** After a 401 the queue rejects every further request until the credentials change.
+- **Direct access and reverse proxy.** The integration must work both directly against the panel (the design case) and through a TLS-terminating reverse proxy in front of it. A proxy holds its own TLS session to the panel, so the slow handshake doesn't occur on that path; session resumption towards the proxy is harmless. The load rules apply unchanged, since every request still reaches the panel.
 
 ### Don'ts
 
@@ -235,6 +236,7 @@ Changing options reloads the entry. Devices follow the configuration: zones that
 - **API client:** unit tests against the fixtures of the specification (see [ADR 0004](adr/0004-fixtures.md)), including every error response.
 - **Integration:** tests with `pytest-homeassistant-custom-component` against a **fake panel**: a small HTTPS server that answers with the fixtures and simulates the observed behaviour (state changes and their rules, 409, ignored commands, omitted zones, alarms, installer lock, error responses, timeouts). It also closes idle connections and issues TLS session tickets, so session resumption is tested, and it fails a test if requests arrive in parallel.
 - **CI:** linting (ruff), type checks (mypy), tests, hassfest and HACS validation.
+- **Real panel:** the maintainer's manual tests against the reference panel go through a reverse proxy. They don't exercise the panel's TLS handshake or session resumption; those are covered by the measurements in ADR 0001 and by the fake panel.
 
 ## Open points
 
