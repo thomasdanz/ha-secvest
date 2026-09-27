@@ -64,13 +64,13 @@ If a selected partition disappears from the panel, a repair issue asks you to ch
 ## Entities
 
 - **Alarm panel** per selected partition, named after the partition: disarmed, armed home (internally armed), armed away or triggered. An acknowledged alarm is still shown as triggered, with the attribute `acknowledged`; the attribute `panel_state` holds the panel's own state. Arming and disarming follow in a later version.
-- **Zones:** each zone of the selected partitions is its own device below the panel device, so you can assign it to an area. Its binary sensor is on while the zone is open; other zone states (such as tamper) show as unknown, with the panel's value in the attribute `zone_state`. The API doesn't tell detector types apart, so the sensors have no device class until you choose one per zone in the options. A diagnostic **Problem** sensor per zone is on for such other states or while a fault (other than "zone open") affects the zone.
+- **Zones:** each zone of the selected partitions is its own device below the panel device, named with its kind (e.g. "Wireless zone Cellar", in German "Funkzone Keller"; the kind is also shown as the model), so you can assign it to an area. Its binary sensor is on while the zone is open; other zone states (such as tamper) show as unknown, with the panel's value in the attribute `zone_state`. The API doesn't tell detector types apart, so the sensors have no device class until you choose one per zone in the options. A diagnostic **Problem** sensor per zone is on for such other states or while a fault (other than "zone open") affects the zone.
 - **Faults** on the panel device: the number of current faults, all of them in the attribute `faults` and a readable list in `summary` (one line per fault). This includes faults of components the API doesn't list otherwise, such as a repeater's low battery.
 - **Problem** on the panel device: on while any fault other than an open zone is present. The panel reports every open zone as a fault, even when disarmed; those are left out here.
 - **Arming blocked** per selected partition: on while a fault that prevents arming affects the partition; the attributes name the blocking zones and faults. The panel checks some conditions only when arming is requested (depending on its configuration, e.g. an open entry door), so arming can still fail while this sensor is off.
 - **Installer lock** (diagnostic) on the panel device.
 
-Entity ids start with the installation's name, followed by the partition or zone, e.g. `alarm_control_panel.alarmanlage_ground_floor` or `binary_sensor.alarmanlage_front_door`. They are set once when the entities are created; you can rename them in Home Assistant.
+Entity ids start with the installation's name, followed by the partition or zone, e.g. `alarm_control_panel.alarmanlage_ground_floor` or `binary_sensor.alarmanlage_front_door`; the kind of zone isn't part of them. They are set once when the entities are created, with entity names in Home Assistant's language at that time (e.g. `sensor.alarmanlage_faults` in English, `sensor.alarmanlage_storungen` in German); you can rename them in Home Assistant.
 
 To show the faults on a dashboard, use a Markdown card:
 
@@ -81,7 +81,7 @@ content: >
   {{ state_attr('sensor.alarmanlage_faults', 'summary') or 'No faults' }}
 ```
 
-Replace `sensor.alarmanlage_faults` with the entity id of your faults sensor.
+Replace `sensor.alarmanlage_faults` with the entity id of your faults sensor (in German, for example, `sensor.alarmanlage_storungen`).
 
 ## How it works
 

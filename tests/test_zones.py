@@ -10,11 +10,13 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
+import pytest
 
 from custom_components.secvest.const import (
     CONF_PARTITIONS,
     CONF_ZONE_DEVICE_CLASSES,
 )
+from custom_components.secvest.entity import zone_kind, zone_model
 
 from .common import Setup, coordinator_of
 from .fake_panel import FakePanel
@@ -49,8 +51,9 @@ async def test_one_device_per_zone(
     panel = devices[entry.entry_id]
     assert panel.name == "Alarmanlage"
     device = devices[f"{entry.entry_id}_zone_209"]
-    assert device.name == "Room 6 L"
+    assert device.name == "Wireless zone Room 6 L"
     assert device.manufacturer == "ABUS"
+    assert device.model == "Wireless zone"
     assert device.via_device_id == panel.id
     entity = registry.async_get(ZONE)
     assert entity is not None
@@ -67,7 +70,7 @@ async def test_zone_states(
     assert state is not None
     assert state.state == STATE_OFF
     assert state.attributes == {
-        "friendly_name": "Room 6 L",
+        "friendly_name": "Wireless zone Room 6 L",
         "zone_id": "209",
         "zone_state": "closed",
         "partitions": [1],
@@ -181,3 +184,41 @@ async def test_zone_problem(
     other = hass.states.get("binary_sensor.alarmanlage_room_1_problem")
     assert other is not None
     assert other.state == STATE_OFF
+
+
+@pytest.mark.parametrize(
+    ("zone_id", "kind"),
+    [
+        ("101", "ip_zone"),
+        ("106", "ip_zone"),
+        ("107", "zone"),
+        ("201", "wireless_zone"),
+        ("248", "wireless_zone"),
+        ("249", "zone"),
+        ("301", "wired_zone"),
+        ("304", "wired_zone"),
+        ("305", "zone"),
+        ("401", "zone"),
+        ("301A", "zone"),
+    ],
+)
+def test_zone_kind(zone_id: str, kind: str) -> None:
+    """The kind of zone follows the documented numbering; else no kind."""
+    assert zone_kind(zone_id) == kind
+
+
+@pytest.mark.parametrize(
+    ("kind", "language", "model"),
+    [
+        ("wireless_zone", "de", "Funkzone"),
+        ("wired_zone", "de", "Drahtzone"),
+        ("ip_zone", "de", "IP-Zone"),
+        ("wireless_zone", "de-CH", "Funkzone"),
+        ("wireless_zone", "en", "Wireless zone"),
+        ("wired_zone", "fr", "Wired zone"),
+        ("zone", "de", None),
+    ],
+)
+def test_zone_model(kind: str, language: str, model: str | None) -> None:
+    """The model names the kind of zone in German, else in English."""
+    assert zone_model(kind, language) == model

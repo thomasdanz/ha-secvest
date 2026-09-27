@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-09-27
+
+### Changed
+
+- Zone devices are named with their kind, from the documented zone numbering: "Wireless zone …", "Wired zone …", "IP zone …" (German: Funkzone, Drahtzone, IP-Zone), and the kind is shown as the device's model. Entity ids stay without it.
+
 ### Added
 
 - README: step-by-step manual installation from a clone via SSH or a mounted configuration folder.
@@ -44,6 +50,7 @@ First version, read-only: the state of partitions, zones and faults.
 - README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
 - Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
 
-[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/thomasdanz/ha-secvest/tree/v0.1.0
