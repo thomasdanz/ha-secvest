@@ -29,6 +29,7 @@ async def test_entity_registry(
             "binary_sensor.alarmanlage_teilber_1_arming_blocked",
             None,
         ),
+        "partition_1_open_zones": ("sensor.alarmanlage_teilber_1_open_zones", None),
         "problem": ("binary_sensor.alarmanlage_problem", None),
         "faults": ("sensor.alarmanlage_faults", None),
         "installer_lock": (

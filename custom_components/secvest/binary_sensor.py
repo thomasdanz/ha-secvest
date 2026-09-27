@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import SecvestConfigEntry
-from .api.models import FaultType, PanelEvent, Partition, Zone, ZoneState
+from .api.models import FaultType, Partition, Zone, ZoneState
 from .const import CONF_EXCLUDED_ZONES, CONF_ZONE_DEVICE_CLASSES
 from .coordinator import SecvestCoordinator
 from .entity import SecvestEntity, SecvestZoneEntity
@@ -67,24 +67,19 @@ class ProblemSensor(SecvestEntity, BinarySensorEntity):
 
     @property
     def is_on(self) -> bool:
-        """Return whether the panel reports a fault other than an open zone."""
-        # "zone open" appears for every open omittable zone, even when
-        # disarmed; the zone sensors and "arming blocked" cover it
-        return any(
-            fault.type != FaultType.ZONE_OPEN for fault in self.coordinator.data.faults
-        )
+        """Return whether there are faults; the faults sensor counts them."""
+        return bool(self.coordinator.data.problems)
 
 
 class ArmingBlockedSensor(SecvestEntity, BinarySensorEntity):
-    """On while a fault that prevents arming affects the partition.
+    """On while open zones or a blocking fault prevent arming the partition.
 
-    The panel evaluates blocking conditions for the requested state, so
-    arming can still fail while this is off (e.g. an open entry door on the
-    reference panel is no fault).
+    Open zones count whether or not the panel lists them as faults: an open
+    entry door is no fault on the reference panel, but arming via the API
+    still fails then. Other faults count if they prevent arming.
     """
 
     _attr_translation_key = "arming_blocked"
-    _attr_device_class = BinarySensorDeviceClass.PROBLEM
 
     def __init__(self, coordinator: SecvestCoordinator, partition: Partition) -> None:
         """Name the sensor after the partition."""
@@ -99,24 +94,23 @@ class ArmingBlockedSensor(SecvestEntity, BinarySensorEntity):
 
     @property
     def is_on(self) -> bool:
-        """Return whether a blocking fault affects the partition."""
-        return bool(self._blocking())
+        """Return whether open zones or a blocking fault prevent arming."""
+        state = self.coordinator.data
+        return bool(
+            state.open_zones(self.number) or state.blocking_problems(self.number)
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Name the blocking faults and zones."""
-        blocking = self._blocking()
+        """Name the open zones and the blocking faults."""
+        state = self.coordinator.data
         return {
-            "blocking_zones": [f.zone_id for f in blocking if f.zone_id],
-            "blocking_faults": [f.text or f"{f.type}/{f.id}" for f in blocking],
+            "blocking_zones": [zone.id for zone in state.open_zones(self.number)],
+            "blocking_faults": [
+                f.text or f"{f.type}/{f.id}"
+                for f in state.blocking_problems(self.number)
+            ],
         }
-
-    def _blocking(self) -> list[PanelEvent]:
-        return [
-            fault
-            for fault in self.coordinator.data.faults
-            if fault.prevents_set and self.number in fault.partitions
-        ]
 
 
 class ZoneSensor(SecvestZoneEntity, BinarySensorEntity):

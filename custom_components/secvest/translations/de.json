@@ -78,12 +78,19 @@
         "name": "Problem"
       },
       "arming_blocked": {
-        "name": "{partition} Aktivierung blockiert"
+        "name": "{partition} Aktivierung blockiert",
+        "state": {
+          "on": "Blockiert",
+          "off": "Möglich"
+        }
       }
     },
     "sensor": {
       "faults": {
         "name": "Störungen"
+      },
+      "open_zones": {
+        "name": "{partition} offene Zonen"
       }
     }
   },

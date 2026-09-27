@@ -18,7 +18,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .api.client import Client
 from .api.errors import AuthenticationError, InstallerLockedError, SecvestError
-from .api.models import PanelEvent, Partition, Zone
+from .api.models import FaultType, PanelEvent, Partition, Zone, ZoneState
 from .const import (
     BACKOFF_MAX,
     CONF_AUTH_FAILED,
@@ -46,6 +46,32 @@ class PanelState:
     faults: tuple[PanelEvent, ...]
     # the zones of the selected partitions; a zone in several of them once
     zones: Mapping[str, Zone]
+
+    @property
+    def problems(self) -> tuple[PanelEvent, ...]:
+        """Return the faults except "zone open".
+
+        The panel lists every open omittable zone as a fault, even when
+        disarmed; those are counted as open zones instead.
+        """
+        return tuple(f for f in self.faults if f.type != FaultType.ZONE_OPEN)
+
+    def open_zones(self, number: int) -> list[Zone]:
+        """Return the partition's zones that are open and not omitted."""
+        partition = self.partitions.get(number)
+        if partition is None:
+            return []
+        return [
+            zone
+            for zone_id in partition.zone_ids
+            if (zone := self.zones.get(zone_id)) is not None
+            and zone.state == ZoneState.OPEN
+            and not zone.omitted
+        ]
+
+    def blocking_problems(self, number: int) -> list[PanelEvent]:
+        """Return the faults other than open zones that prevent arming."""
+        return [f for f in self.problems if f.prevents_set and number in f.partitions]
 
 
 def scan_interval(options: Mapping[str, object]) -> timedelta:
