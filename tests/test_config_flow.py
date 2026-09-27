@@ -1,6 +1,8 @@
 """Tests for the config flow (#38)."""
 
 from collections.abc import Iterator
+import json
+from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
@@ -22,6 +24,8 @@ from custom_components.secvest.const import (
 )
 
 from .fake_panel import FakePanel, Injection
+
+MANIFEST = Path(__file__).parent.parent / "custom_components/secvest/manifest.json"
 
 
 @pytest.fixture(autouse=True)
@@ -84,7 +88,8 @@ async def test_create_entry(hass: HomeAssistant, fake_panel: FakePanel) -> None:
         ("GET", "/system/partitions/"),
     ]
     assert fake_panel.stats.connections == 1
-    assert fake_panel.stats.user_agents == ["ha-secvest/0.0.0"] * 2
+    version = json.loads(MANIFEST.read_text())["version"]
+    assert fake_panel.stats.user_agents == [f"ha-secvest/{version}"] * 2
 
 
 async def test_partitions_offered(hass: HomeAssistant, fake_panel: FakePanel) -> None:
