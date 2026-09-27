@@ -207,7 +207,7 @@ The panel's partitions are independent of each other, so everything that belongs
 | Arming blocked | binary_sensor (problem) | On while a fault with `prevents-set` affects the partition; attributes: blocking zones and faults. Limitation: the panel evaluates blocking conditions for the requested state, so arming can still fail while it is off (e.g. an open entry door on the reference panel is no fault) |
 | Acknowledge alarm | button | Available only while the partition is in alarm |
 
-**Per selected zone** (one device per zone, named after the zone and linked to the panel device via its device id, so each detector can be assigned to an area; the panel device is registered at setup before the platforms)
+**Per selected zone** (one device per zone, named after the zone with its kind — "Funkzone Keller", "Wireless zone …" in English — with the kind as its model (in Home Assistant's language, German or else English, since the model can't be translated like the name), and linked to the panel device via its device id, so each detector can be assigned to an area; the panel device is registered at setup before the platforms)
 
 | Entity | Platform | Content |
 |---|---|---|
@@ -223,7 +223,7 @@ The panel's partitions are independent of each other, so everything that belongs
 
 A zone belongs to at most one group; zones without a group keep their own device. Groups are never formed from zone names (principle 4).
 
-**Entity ids** (suggested at registration; users can rename them): `<domain>.<installation>_<partition>[_<entity>]` for partition entities, `<domain>.<installation>_<entity>` for the panel's own and `<domain>.<installation>_<zone>[_<entity>]` for zone entities, with the installation being the entry's title (the panel's system name) and all parts slugified. Partition and panel entities get this from Home Assistant (panel device name plus entity name); zone entities, whose device is named after the zone, suggest it explicitly.
+**Entity ids** (suggested at registration; users can rename them): `<domain>.<installation>_<partition>[_<entity>]` for partition entities, `<domain>.<installation>_<entity>` for the panel's own and `<domain>.<installation>_<zone>[_<entity>]` for zone entities, with the installation being the entry's title (the panel's system name) and all parts slugified. Home Assistant creates entity names, and so the `<entity>` part, in its language at the time (e.g. `sensor.alarmanlage_storungen` in German). The kind of zone in the device name (wireless, wired or IP zone, from the documented zone numbering 201–248, 301–304 and 101–106; other numbers keep the plain name) is not part of the entity id. Partition and panel entities get this from Home Assistant (panel device name plus entity name); zone entities, whose device is named after the zone, suggest it explicitly.
 
 **Unique ids:** `<config entry id>_partition_<partition id>_<entity>`, `<config entry id>_zone_<zone id>_<entity>` and `<config entry id>_group_<group id>_<entity>`. Zone entities keep their unique id when their zone joins or leaves a group; only the device changes. The API reports no serial number, so ids are tied to the config entry: removing and re-adding the integration creates new entities (entity ids can be renamed back in Home Assistant).
 

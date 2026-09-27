@@ -8,6 +8,7 @@ The terms come from the panel's language texts and user manuals (firmware v3.01.
 |---|---|---|
 | Partition | Teilbereich | An independently armed part of the installation |
 | Zone | Zone | One monitored input: a wireless detector, a wired input or an IP camera |
+| Wireless zone / wired zone / IP zone | Funkzone / Drahtzone / IP-Zone | Kinds of zones, told apart by the zone number (201–248, 301–304, 101–106) |
 | Detector | Melder | The device behind a zone (contact, motion detector, …) |
 | Set / full set | Aktivieren / aktiv | Arm the partition completely |
 | Part set | Intern aktivieren / intern aktiv | Arm the partition internally (at home) |

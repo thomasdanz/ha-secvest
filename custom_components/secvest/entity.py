@@ -34,6 +34,47 @@ class SecvestEntity(CoordinatorEntity[SecvestCoordinator]):
         return self.coordinator.available
 
 
+# zone numbering from the user manual and the installer web interface (see
+# the specification); 4-wire and HyMo zones are numbered differently or
+# unknown, so they keep the plain name
+_ZONE_KINDS = (
+    (range(101, 107), "ip_zone"),
+    (range(201, 249), "wireless_zone"),
+    (range(301, 305), "wired_zone"),
+)
+
+
+# the device registry's model can't be translated like the name, so it is
+# set in Home Assistant's language (updated at every start)
+_ZONE_MODELS = {
+    "de": {
+        "ip_zone": "IP-Zone",
+        "wireless_zone": "Funkzone",
+        "wired_zone": "Drahtzone",
+    },
+    "en": {
+        "ip_zone": "IP zone",
+        "wireless_zone": "Wireless zone",
+        "wired_zone": "Wired zone",
+    },
+}
+
+
+def zone_model(kind: str, language: str) -> str | None:
+    """Return the model for a kind of zone, in German or else English."""
+    models = _ZONE_MODELS.get(language.split("-", maxsplit=1)[0], _ZONE_MODELS["en"])
+    return models.get(kind)
+
+
+def zone_kind(zone_id: str) -> str:
+    """Return the translation key for the kind of zone, from its number."""
+    if zone_id.isdigit():
+        for numbers, kind in _ZONE_KINDS:
+            if int(zone_id) in numbers:
+                return kind
+    return "zone"
+
+
 class SecvestZoneEntity(SecvestEntity):
     """An entity on the device of one zone (detector)."""
 
@@ -66,10 +107,14 @@ class SecvestZoneEntity(SecvestEntity):
         entry_id = entry.entry_id
         # only the device changes when zones are grouped later (#67); the
         # unique id stays
+        # the name tells the kind of zone, e.g. "Funkzone Keller"
+        kind = zone_kind(zone.id)
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{entry_id}_zone_{zone.id}")},
             manufacturer=MANUFACTURER,
-            name=zone.name,
+            model=zone_model(kind, coordinator.hass.config.language),
+            translation_key=kind,
+            translation_placeholders={"name": zone.name},
             via_device_id=coordinator.panel_device_id,
         )
 

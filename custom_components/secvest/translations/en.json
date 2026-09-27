@@ -157,5 +157,19 @@
       "title": "Partition {partition} not found",
       "description": "The panel of {name} no longer reports partition {partition}, which is selected in the integration's options. Its entities are unavailable. Open the integration's options and change the selection."
     }
+  },
+  "device": {
+    "ip_zone": {
+      "name": "IP zone {name}"
+    },
+    "wireless_zone": {
+      "name": "Wireless zone {name}"
+    },
+    "wired_zone": {
+      "name": "Wired zone {name}"
+    },
+    "zone": {
+      "name": "{name}"
+    }
   }
 }

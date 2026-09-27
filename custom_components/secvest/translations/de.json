@@ -157,5 +157,19 @@
       "title": "Teilbereich {partition} nicht gefunden",
       "description": "Die Zentrale von {name} meldet den Teilbereich {partition} nicht mehr, der in den Optionen der Integration ausgewählt ist. Seine Entitäten sind nicht verfügbar. Öffne die Optionen der Integration und ändere die Auswahl."
     }
+  },
+  "device": {
+    "ip_zone": {
+      "name": "IP-Zone {name}"
+    },
+    "wireless_zone": {
+      "name": "Funkzone {name}"
+    },
+    "wired_zone": {
+      "name": "Drahtzone {name}"
+    },
+    "zone": {
+      "name": "{name}"
+    }
   }
 }
