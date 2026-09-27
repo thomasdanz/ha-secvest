@@ -65,9 +65,10 @@ If a selected partition has no zones anymore (for example after the installer mo
 
 - **Alarm panel** per selected partition, named after the partition: disarmed, armed home (internally armed), armed away or triggered. An acknowledged alarm is still shown as triggered, with the attribute `acknowledged`; the attribute `panel_state` holds the panel's own state. Arming and disarming follow in a later version.
 - **Zones:** each zone of the selected partitions is its own device below the panel device, named with its kind (e.g. "Wireless zone Cellar", in German "Funkzone Keller"; the kind is also shown as the model), so you can assign it to an area. Its binary sensor is on while the zone is open; other zone states (such as tamper) show as unknown, with the panel's value in the attribute `zone_state`. The API doesn't tell detector types apart, so the sensors have no device class until you choose one per zone in the options. A diagnostic **Problem** sensor per zone is on for such other states or while a fault (other than "zone open") affects the zone.
-- **Faults** on the panel device: the number of current faults, all of them in the attribute `faults` and a readable list in `summary` (one line per fault). This includes faults of components the API doesn't list otherwise, such as a repeater's low battery.
-- **Problem** on the panel device: on while any fault other than an open zone is present. The panel reports every open zone as a fault, even when disarmed; those are left out here.
-- **Arming blocked** per selected partition: on while a fault that prevents arming affects the partition; the attributes name the blocking zones and faults. The panel checks some conditions only when arming is requested (depending on its configuration, e.g. an open entry door), so arming can still fail while this sensor is off.
+- **Faults** on the panel device: the number of current faults, all of them in the attribute `faults` and a readable list in `summary` (one line per fault). This includes faults of components the API doesn't list otherwise, such as a repeater's low battery. Open zones, which the panel also reports as faults (even when disarmed), are left out here and counted by **Open zones**.
+- **Problem** on the panel device: on while **Faults** is above 0.
+- **Open zones** per selected partition: the number of the partition's zones that are open and not omitted, listed in the attributes.
+- **Arming blocked** per selected partition: "Blocked" while **Open zones** is above 0 or a fault prevents arming the partition, "Possible" otherwise; the attributes name the open zones and those faults. Open entry doors count too, since arming via the API fails while one is open, although the panel doesn't report it as a fault.
 - **Installer lock** (diagnostic) on the panel device.
 
 Entity ids start with the installation's name, followed by the partition or zone, e.g. `alarm_control_panel.alarmanlage_ground_floor` or `binary_sensor.alarmanlage_front_door`; the kind of zone isn't part of them. They are set once when the entities are created, with entity names in Home Assistant's language at that time (e.g. `sensor.alarmanlage_faults` in English, `sensor.alarmanlage_storungen` in German); you can rename them in Home Assistant.
@@ -96,7 +97,7 @@ If the panel later rejects the credentials (for example after the password was c
 - **Read-only for now:** v0.1 doesn't arm, disarm, omit zones or acknowledge alarms.
 - **Delay:** changes show up with the next polling round, by default within 30 seconds.
 - **No exit or entry delay states:** the API reports no transitional state; arming takes effect immediately, and during an entry delay the partition keeps reporting its armed state.
-- **Arming blocked** is only what the panel reports as a fault; it checks some conditions only when arming is requested.
+- **Arming blocked** covers open zones and the faults the panel reports as preventing arming; the panel may still refuse arming for reasons it reports only when arming is requested.
 - **Faults:** the sensor shows the list the panel returns; whether the panel shortens very long lists is unknown.
 - **Entities are tied to the config entry:** the API reports no serial number, so removing and re-adding the integration creates new entities. Their entity ids can be renamed back in Home Assistant.
 

@@ -36,33 +36,36 @@ async def test_no_faults(hass: HomeAssistant, setup: Setup) -> None:
 
 
 async def test_faults(hass: HomeAssistant, fake_panel: FakePanel, setup: Setup) -> None:
-    """All faults are listed; only those other than an open zone are a problem."""
+    """Open zones are no faults here; the problem sensor is on above 0."""
     entry = await setup()
     coordinator = coordinator_of(entry)
     fake_panel.open_zone("209")
     await coordinator.async_refresh()
     state = hass.states.get(FAULTS)
     assert state is not None
-    assert state.state == "1"
+    # the panel lists the open zone as a fault; the open zones sensor counts it
+    assert state.state == "0"
+    assert state.attributes["faults"] == []
     assert hass.states.get(PROBLEM).state == STATE_OFF  # type: ignore[union-attr]
 
     fake_panel.static_faults.append(REPEATER_BATTERY)
     await coordinator.async_refresh()
     state = hass.states.get(FAULTS)
     assert state is not None
-    assert state.state == "2"
-    assert state.attributes["faults"][0] == {
-        "type": "1170",
-        "id": "1104",
-        "text": "REP01 Batt schwach",
-        "partitions": [1, 2, 3, 4],
-        "zone": None,
-        "prevents_set": False,
-        "prevents_reset": False,
-        "is_rf_warning": False,
-    }
-    assert state.attributes["faults"][1]["zone"] == "209"
-    assert state.attributes["summary"] == "REP01 Batt schwach\nZ209 A Room 6 L"
+    assert state.state == "1"
+    assert state.attributes["faults"] == [
+        {
+            "type": "1170",
+            "id": "1104",
+            "text": "REP01 Batt schwach",
+            "partitions": [1, 2, 3, 4],
+            "zone": None,
+            "prevents_set": False,
+            "prevents_reset": False,
+            "is_rf_warning": False,
+        }
+    ]
+    assert state.attributes["summary"] == "REP01 Batt schwach"
     assert hass.states.get(PROBLEM).state == STATE_ON  # type: ignore[union-attr]
 
 

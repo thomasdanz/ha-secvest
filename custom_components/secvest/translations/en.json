@@ -78,12 +78,19 @@
         "name": "Problem"
       },
       "arming_blocked": {
-        "name": "{partition} arming blocked"
+        "name": "{partition} arming blocked",
+        "state": {
+          "on": "Blocked",
+          "off": "Possible"
+        }
       }
     },
     "sensor": {
       "faults": {
         "name": "Faults"
+      },
+      "open_zones": {
+        "name": "{partition} open zones"
       }
     }
   },

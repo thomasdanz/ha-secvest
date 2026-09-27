@@ -6,11 +6,20 @@
         "state": {
           "on": "mdi:account-hard-hat"
         }
+      },
+      "arming_blocked": {
+        "default": "mdi:shield-check-outline",
+        "state": {
+          "on": "mdi:shield-alert-outline"
+        }
       }
     },
     "sensor": {
       "faults": {
         "default": "mdi:alert-circle-outline"
+      },
+      "open_zones": {
+        "default": "mdi:window-open-variant"
       }
     }
   }

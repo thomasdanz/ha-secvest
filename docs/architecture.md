@@ -194,8 +194,8 @@ The panel's partitions are independent of each other, so everything that belongs
 
 | Entity | Platform | Content |
 |---|---|---|
-| Faults | sensor | Number of current faults; list and readable summary as attributes |
-| Problem | binary_sensor | On while any fault other than an open zone is present (faults of type 5000 = zone open are ignored here: they appear for every open omittable zone, even when disarmed, and are covered by the zone sensors and "arming blocked") |
+| Faults | sensor | Number of current faults **except "zone open"** (the panel lists every open omittable zone as a fault, even when disarmed; those are counted per partition as open zones); list and readable summary of the same faults as attributes |
+| Problem | binary_sensor | On while the faults sensor is above 0, i.e. any fault other than an open zone is present |
 | Installer lock | binary_sensor (diagnostic) | On while the installer is logged in at the panel |
 | Log | event | New log entries |
 | Diagnostics | sensor (diagnostic) | Last round duration, connection setup time, reconnects, backoff state |
@@ -205,7 +205,8 @@ The panel's partitions are independent of each other, so everything that belongs
 | Entity | Platform | Content |
 |---|---|---|
 | Alarm panel | alarm_control_panel | disarmed / armed_home / armed_away / triggered (and optionally pending), unknown for an unknown state; named after the partition; attributes: panel state (raw, the app's underscore spelling normalised), acknowledged, alarm type (#19). Unavailable while the panel doesn't report the partition. |
-| Arming blocked | binary_sensor (problem) | On while a fault with `prevents-set` affects the partition; attributes: blocking zones and faults. Limitation: the panel evaluates blocking conditions for the requested state, so arming can still fail while it is off (e.g. an open entry door on the reference panel is no fault) |
+| Open zones | sensor | Number of the partition's zones that are open and not omitted; ids and names as attributes |
+| Arming blocked | binary_sensor | "Blocked" / "Possible" (no device class: open windows are a state, not a problem). On while open zones is above 0, or a fault other than an open zone with `prevents-set` affects the partition; attributes: the open zones and those faults. Open zones count whether or not the panel lists them as faults: an open entry door is no fault on the reference panel, but arming via the API fails then (configuration-dependent) |
 | Acknowledge alarm | button | Available only while the partition is in alarm |
 
 **Per selected zone** (one device per zone, named after the zone with its kind — "Funkzone Keller", "Wireless zone …" in English — with the kind as its model (in Home Assistant's language, German or else English, since the model can't be translated like the name), and linked to the panel device via its device id, so each detector can be assigned to an area; the panel device is registered at setup before the platforms)
