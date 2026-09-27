@@ -1,0 +1,59 @@
+"""Zone groups: several zones of one opening, configured as subentries.
+
+A zone group is a Home Assistant concept, not one of the panel: it gets its
+own device and sensor, and the member zones keep theirs.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+from homeassistant.const import CONF_DEVICE_CLASS, CONF_NAME
+
+from .const import CONF_HIDE_MEMBERS, CONF_USER_AGENT, CONF_ZONES, SUBENTRY_ZONE_GROUP
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+
+
+@dataclass(frozen=True, slots=True)
+class ZoneGroup:
+    """One zone group as stored in its subentry."""
+
+    subentry_id: str
+    name: str
+    zone_ids: tuple[str, ...]
+    device_class: str
+    hide_members: bool
+
+
+def zone_groups(entry: ConfigEntry) -> list[ZoneGroup]:
+    """Return the zone groups of an entry."""
+    return [
+        ZoneGroup(
+            subentry_id=subentry.subentry_id,
+            name=subentry.data[CONF_NAME],
+            zone_ids=tuple(subentry.data[CONF_ZONES]),
+            device_class=subentry.data[CONF_DEVICE_CLASS],
+            hide_members=subentry.data.get(CONF_HIDE_MEMBERS, False),
+        )
+        for subentry in entry.subentries.values()
+        if subentry.subentry_type == SUBENTRY_ZONE_GROUP
+    ]
+
+
+def reload_snapshot(entry: ConfigEntry) -> object:
+    """Return the settings a change of which reloads the entry.
+
+    Options, zone groups and the User-Agent. Credentials are left out: the
+    reauthentication reloads by itself, and a 401 only sets a flag.
+    """
+    return (
+        dict(entry.options),
+        {
+            subentry_id: (subentry.title, dict(subentry.data))
+            for subentry_id, subentry in entry.subentries.items()
+        },
+        entry.data.get(CONF_USER_AGENT),
+    )

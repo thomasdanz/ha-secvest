@@ -49,7 +49,7 @@
       },
       "zones": {
         "title": "Zones",
-        "description": "Choose what kind of detector each zone is; the panel doesn't tell. Excluded zones get no entities. You can change this later in the integration's options.",
+        "description": "Choose what kind of detector each zone is; the panel doesn't tell. Excluded zones get no entities. You can change this later in the integration's options. Zones that belong to one opening, such as the two wings of a window, can be combined afterwards with \"Add zone group\" on the integration's page.",
         "data": {
           "excluded_zones": "Excluded zones"
         },
@@ -136,7 +136,7 @@
       },
       "zones": {
         "title": "Zones",
-        "description": "Choose what kind of detector each zone is; the panel doesn't tell. Excluded zones get no entities. Zones of a newly selected partition show their names after the next reload.",
+        "description": "Choose what kind of detector each zone is; the panel doesn't tell. Excluded zones get no entities. Zones of a newly selected partition show their names after the next reload. Zones that belong to one opening, such as the two wings of a window, can be combined afterwards with \"Add zone group\" on the integration's page.",
         "data": {
           "excluded_zones": "Excluded zones"
         },
@@ -177,6 +177,10 @@
     "empty_partition": {
       "title": "Partition {partition} has no zones",
       "description": "Partition {partition} of {name} is selected in the integration's options but has no zones anymore, so Home Assistant shows only its state and it can't be armed. If it stays empty, open the integration's options and deselect it; otherwise ignore this issue."
+    },
+    "zone_group_zones_gone": {
+      "title": "Zone group {group} has zones that no longer exist",
+      "description": "The zone group {group} of {name} contains zones that the selected partitions no longer list: {zones}. The group sensor ignores them. If the zones were removed at the panel, open the integration's page, choose the group and reconfigure it; if you deselected their partition, select it again in the options. This issue disappears once the group fits again."
     }
   },
   "device": {
@@ -191,6 +195,61 @@
     },
     "zone": {
       "name": "{name}"
+    },
+    "zone_group": {
+      "name": "Zone group {name}"
+    }
+  },
+  "config_subentries": {
+    "zone_group": {
+      "initiate_flow": {
+        "user": "Add zone group",
+        "reconfigure": "Change zone group"
+      },
+      "entry_type": "Zone group",
+      "step": {
+        "user": {
+          "title": "Add zone group",
+          "description": "Combine zones that belong to one opening, e.g. the two wings of a window. The group gets its own device and a sensor that is on while any of its zones is open. The zones keep their own devices.",
+          "data": {
+            "name": "Name",
+            "zones": "Zones",
+            "device_class": "Show as",
+            "hide_members": "Hide grouped zones"
+          },
+          "data_description": {
+            "name": "Used for the device (\"Zone group\" followed by the name) and the entity id.",
+            "zones": "At least two zones; a zone can be in one group only.",
+            "device_class": "How the group sensor is shown, e.g. window or door.",
+            "hide_members": "Hide the entities of the grouped zones in Home Assistant; they keep working and can still be used in automations."
+          }
+        },
+        "reconfigure": {
+          "title": "Change zone group",
+          "description": "Change the zones or settings of this group.",
+          "data": {
+            "name": "Name",
+            "zones": "Zones",
+            "device_class": "Show as",
+            "hide_members": "Hide grouped zones"
+          },
+          "data_description": {
+            "name": "Used for the device (\"Zone group\" followed by the name); the entity id stays.",
+            "zones": "At least two zones; a zone can be in one group only.",
+            "device_class": "How the group sensor is shown, e.g. window or door.",
+            "hide_members": "Hide the entities of the grouped zones in Home Assistant; they keep working and can still be used in automations."
+          }
+        }
+      },
+      "error": {
+        "name_required": "Enter a name.",
+        "name_exists": "A group with this name exists already.",
+        "too_few_zones": "Select at least two zones."
+      },
+      "abort": {
+        "not_loaded": "The integration isn't loaded. Fix the problem shown for it first, then change the zone groups.",
+        "reconfigure_successful": "The zone group was changed."
+      }
     }
   }
 }

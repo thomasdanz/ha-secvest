@@ -22,7 +22,8 @@ from .const import (
     MANUFACTURER,
     PANEL_MODEL,
 )
-from .coordinator import SecvestCoordinator, clear_partition_issues
+from .coordinator import SecvestCoordinator, clear_issues
+from .groups import reload_snapshot, zone_groups
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -65,10 +66,51 @@ async def async_setup_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> b
     coordinator.panel_device_id = panel.id
     entry.runtime_data = coordinator
     _remove_orphaned_devices(hass, entry, coordinator)
-    coordinator.clear_partition_issues()
+    coordinator.clear_stale_issues()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _remove_stale_entities(hass, entry)
+    _hide_grouped_zones(hass, entry)
+    # changed options or zone groups (subentries) reload the entry
+    snapshot = reload_snapshot(entry)
+
+    async def _reload_on_change(hass: HomeAssistant, entry: SecvestConfigEntry) -> None:
+        if reload_snapshot(entry) != snapshot:
+            hass.config_entries.async_schedule_reload(entry.entry_id)
+
+    entry.async_on_unload(entry.add_update_listener(_reload_on_change))
     return True
+
+
+_ZONE_ENTITY = re.compile(r"zone_([^_]+)_(open|problem)")
+
+
+def _hide_grouped_zones(hass: HomeAssistant, entry: SecvestConfigEntry) -> None:
+    """Hide the entities of zones in a group that asks for it, show the rest.
+
+    Only entities hidden by the integration are shown again; those the user
+    hid stay hidden.
+    """
+    hidden = {
+        zone_id
+        for group in zone_groups(entry)
+        if group.hide_members
+        for zone_id in group.zone_ids
+    }
+    registry = er.async_get(hass)
+    prefix = f"{entry.entry_id}_"
+    for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
+        match = _ZONE_ENTITY.fullmatch(entity.unique_id.removeprefix(prefix))
+        if match is None:
+            continue
+        if match[1] in hidden and entity.hidden_by is None:
+            registry.async_update_entity(
+                entity.entity_id, hidden_by=er.RegistryEntryHider.INTEGRATION
+            )
+        elif (
+            match[1] not in hidden
+            and entity.hidden_by is er.RegistryEntryHider.INTEGRATION
+        ):
+            registry.async_update_entity(entity.entity_id, hidden_by=None)
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> bool:
@@ -96,7 +138,8 @@ async def async_migrate_entry(hass: HomeAssistant, entry: SecvestConfigEntry) ->
 _ENTITY_KINDS = re.compile(
     r"(installer_lock|problem|faults"
     r"|partition_\d+_(alarm|arming_blocked|open_zones)"
-    r"|zone_[^_]+_(open|problem))"
+    r"|zone_[^_]+_(open|problem)"
+    r"|group_[^_]+_open)"
 )
 
 
@@ -127,13 +170,20 @@ def _remove_orphaned_devices(
     """
     partitions = coordinator.data.partitions
     excluded = set(entry.options.get(CONF_EXCLUDED_ZONES, []))
-    wanted = {(DOMAIN, entry.entry_id)} | {
-        (DOMAIN, f"{entry.entry_id}_zone_{zone_id}")
-        for number in coordinator.selected_partitions
-        if number in partitions
-        for zone_id in partitions[number].zone_ids
-        if zone_id not in excluded
-    }
+    wanted = (
+        {(DOMAIN, entry.entry_id)}
+        | {
+            (DOMAIN, f"{entry.entry_id}_group_{group.subentry_id}")
+            for group in zone_groups(entry)
+        }
+        | {
+            (DOMAIN, f"{entry.entry_id}_zone_{zone_id}")
+            for number in coordinator.selected_partitions
+            if number in partitions
+            for zone_id in partitions[number].zone_ids
+            if zone_id not in excluded
+        }
+    )
     registry = dr.async_get(hass)
     for device in dr.async_entries_for_config_entry(registry, entry.entry_id):
         if not device.identifiers & wanted:
@@ -144,7 +194,7 @@ def _remove_orphaned_devices(
 
 async def async_remove_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> None:
     """Remove the repair issues of a deleted entry."""
-    clear_partition_issues(hass, entry.entry_id, keep=())
+    clear_issues(hass, entry.entry_id, keep=())
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> bool:

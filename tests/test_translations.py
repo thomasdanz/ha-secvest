@@ -49,3 +49,10 @@ def test_glossary_terms(english: str, german: str) -> None:
     for key, text in en.items():
         if word.search(PLACEHOLDER.sub("", text)):
             assert german.lower() in de[key].lower(), key
+
+
+@pytest.mark.parametrize("language", ["en", "de"])
+def test_no_html(language: str) -> None:
+    """Texts contain nothing hassfest reads as HTML, e.g. "<name>"."""
+    for key, text in _load(language).items():
+        assert not re.search(r"<[^>]*>", text), key

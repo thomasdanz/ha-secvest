@@ -4,13 +4,13 @@ import asyncio
 from datetime import timedelta
 import json
 from pathlib import Path
-import time
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import UpdateFailed
 import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest import coordinator as coordinator_module
 from custom_components.secvest.api.errors import CommunicationError
@@ -19,6 +19,7 @@ from custom_components.secvest.const import (
     CONF_PARTITIONS,
     CONF_SCAN_INTERVAL,
     CONF_USER_AGENT,
+    DOMAIN,
 )
 from custom_components.secvest.coordinator import (
     Backoff,
@@ -89,15 +90,24 @@ async def test_rounds_never_overlap(fake_panel: FakePanel, setup: Setup) -> None
     assert fake_panel.stats.max_open_connections == 1
 
 
+def _round_start(hass: HomeAssistant, entry: MockConfigEntry) -> float:
+    start: float = hass.data[DOMAIN]["round_starts"][entry.entry_id]
+    return start
+
+
 async def test_minimum_spacing(
-    fake_panel: FakePanel, setup: Setup, monkeypatch: pytest.MonkeyPatch
+    hass: HomeAssistant,
+    fake_panel: FakePanel,
+    setup: Setup,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A round never starts sooner than the minimum after the last one."""
     monkeypatch.setattr(coordinator_module, "MIN_SCAN_INTERVAL", 0.5)
     entry = await setup()
-    started = time.monotonic()
+    before = _round_start(hass, entry)
     await coordinator_of(entry).async_refresh()
-    assert time.monotonic() - started >= 0.4
+    # measured between the rounds' starts, which the spacing is about
+    assert _round_start(hass, entry) - before >= 0.5
     assert fake_panel.stats.requests == ROUND * 2
 
 
@@ -110,21 +120,26 @@ async def test_spacing_survives_a_reload(
     """A reload creates a new coordinator but keeps the spacing."""
     monkeypatch.setattr(coordinator_module, "MIN_SCAN_INTERVAL", 0.5)
     entry = await setup()
-    started = time.monotonic()
+    before = _round_start(hass, entry)
     assert await hass.config_entries.async_reload(entry.entry_id)
-    assert time.monotonic() - started >= 0.4
+    # measured between the rounds' starts, which the spacing is about
+    assert _round_start(hass, entry) - before >= 0.5
     assert fake_panel.stats.requests == ROUND * 2
 
 
 async def test_requested_refresh(
-    fake_panel: FakePanel, setup: Setup, monkeypatch: pytest.MonkeyPatch
+    hass: HomeAssistant,
+    fake_panel: FakePanel,
+    setup: Setup,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A manual refresh (update_entity) keeps the minimum spacing too."""
     monkeypatch.setattr(coordinator_module, "MIN_SCAN_INTERVAL", 0.5)
     entry = await setup()
-    started = time.monotonic()
+    before = _round_start(hass, entry)
     await coordinator_of(entry).async_request_refresh()
-    assert time.monotonic() - started >= 0.4
+    # measured between the rounds' starts, which the spacing is about
+    assert _round_start(hass, entry) - before >= 0.5
     assert fake_panel.stats.requests == ROUND * 2
 
 

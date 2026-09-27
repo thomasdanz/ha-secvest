@@ -82,6 +82,7 @@ async def test_update_keeps_the_entry_and_its_entities(
         minor_version=stored["minor_version"],
         data=_fill(stored["data"], fake_panel),
         options=stored["options"],
+        subentries_data=stored.get("subentries", []),
     )
     entry.add_to_hass(hass)
     registry = er.async_get(hass)
@@ -96,6 +97,17 @@ async def test_update_keeps_the_entry_and_its_entities(
         ).entity_id
         for unique_id in old
     }
+    # the group sensors belong to their subentries
+    for subentry in stored.get("subentries", []):
+        for key in stored["unique_ids"].get("groups", []):
+            unique_id = f"group_{subentry['subentry_id']}_{key}"
+            entity_ids[unique_id] = registry.async_get_or_create(
+                "binary_sensor",
+                DOMAIN,
+                f"{entry.entry_id}_{unique_id}",
+                config_entry=entry,
+                config_subentry_id=subentry["subentry_id"],
+            ).entity_id
 
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()

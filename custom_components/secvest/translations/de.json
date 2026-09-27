@@ -49,7 +49,7 @@
       },
       "zones": {
         "title": "Zonen",
-        "description": "Wähle, was für ein Melder jede Zone ist; die Zentrale verrät es nicht. Ausgeschlossene Zonen bekommen keine Entitäten. Das lässt sich später in den Optionen der Integration ändern.",
+        "description": "Wähle, was für ein Melder jede Zone ist; die Zentrale verrät es nicht. Ausgeschlossene Zonen bekommen keine Entitäten. Das lässt sich später in den Optionen der Integration ändern. Zonen, die zu einer Öffnung gehören, etwa die beiden Flügel eines Fensters, fasst du danach auf der Seite der Integration mit „Zonengruppe hinzufügen“ zusammen.",
         "data": {
           "excluded_zones": "Ausgeschlossene Zonen"
         },
@@ -136,7 +136,7 @@
       },
       "zones": {
         "title": "Zonen",
-        "description": "Wähle, was für ein Melder jede Zone ist; die Zentrale verrät es nicht. Ausgeschlossene Zonen bekommen keine Entitäten. Zonen eines neu gewählten Teilbereichs zeigen ihre Namen nach dem nächsten Neuladen.",
+        "description": "Wähle, was für ein Melder jede Zone ist; die Zentrale verrät es nicht. Ausgeschlossene Zonen bekommen keine Entitäten. Zonen eines neu gewählten Teilbereichs zeigen ihre Namen nach dem nächsten Neuladen. Zonen, die zu einer Öffnung gehören, etwa die beiden Flügel eines Fensters, fasst du danach auf der Seite der Integration mit „Zonengruppe hinzufügen“ zusammen.",
         "data": {
           "excluded_zones": "Ausgeschlossene Zonen"
         },
@@ -177,6 +177,10 @@
     "empty_partition": {
       "title": "Teilbereich {partition} hat keine Zonen",
       "description": "Der Teilbereich {partition} von {name} ist in den Optionen der Integration ausgewählt, hat aber keine Zonen mehr. Home Assistant zeigt daher nur seinen Zustand, und er lässt sich nicht aktivieren. Bleibt er leer, öffne die Optionen der Integration und wähle ihn ab; sonst ignoriere diesen Hinweis."
+    },
+    "zone_group_zones_gone": {
+      "title": "Zonengruppe {group} enthält Zonen, die es nicht mehr gibt",
+      "description": "Die Zonengruppe {group} von {name} enthält Zonen, die die ausgewählten Teilbereiche nicht mehr auflisten: {zones}. Der Gruppensensor berücksichtigt sie nicht. Wurden die Zonen an der Zentrale entfernt, öffne die Seite der Integration, wähle die Gruppe und konfiguriere sie neu; hast du ihren Teilbereich abgewählt, wähle ihn in den Optionen wieder aus. Der Hinweis verschwindet, sobald die Gruppe wieder passt."
     }
   },
   "device": {
@@ -191,6 +195,61 @@
     },
     "zone": {
       "name": "{name}"
+    },
+    "zone_group": {
+      "name": "Zonengruppe {name}"
+    }
+  },
+  "config_subentries": {
+    "zone_group": {
+      "initiate_flow": {
+        "user": "Zonengruppe hinzufügen",
+        "reconfigure": "Zonengruppe ändern"
+      },
+      "entry_type": "Zonengruppe",
+      "step": {
+        "user": {
+          "title": "Zonengruppe hinzufügen",
+          "description": "Fasse Zonen zusammen, die zu einer Öffnung gehören, z. B. die beiden Flügel eines Fensters. Die Gruppe bekommt ein eigenes Gerät und einen Sensor, der an ist, solange eine ihrer Zonen offen ist. Die Zonen behalten ihre eigenen Geräte.",
+          "data": {
+            "name": "Name",
+            "zones": "Zonen",
+            "device_class": "Anzeigen als",
+            "hide_members": "Gruppierte Zonen verbergen"
+          },
+          "data_description": {
+            "name": "Wird für das Gerät („Zonengruppe“ mit dem Namen) und die Entity-ID verwendet.",
+            "zones": "Mindestens zwei Zonen; eine Zone kann nur in einer Gruppe sein.",
+            "device_class": "Wie der Gruppensensor angezeigt wird, z. B. als Fenster oder Tür.",
+            "hide_members": "Verbirgt die Entitäten der gruppierten Zonen in Home Assistant; sie arbeiten weiter und lassen sich in Automationen verwenden."
+          }
+        },
+        "reconfigure": {
+          "title": "Zonengruppe ändern",
+          "description": "Ändere die Zonen oder Einstellungen dieser Gruppe.",
+          "data": {
+            "name": "Name",
+            "zones": "Zonen",
+            "device_class": "Anzeigen als",
+            "hide_members": "Gruppierte Zonen verbergen"
+          },
+          "data_description": {
+            "name": "Wird für das Gerät verwendet („Zonengruppe“ mit dem Namen); die Entity-ID bleibt.",
+            "zones": "Mindestens zwei Zonen; eine Zone kann nur in einer Gruppe sein.",
+            "device_class": "Wie der Gruppensensor angezeigt wird, z. B. als Fenster oder Tür.",
+            "hide_members": "Verbirgt die Entitäten der gruppierten Zonen in Home Assistant; sie arbeiten weiter und lassen sich in Automationen verwenden."
+          }
+        }
+      },
+      "error": {
+        "name_required": "Gib einen Namen ein.",
+        "name_exists": "Eine Gruppe mit diesem Namen gibt es schon.",
+        "too_few_zones": "Wähle mindestens zwei Zonen aus."
+      },
+      "abort": {
+        "not_loaded": "Die Integration ist nicht geladen. Behebe zuerst das angezeigte Problem und ändere dann die Zonengruppen.",
+        "reconfigure_successful": "Die Zonengruppe wurde geändert."
+      }
     }
   }
 }

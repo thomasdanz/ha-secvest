@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-09-27
+
+### Added
+
+- Zone groups: combine zones of one opening into a group with its own device and a sensor that is on while any of them is open; optionally hide the grouped zones' entities. Added, changed and deleted on the integration's page; a repair issue reports zones of a group that no longer exist (#67).
+
+### Upgrade notes
+
+- Nothing to do. If you built such groups yourself (e.g. group helpers), delete them before adding the same group here, so the new sensor gets the same entity id.
+
 ## [0.1.8] - 2026-09-27
 
 ### Added
@@ -95,7 +105,8 @@ First version, read-only: the state of partitions, zones and faults.
 - README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
 - Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
 
-[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.8...HEAD
+[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.9...HEAD
+[0.1.9]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.5...v0.1.6
