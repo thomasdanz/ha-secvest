@@ -214,7 +214,10 @@ async def default_user_agent(hass: Any) -> str:
 class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
     """Set up a panel."""
 
+    # stored data: VERSION changes break compatibility, MINOR_VERSION
+    # changes don't; each step is migrated in async_migrate_entry
     VERSION = 1
+    MINOR_VERSION = 2
 
     @staticmethod
     @callback
