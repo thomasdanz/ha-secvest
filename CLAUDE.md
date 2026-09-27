@@ -46,6 +46,7 @@ uv run ruff check .              # lint
 uv run ruff format .             # format
 uv run mypy custom_components tests scripts  # type checks
 uv run python scripts/sync_fixtures.py  # copy the fixtures from ../secvest-api (ADR 0004)
+uv run scripts/render_icon.py          # render the brand PNGs from assets/icon.svg
 ```
 
 The dev dependencies pin `pytest-homeassistant-custom-component` to the current Home Assistant release (ADR 0003); `uv.lock` is committed.

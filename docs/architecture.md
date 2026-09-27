@@ -78,6 +78,7 @@ The API client is a self-contained Python package without any Home Assistant dep
 | `diagnostics.py` | Redacted diagnostics download. |
 | `log_patterns.py` | Text patterns for the optional entry delay detection, one per panel language, plus the user's custom pattern. The only place where logic depends on panel texts (see principle 4). |
 | `translations/` | `en.json`, `de.json`. |
+| `brand/` | `icon.png` and `icon@2x.png`, rendered from `assets/icon.svg` by `scripts/render_icon.py`; Home Assistant (2026.8 and later) serves them itself and falls back to the icon for the logo and dark mode. Own design, not ABUS artwork. |
 
 ## Request handling
 

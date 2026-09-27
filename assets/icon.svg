@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="13 14 230 230">
+<!-- ha-secvest icon: a shield with a keypad; own design, not ABUS artwork. Source for custom_components/secvest/brand/*.png (scripts/render_icon.py). -->
+<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#26A69A"/><stop offset="1" stop-color="#00695C"/></linearGradient></defs>
+<path d="M128 14 L222 48 V124 C222 184 182 226 128 244 C74 226 34 184 34 124 V48 Z" fill="url(#g)"/>
+<rect x="84" y="62" width="88" height="26" rx="6" fill="#ffffff"/>
+<circle cx="98" cy="112" r="9" fill="#ffffff"/><circle cx="128" cy="112" r="9" fill="#ffffff"/><circle cx="158" cy="112" r="9" fill="#ffffff"/><circle cx="98" cy="140" r="9" fill="#ffffff"/><circle cx="128" cy="140" r="9" fill="#ffffff"/><circle cx="158" cy="140" r="9" fill="#ffffff"/><circle cx="98" cy="168" r="9" fill="#ffffff"/><circle cx="128" cy="168" r="9" fill="#ffffff"/><circle cx="158" cy="168" r="9" fill="#ffffff"/><circle cx="98" cy="196" r="9" fill="#ffffff"/><circle cx="128" cy="196" r="9" fill="#ffffff"/><circle cx="158" cy="196" r="9" fill="#ffffff"/>
+</svg>
