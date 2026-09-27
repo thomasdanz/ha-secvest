@@ -19,7 +19,7 @@ from custom_components.secvest.const import (
 from .common import Setup, coordinator_of
 from .fake_panel import FakePanel
 
-ZONE = "binary_sensor.room_6_l"
+ZONE = "binary_sensor.alarmanlage_room_6_l"
 
 
 async def test_one_device_per_zone(
@@ -121,7 +121,7 @@ async def test_device_class_from_options(hass: HomeAssistant, setup: Setup) -> N
     state = hass.states.get(ZONE)
     assert state is not None
     assert state.attributes[ATTR_DEVICE_CLASS] == BinarySensorDeviceClass.DOOR
-    room = hass.states.get("binary_sensor.room_1")
+    room = hass.states.get("binary_sensor.alarmanlage_room_1")
     assert room is not None
     assert ATTR_DEVICE_CLASS not in room.attributes
 
@@ -136,7 +136,7 @@ async def test_zone_disappears(
     assert hass.states.get(ZONE).state == STATE_UNAVAILABLE  # type: ignore[union-attr]
 
 
-PROBLEM = "binary_sensor.room_6_l_problem"
+PROBLEM = "binary_sensor.alarmanlage_room_6_l_problem"
 
 
 async def test_zone_problem(
@@ -178,4 +178,6 @@ async def test_zone_problem(
     )
     await coordinator.async_refresh()
     assert hass.states.get(PROBLEM).state == STATE_ON  # type: ignore[union-attr]
-    assert hass.states.get("binary_sensor.room_1_problem").state == STATE_OFF  # type: ignore[union-attr]
+    other = hass.states.get("binary_sensor.alarmanlage_room_1_problem")
+    assert other is not None
+    assert other.state == STATE_OFF
