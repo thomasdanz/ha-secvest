@@ -30,6 +30,7 @@ from .const import (
     PAUSE,
     PAUSE_AFTER,
 )
+from .groups import zone_groups
 
 if TYPE_CHECKING:
     from . import SecvestConfigEntry
@@ -137,13 +138,19 @@ def _partition_issue_id(entry_id: str, number: int) -> str:
     return f"partition_{entry_id}_{number}"
 
 
-def clear_partition_issues(
-    hass: HomeAssistant, entry_id: str, keep: Iterable[int]
-) -> None:
-    """Delete the partition issues of an entry, except those in keep."""
-    keep_ids = {_partition_issue_id(entry_id, number) for number in keep}
-    # 0.1.x named the issue for a missing partition differently
-    prefixes = (f"partition_{entry_id}_", f"missing_partition_{entry_id}_")
+def _group_issue_id(entry_id: str, subentry_id: str) -> str:
+    return f"group_{entry_id}_{subentry_id}"
+
+
+def clear_issues(hass: HomeAssistant, entry_id: str, keep: Iterable[str]) -> None:
+    """Delete the repair issues of an entry, except the ids in keep."""
+    keep_ids = set(keep)
+    prefixes = (
+        f"partition_{entry_id}_",
+        f"group_{entry_id}_",
+        # 0.1.x named the issue for a missing partition differently
+        f"missing_partition_{entry_id}_",
+    )
     for domain, issue_id in list(ir.async_get(hass).issues):
         if (
             domain == DOMAIN
@@ -184,6 +191,8 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         )
         # selected partitions that are empty or missing, with the issue raised
         self._partition_problems: dict[int, str] = {}
+        # zone groups with zones the partitions no longer list
+        self._group_problems: dict[str, tuple[str, ...]] = {}
         self.backoff = Backoff()
         # the installer is logged in at the panel, which locks the API (#21)
         self.installer_locked = False
@@ -251,16 +260,68 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
                 )
             raise UpdateFailed(str(err), retry_after=delay) from err
         self.backoff.succeeded()
+        self._check_groups(state)
         if self.installer_locked:
             _LOGGER.info("The installer logged out; the panel is unlocked")
             self.installer_locked = False
         return state
 
-    def clear_partition_issues(self) -> None:
-        """Delete the issues of partitions that are no longer selected."""
-        clear_partition_issues(
-            self.hass, self.config_entry.entry_id, keep=self._partition_problems
+    def clear_stale_issues(self) -> None:
+        """Delete issues of partitions no longer selected or groups deleted."""
+        entry_id = self.config_entry.entry_id
+        clear_issues(
+            self.hass,
+            entry_id,
+            keep=[_partition_issue_id(entry_id, n) for n in self._partition_problems]
+            + [_group_issue_id(entry_id, s) for s in self._group_problems],
         )
+
+    def listed_zone_ids(self, state: PanelState | None = None) -> set[str]:
+        """Return the zones the selected partitions list; others are gone.
+
+        The partitions' zone lists decide, not the zones read, so a zone the
+        panel briefly doesn't report still counts.
+        """
+        state = state or self.data
+        return {
+            zone_id
+            for number in self.selected_partitions
+            if (partition := state.partitions.get(number)) is not None
+            for zone_id in partition.zone_ids
+        }
+
+    def _check_groups(self, state: PanelState) -> None:
+        """Raise or clear the repair issue for groups with zones gone."""
+        listed = self.listed_zone_ids(state)
+        entry = self.config_entry
+        for group in zone_groups(entry):
+            gone = tuple(z for z in group.zone_ids if z not in listed)
+            if gone == self._group_problems.get(group.subentry_id, ()):
+                continue
+            issue_id = _group_issue_id(entry.entry_id, group.subentry_id)
+            if not gone:
+                del self._group_problems[group.subentry_id]
+                ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+                continue
+            self._group_problems[group.subentry_id] = gone
+            _LOGGER.warning(
+                "Zone group %s has zones the panel no longer lists: %s",
+                group.name,
+                ", ".join(gone),
+            )
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                issue_id,
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="zone_group_zones_gone",
+                translation_placeholders={
+                    "group": group.name,
+                    "zones": ", ".join(gone),
+                    "name": entry.title,
+                },
+            )
 
     def _check_partition(self, number: int, partition: Partition | None) -> None:
         """Raise or clear the repair issue for a selected partition.

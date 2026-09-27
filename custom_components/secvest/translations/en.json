@@ -177,6 +177,10 @@
     "empty_partition": {
       "title": "Partition {partition} has no zones",
       "description": "Partition {partition} of {name} is selected in the integration's options but has no zones anymore, so Home Assistant shows only its state and it can't be armed. If it stays empty, open the integration's options and deselect it; otherwise ignore this issue."
+    },
+    "zone_group_zones_gone": {
+      "title": "Zone group {group} has zones that no longer exist",
+      "description": "The zone group {group} of {name} contains zones that the selected partitions no longer list: {zones}. The group sensor ignores them. If the zones were removed at the panel, open the integration's page, choose the group and reconfigure it; if you deselected their partition, select it again in the options. This issue disappears once the group fits again."
     }
   },
   "device": {

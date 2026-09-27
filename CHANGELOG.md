@@ -8,7 +8,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
-- Zone groups: combine zones of one opening into a group with its own device and a sensor that is on while any of them is open; optionally hide the grouped zones' entities. Added, changed and deleted on the integration's page (#67).
+- Zone groups: combine zones of one opening into a group with its own device and a sensor that is on while any of them is open; optionally hide the grouped zones' entities. Added, changed and deleted on the integration's page; a repair issue reports zones of a group that no longer exist (#67).
 
 ### Upgrade notes
 

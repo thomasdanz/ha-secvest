@@ -16,13 +16,18 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers import (
+    device_registry as dr,
+    entity_registry as er,
+    issue_registry as ir,
+)
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest.const import (
     CONF_AUTH_FAILED,
     CONF_HIDE_MEMBERS,
     CONF_ZONES,
+    DOMAIN,
     SUBENTRY_ZONE_GROUP,
 )
 
@@ -264,3 +269,69 @@ async def test_group_survives_a_restart(
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     assert _state(hass, GROUP) == STATE_OFF
+
+
+def _group_issue(hass: HomeAssistant, entry: MockConfigEntry) -> ir.IssueEntry | None:
+    return ir.async_get(hass).async_get_issue(
+        DOMAIN, f"group_{entry.entry_id}_{_subentry_id(entry)}"
+    )
+
+
+async def test_member_zone_gone(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """A zone the partitions no longer list is ignored and reported."""
+    entry = await setup()
+    await _add(hass, entry, _group())
+    assert _group_issue(hass, entry) is None
+    fake_panel.partitions[1].zone_ids.remove("204")
+    await coordinator_of(entry).async_refresh()
+
+    issue = _group_issue(hass, entry)
+    assert issue is not None
+    assert issue.translation_key == "zone_group_zones_gone"
+    assert issue.translation_placeholders == {
+        "group": "Room 3",
+        "zones": "204",
+        "name": "Alarmanlage",
+    }
+    # the remaining member decides
+    assert _state(hass, GROUP) == STATE_OFF
+    attributes = hass.states.get(GROUP).attributes  # type: ignore[union-attr]
+    assert attributes["missing_zones"] == ["204"]
+    fake_panel.open_zone("203")
+    await coordinator_of(entry).async_refresh()
+    assert _state(hass, GROUP) == STATE_ON
+
+    # listed again: the issue goes away
+    fake_panel.partitions[1].zone_ids.append("204")
+    await coordinator_of(entry).async_refresh()
+    assert _group_issue(hass, entry) is None
+
+
+async def test_all_member_zones_gone(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """Without any listed member the group sensor is unavailable."""
+    entry = await setup()
+    await _add(hass, entry, _group())
+    fake_panel.partitions[1].zone_ids.remove("203")
+    fake_panel.partitions[1].zone_ids.remove("204")
+    await coordinator_of(entry).async_refresh()
+    assert _state(hass, GROUP) == "unavailable"
+    assert _group_issue(hass, entry) is not None
+
+
+async def test_issue_removed_with_the_group(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """Deleting the group removes its issue."""
+    entry = await setup()
+    await _add(hass, entry, _group())
+    fake_panel.partitions[1].zone_ids.remove("204")
+    await coordinator_of(entry).async_refresh()
+    assert _group_issue(hass, entry) is not None
+    subentry_id = _subentry_id(entry)
+    assert hass.config_entries.async_remove_subentry(entry, subentry_id)
+    await hass.async_block_till_done()
+    assert [i for d, i in ir.async_get(hass).issues if d == DOMAIN] == []

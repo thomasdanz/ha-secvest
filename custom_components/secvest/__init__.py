@@ -22,7 +22,7 @@ from .const import (
     MANUFACTURER,
     PANEL_MODEL,
 )
-from .coordinator import SecvestCoordinator, clear_partition_issues
+from .coordinator import SecvestCoordinator, clear_issues
 from .groups import reload_snapshot, zone_groups
 
 _LOGGER = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> b
     coordinator.panel_device_id = panel.id
     entry.runtime_data = coordinator
     _remove_orphaned_devices(hass, entry, coordinator)
-    coordinator.clear_partition_issues()
+    coordinator.clear_stale_issues()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _remove_stale_entities(hass, entry)
     _hide_grouped_zones(hass, entry)
@@ -194,7 +194,7 @@ def _remove_orphaned_devices(
 
 async def async_remove_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> None:
     """Remove the repair issues of a deleted entry."""
-    clear_partition_issues(hass, entry.entry_id, keep=())
+    clear_issues(hass, entry.entry_id, keep=())
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> bool:

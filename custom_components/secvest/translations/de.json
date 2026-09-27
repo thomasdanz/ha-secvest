@@ -177,6 +177,10 @@
     "empty_partition": {
       "title": "Teilbereich {partition} hat keine Zonen",
       "description": "Der Teilbereich {partition} von {name} ist in den Optionen der Integration ausgewählt, hat aber keine Zonen mehr. Home Assistant zeigt daher nur seinen Zustand, und er lässt sich nicht aktivieren. Bleibt er leer, öffne die Optionen der Integration und wähle ihn ab; sonst ignoriere diesen Hinweis."
+    },
+    "zone_group_zones_gone": {
+      "title": "Zonengruppe {group} enthält Zonen, die es nicht mehr gibt",
+      "description": "Die Zonengruppe {group} von {name} enthält Zonen, die die ausgewählten Teilbereiche nicht mehr auflisten: {zones}. Der Gruppensensor berücksichtigt sie nicht. Wurden die Zonen an der Zentrale entfernt, öffne die Seite der Integration, wähle die Gruppe und konfiguriere sie neu; hast du ihren Teilbereich abgewählt, wähle ihn in den Optionen wieder aus. Der Hinweis verschwindet, sobald die Gruppe wieder passt."
     }
   },
   "device": {

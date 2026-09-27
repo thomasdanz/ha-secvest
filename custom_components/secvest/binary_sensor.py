@@ -222,35 +222,41 @@ class ZoneGroupSensor(SecvestEntity, BinarySensorEntity):
         if group.device_class in BinarySensorDeviceClass:
             self._attr_device_class = BinarySensorDeviceClass(group.device_class)
 
-    def _members(self) -> list[Zone]:
-        zones = self.coordinator.data.zones
-        return [
-            zones[zone_id] for zone_id in self.zone_group.zone_ids if zone_id in zones
-        ]
+    def _listed(self) -> list[str]:
+        """Return the members the selected partitions still list."""
+        listed = self.coordinator.listed_zone_ids()
+        return [z for z in self.zone_group.zone_ids if z in listed]
 
     @property
     def available(self) -> bool:
-        """Unavailable while none of the member zones is reported."""
-        return super().available and bool(self._members())
+        """Unavailable while no member is listed or read."""
+        zones = self.coordinator.data.zones
+        return super().available and any(z in zones for z in self._listed())
 
     @property
     def is_on(self) -> bool | None:
-        """On if a member is open; off if all are reported and closed."""
-        members = self._members()
-        if any(zone.state == ZoneState.OPEN for zone in members):
+        """On if a member is open; off if all listed members are closed.
+
+        Members the partitions no longer list don't count (a repair issue
+        says so); a listed member not read right now makes it unknown.
+        """
+        zones = self.coordinator.data.zones
+        members = [zones.get(zone_id) for zone_id in self._listed()]
+        if any(z is not None and z.state == ZoneState.OPEN for z in members):
             return True
-        if len(members) == len(self.zone_group.zone_ids) and all(
-            zone.state == ZoneState.CLOSED for zone in members
-        ):
+        if all(z is not None and z.state == ZoneState.CLOSED for z in members):
             return False
         return None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """List the member zones and the open ones."""
+        zones = self.coordinator.data.zones
+        listed = self._listed()
         return {
             "zones": list(self.zone_group.zone_ids),
             "open_zones": [
-                zone.id for zone in self._members() if zone.state == ZoneState.OPEN
+                z for z in listed if z in zones and zones[z].state == ZoneState.OPEN
             ],
+            "missing_zones": [z for z in self.zone_group.zone_ids if z not in listed],
         }
