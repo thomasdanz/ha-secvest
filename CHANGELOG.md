@@ -8,7 +8,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
-- Zone groups: no zone is preselected anymore, and the type defaults to "Same as the zones", which takes the type the zones show and follows it.
+- Zone groups: no zone is preselected anymore, and the type defaults to "Same as the zones", which takes the type the zones show and follows it. A zone group can be given an area when it is added or reconfigured.
 - Changing options or zone groups reloads at once, using the last round's result, instead of waiting up to 24 seconds for a new round; the next group can be added right away.
 
 ## [0.1.9] - 2026-09-27

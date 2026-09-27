@@ -17,6 +17,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import (
+    area_registry as ar,
     device_registry as dr,
     entity_registry as er,
     issue_registry as ir,
@@ -408,3 +409,45 @@ async def test_next_group_right_away(
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert hass.states.get("binary_sensor.alarmanlage_room_4") is not None
+
+
+def _group_device(hass: HomeAssistant) -> dr.DeviceEntry:
+    entity = er.async_get(hass).async_get(GROUP)
+    assert entity is not None
+    device = dr.async_get(hass).async_get(entity.device_id)  # type: ignore[arg-type]
+    assert isinstance(device, dr.DeviceEntry)
+    return device
+
+
+async def test_area(hass: HomeAssistant, setup: Setup) -> None:
+    """A new group device gets the area; reconfiguring shows and sets it."""
+    areas = ar.async_get(hass)
+    first = areas.async_create("First floor")
+    second = areas.async_create("Second floor")
+    entry = await setup()
+    await _add(hass, entry, _group(area_id=first.id))
+    assert _group_device(hass).area_id == first.id
+
+    # changed on the device page: the reconfigure form shows that
+    dr.async_get(hass).async_update_device(_group_device(hass).id, area_id=second.id)
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, SUBENTRY_ZONE_GROUP),
+        context={"source": SOURCE_RECONFIGURE, "subentry_id": _subentry_id(entry)},
+    )
+    schema = result["data_schema"]
+    assert schema is not None
+    suggested = {
+        str(k): (k.description or {}).get("suggested_value") for k in schema.schema
+    }
+    assert suggested["area_id"] == second.id
+
+    # and saving the form sets it
+    await _reconfigure(hass, entry, _subentry_id(entry), _group(area_id=first.id))
+    assert _group_device(hass).area_id == first.id
+
+
+async def test_no_area(hass: HomeAssistant, setup: Setup) -> None:
+    """Without an area the device has none."""
+    entry = await setup()
+    await _add(hass, entry, _group())
+    assert _group_device(hass).area_id is None

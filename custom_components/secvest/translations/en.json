@@ -216,13 +216,15 @@
             "name": "Name",
             "zones": "Zones",
             "device_class": "Show as",
-            "hide_members": "Hide grouped zones"
+            "hide_members": "Hide grouped zones",
+            "area_id": "Area"
           },
           "data_description": {
             "name": "Used for the device (\"Zone group\" followed by the name) and the entity id.",
             "zones": "At least two zones; a zone can be in one group only.",
             "device_class": "How the group sensor is shown, e.g. window or door. \"Same as the zones\" takes the type the zones show and follows it.",
-            "hide_members": "Hide the entities of the grouped zones in Home Assistant; they keep working and can still be used in automations."
+            "hide_members": "Hide the entities of the grouped zones in Home Assistant; they keep working and can still be used in automations.",
+            "area_id": "The area of the group device. Can also be changed on the device page later."
           }
         },
         "reconfigure": {
@@ -232,13 +234,15 @@
             "name": "Name",
             "zones": "Zones",
             "device_class": "Show as",
-            "hide_members": "Hide grouped zones"
+            "hide_members": "Hide grouped zones",
+            "area_id": "Area"
           },
           "data_description": {
             "name": "Used for the device (\"Zone group\" followed by the name); the entity id stays.",
             "zones": "At least two zones; a zone can be in one group only.",
             "device_class": "How the group sensor is shown, e.g. window or door. \"Same as the zones\" takes the type the zones show and follows it.",
-            "hide_members": "Hide the entities of the grouped zones in Home Assistant; they keep working and can still be used in automations."
+            "hide_members": "Hide the entities of the grouped zones in Home Assistant; they keep working and can still be used in automations.",
+            "area_id": "The area of the group device. Can also be changed on the device page later."
           }
         }
       },

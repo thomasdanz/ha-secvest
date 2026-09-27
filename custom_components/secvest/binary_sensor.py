@@ -8,6 +8,7 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.const import EntityCategory, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import slugify
@@ -219,6 +220,12 @@ class ZoneGroupSensor(SecvestEntity, BinarySensorEntity):
             translation_placeholders={"name": group.name},
             via_device_id=coordinator.panel_device_id,
         )
+        # used only when the device is created; afterwards the device page
+        # (or reconfiguring the group) decides
+        if group.area_id and (
+            area := ar.async_get(coordinator.hass).async_get_area(group.area_id)
+        ):
+            self._attr_device_info["suggested_area"] = area.name
         device_class: str | None = group.device_class
         if device_class == SAME_AS_ZONES:
             device_class = zones_device_class(coordinator.hass, entry, group.zone_ids)

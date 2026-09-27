@@ -13,6 +13,7 @@ from homeassistant.const import CONF_DEVICE_CLASS, CONF_NAME, Platform
 from homeassistant.helpers import entity_registry as er
 
 from .const import (
+    CONF_AREA_ID,
     CONF_HIDE_MEMBERS,
     CONF_USER_AGENT,
     CONF_ZONES,
@@ -37,6 +38,8 @@ class ZoneGroup:
     zone_ids: tuple[str, ...]
     device_class: str
     hide_members: bool
+    # for a new group device only
+    area_id: str | None = None
 
 
 def zone_groups(entry: ConfigEntry) -> list[ZoneGroup]:
@@ -48,6 +51,7 @@ def zone_groups(entry: ConfigEntry) -> list[ZoneGroup]:
             zone_ids=tuple(subentry.data[CONF_ZONES]),
             device_class=subentry.data[CONF_DEVICE_CLASS],
             hide_members=subentry.data.get(CONF_HIDE_MEMBERS, False),
+            area_id=subentry.data.get(CONF_AREA_ID),
         )
         for subentry in entry.subentries.values()
         if subentry.subentry_type == SUBENTRY_ZONE_GROUP

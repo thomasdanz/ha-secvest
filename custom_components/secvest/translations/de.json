@@ -216,13 +216,15 @@
             "name": "Name",
             "zones": "Zonen",
             "device_class": "Anzeigen als",
-            "hide_members": "Gruppierte Zonen verbergen"
+            "hide_members": "Gruppierte Zonen verbergen",
+            "area_id": "Bereich"
           },
           "data_description": {
             "name": "Wird für das Gerät („Zonengruppe“ mit dem Namen) und die Entity-ID verwendet.",
             "zones": "Mindestens zwei Zonen; eine Zone kann nur in einer Gruppe sein.",
             "device_class": "Wie der Gruppensensor angezeigt wird, z. B. als Fenster oder Tür. „Wie die Zonen“ übernimmt den Typ der Zonen und folgt ihm.",
-            "hide_members": "Verbirgt die Entitäten der gruppierten Zonen in Home Assistant; sie arbeiten weiter und lassen sich in Automationen verwenden."
+            "hide_members": "Verbirgt die Entitäten der gruppierten Zonen in Home Assistant; sie arbeiten weiter und lassen sich in Automationen verwenden.",
+            "area_id": "Der Bereich des Gruppengeräts. Lässt sich später auch auf der Geräteseite ändern."
           }
         },
         "reconfigure": {
@@ -232,13 +234,15 @@
             "name": "Name",
             "zones": "Zonen",
             "device_class": "Anzeigen als",
-            "hide_members": "Gruppierte Zonen verbergen"
+            "hide_members": "Gruppierte Zonen verbergen",
+            "area_id": "Bereich"
           },
           "data_description": {
             "name": "Wird für das Gerät verwendet („Zonengruppe“ mit dem Namen); die Entity-ID bleibt.",
             "zones": "Mindestens zwei Zonen; eine Zone kann nur in einer Gruppe sein.",
             "device_class": "Wie der Gruppensensor angezeigt wird, z. B. als Fenster oder Tür. „Wie die Zonen“ übernimmt den Typ der Zonen und folgt ihm.",
-            "hide_members": "Verbirgt die Entitäten der gruppierten Zonen in Home Assistant; sie arbeiten weiter und lassen sich in Automationen verwenden."
+            "hide_members": "Verbirgt die Entitäten der gruppierten Zonen in Home Assistant; sie arbeiten weiter und lassen sich in Automationen verwenden.",
+            "area_id": "Der Bereich des Gruppengeräts. Lässt sich später auch auf der Geräteseite ändern."
           }
         }
       },
