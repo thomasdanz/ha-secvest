@@ -169,6 +169,16 @@ def _round_starts(hass: HomeAssistant) -> dict[str, float]:
     return starts
 
 
+def _last_rounds(
+    hass: HomeAssistant,
+) -> dict[str, tuple[tuple[int, ...], PanelState]]:
+    # the result of each entry's last round, for a reload shortly after it
+    rounds: dict[str, tuple[tuple[int, ...], PanelState]] = hass.data.setdefault(
+        DOMAIN, {}
+    ).setdefault("last_rounds", {})
+    return rounds
+
+
 class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
     """The only user of the client: runs the polling rounds."""
 
@@ -260,11 +270,38 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
                 )
             raise UpdateFailed(str(err), retry_after=delay) from err
         self.backoff.succeeded()
+        _last_rounds(self.hass)[entry_id] = (self.selected_partitions, state)
         self._check_groups(state)
         if self.installer_locked:
             _LOGGER.info("The installer logged out; the panel is unlocked")
             self.installer_locked = False
         return state
+
+    def reuse_recent_round(self) -> bool:
+        """Take the last round's result if a new round would have to wait.
+
+        A reload (changed options or zone groups) would otherwise wait up to
+        the minimum spacing before its first round. The result is only taken
+        for the same selected partitions; nothing is sent.
+        """
+        entry_id = self.config_entry.entry_id
+        start = _round_starts(self.hass).get(entry_id)
+        last = _last_rounds(self.hass).get(entry_id)
+        if (
+            start is None
+            or last is None
+            or last[0] != self.selected_partitions
+            or time.monotonic() - start >= MIN_SCAN_INTERVAL
+        ):
+            return False
+        state = last[1]
+        for number in self.selected_partitions:
+            self._check_partition(number, state.partitions.get(number))
+        self._check_groups(state)
+        self.data = state
+        self.last_update_success = True
+        _LOGGER.debug("Reusing the round from %.1f s ago", time.monotonic() - start)
+        return True
 
     def clear_stale_issues(self) -> None:
         """Delete issues of partitions no longer selected or groups deleted."""

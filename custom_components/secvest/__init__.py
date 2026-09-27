@@ -49,12 +49,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> b
         user_agent=data[CONF_USER_AGENT] or await default_user_agent(hass),
     )
     coordinator = SecvestCoordinator(hass, entry, Client(transport))
-    try:
-        await coordinator.async_config_entry_first_refresh()
-    except BaseException:
-        # a failed setup is not unloaded; stop the transport's thread here
-        await transport.close()
-        raise
+    # after a reload shortly after a round, its result is taken instead of
+    # waiting for the minimum spacing
+    if not coordinator.reuse_recent_round():
+        try:
+            await coordinator.async_config_entry_first_refresh()
+        except BaseException:
+            # a failed setup is not unloaded; stop the transport's thread here
+            await transport.close()
+            raise
     # registered first, so that the zone devices can refer to it
     panel = dr.async_get(hass).async_get_or_create(
         config_entry_id=entry.entry_id,

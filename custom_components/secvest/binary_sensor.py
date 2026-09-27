@@ -17,7 +17,7 @@ from .api.models import FaultType, Partition, Zone, ZoneState
 from .const import CONF_EXCLUDED_ZONES, CONF_ZONE_DEVICE_CLASSES, DOMAIN
 from .coordinator import SecvestCoordinator
 from .entity import SecvestEntity, SecvestZoneEntity, zone_model
-from .groups import ZoneGroup, zone_groups
+from .groups import SAME_AS_ZONES, ZoneGroup, zone_groups, zones_device_class
 
 # the entities only read the coordinator's state
 PARALLEL_UPDATES = 0
@@ -219,8 +219,11 @@ class ZoneGroupSensor(SecvestEntity, BinarySensorEntity):
             translation_placeholders={"name": group.name},
             via_device_id=coordinator.panel_device_id,
         )
-        if group.device_class in BinarySensorDeviceClass:
-            self._attr_device_class = BinarySensorDeviceClass(group.device_class)
+        device_class: str | None = group.device_class
+        if device_class == SAME_AS_ZONES:
+            device_class = zones_device_class(coordinator.hass, entry, group.zone_ids)
+        if device_class is not None and device_class in BinarySensorDeviceClass:
+            self._attr_device_class = BinarySensorDeviceClass(device_class)
 
     def _listed(self) -> list[str]:
         """Return the members the selected partitions still list."""

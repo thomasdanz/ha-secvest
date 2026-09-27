@@ -70,7 +70,7 @@ from .const import (
     TESTED_MODEL,
     ZONE_DEVICE_CLASSES,
 )
-from .groups import zone_groups
+from .groups import SAME_AS_ZONES, zone_groups, zones_device_class
 
 STEP_REAUTH_SCHEMA = vol.Schema(
     {
@@ -575,6 +575,10 @@ class ZoneGroupFlow(ConfigSubentryFlow):
                 errors[CONF_NAME] = "name_exists"
             elif len(chosen) < 2:
                 errors[CONF_ZONES] = "too_few_zones"
+            elif user_input[
+                CONF_DEVICE_CLASS
+            ] == SAME_AS_ZONES and not zones_device_class(self.hass, entry, chosen):
+                errors[CONF_DEVICE_CLASS] = "zones_differ"
             else:
                 data = {
                     CONF_NAME: name,
@@ -591,7 +595,9 @@ class ZoneGroupFlow(ConfigSubentryFlow):
         schema = vol.Schema(
             {
                 vol.Required(CONF_NAME): TextSelector(),
-                vol.Required(CONF_ZONES): SelectSelector(
+                # optional, so the frontend doesn't preselect the first zone;
+                # at least two are checked above
+                vol.Optional(CONF_ZONES): SelectSelector(
                     SelectSelectorConfig(
                         options=[
                             SelectOptionDict(value=zone_id, label=label)
@@ -603,7 +609,7 @@ class ZoneGroupFlow(ConfigSubentryFlow):
                 ),
                 vol.Required(CONF_DEVICE_CLASS): SelectSelector(
                     SelectSelectorConfig(
-                        options=list(ZONE_DEVICE_CLASSES),
+                        options=[SAME_AS_ZONES, *ZONE_DEVICE_CLASSES],
                         translation_key="device_class",
                         mode=SelectSelectorMode.DROPDOWN,
                     )
@@ -614,7 +620,7 @@ class ZoneGroupFlow(ConfigSubentryFlow):
         suggested: Mapping[str, Any] = user_input or (
             subentry.data
             if subentry is not None
-            else {CONF_DEVICE_CLASS: "window", CONF_HIDE_MEMBERS: False}
+            else {CONF_DEVICE_CLASS: SAME_AS_ZONES, CONF_HIDE_MEMBERS: False}
         )
         return self.async_show_form(
             step_id=step_id,

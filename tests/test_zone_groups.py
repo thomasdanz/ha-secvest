@@ -21,8 +21,11 @@ from homeassistant.helpers import (
     entity_registry as er,
     issue_registry as ir,
 )
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+import voluptuous as vol
 
+from custom_components.secvest import coordinator as coordinator_module
 from custom_components.secvest.const import (
     CONF_AUTH_FAILED,
     CONF_HIDE_MEMBERS,
@@ -96,16 +99,21 @@ def _state(hass: HomeAssistant, entity_id: str) -> str:
 
 
 async def test_add_group(
-    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+    hass: HomeAssistant,
+    fake_panel: FakePanel,
+    setup: Setup,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A group gets its own device and sensor; the zones keep theirs."""
+    monkeypatch.setattr(coordinator_module, "MIN_SCAN_INTERVAL", 30)
     entry = await setup()
     sent = len(fake_panel.stats.requests)
     result = await _add(hass, entry, _group())
     assert result["type"] is FlowResultType.CREATE_ENTRY
+    # the reload takes the last round: loaded at once, nothing sent
     assert entry.state is ConfigEntryState.LOADED
-    # only the reload's round was sent
-    assert len(fake_panel.stats.requests) == sent + 4
+    assert len(fake_panel.stats.requests) == sent
+    monkeypatch.setattr(coordinator_module, "MIN_SCAN_INTERVAL", 0.05)
 
     state = hass.states.get(GROUP)
     assert state is not None
@@ -335,3 +343,68 @@ async def test_issue_removed_with_the_group(
     assert hass.config_entries.async_remove_subentry(entry, subentry_id)
     await hass.async_block_till_done()
     assert [i for d, i in ir.async_get(hass).issues if d == DOMAIN] == []
+
+
+async def test_no_zone_preselected(hass: HomeAssistant, setup: Setup) -> None:
+    """The zones field has no default, so the frontend selects nothing."""
+    entry = await setup()
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, SUBENTRY_ZONE_GROUP), context={"source": SOURCE_USER}
+    )
+    schema = result["data_schema"]
+    assert schema is not None
+    (key,) = (k for k in schema.schema if k == CONF_ZONES)
+    assert isinstance(key, vol.Optional)
+    assert key.default is vol.UNDEFINED
+    suggested = {
+        str(k): (k.description or {}).get("suggested_value") for k in schema.schema
+    }
+    assert suggested[CONF_ZONES] is None
+    assert suggested[CONF_DEVICE_CLASS] == "same_as_zones"
+
+
+async def test_same_as_zones(hass: HomeAssistant, setup: Setup) -> None:
+    """The group shows what its zones show; mixed types need a choice."""
+    entry = await setup(
+        zone_device_classes={"203": "window", "204": "window", "205": "door"}
+    )
+    result = await _add(
+        hass,
+        entry,
+        _group(**{CONF_ZONES: ["203", "205"], CONF_DEVICE_CLASS: "same_as_zones"}),
+    )
+    assert result["errors"] == {CONF_DEVICE_CLASS: "zones_differ"}
+    result = await _add(hass, entry, _group(**{CONF_DEVICE_CLASS: "same_as_zones"}))
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    state = hass.states.get(GROUP)
+    assert state is not None
+    assert state.attributes[ATTR_DEVICE_CLASS] == "window"
+
+
+async def test_same_as_zones_follows_show_as(hass: HomeAssistant, setup: Setup) -> None:
+    """The user's "Show as" on the zones counts."""
+    entry = await setup()
+    registry = er.async_get(hass)
+    for member in MEMBERS:
+        registry.async_update_entity(member, device_class="door")
+    await _add(hass, entry, _group(**{CONF_DEVICE_CLASS: "same_as_zones"}))
+    state = hass.states.get(GROUP)
+    assert state is not None
+    assert state.attributes[ATTR_DEVICE_CLASS] == "door"
+
+
+async def test_next_group_right_away(
+    hass: HomeAssistant,
+    fake_panel: FakePanel,
+    setup: Setup,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """After adding a group, the next one can be added at once."""
+    monkeypatch.setattr(coordinator_module, "MIN_SCAN_INTERVAL", 30)
+    entry = await setup()
+    await _add(hass, entry, _group())
+    result = await _add(
+        hass, entry, _group(**{CONF_NAME: "Room 4", CONF_ZONES: ["205", "206"]})
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert hass.states.get("binary_sensor.alarmanlage_room_4") is not None

@@ -165,7 +165,8 @@
         "moisture": "Feuchtigkeit (Wasser)",
         "lock": "Schloss (z. B. Riegelkontakt)",
         "tamper": "Sabotage",
-        "vibration": "Erschütterung"
+        "vibration": "Erschütterung",
+        "same_as_zones": "Wie die Zonen"
       }
     }
   },
@@ -220,7 +221,7 @@
           "data_description": {
             "name": "Wird für das Gerät („Zonengruppe“ mit dem Namen) und die Entity-ID verwendet.",
             "zones": "Mindestens zwei Zonen; eine Zone kann nur in einer Gruppe sein.",
-            "device_class": "Wie der Gruppensensor angezeigt wird, z. B. als Fenster oder Tür.",
+            "device_class": "Wie der Gruppensensor angezeigt wird, z. B. als Fenster oder Tür. „Wie die Zonen“ übernimmt den Typ der Zonen und folgt ihm.",
             "hide_members": "Verbirgt die Entitäten der gruppierten Zonen in Home Assistant; sie arbeiten weiter und lassen sich in Automationen verwenden."
           }
         },
@@ -236,7 +237,7 @@
           "data_description": {
             "name": "Wird für das Gerät verwendet („Zonengruppe“ mit dem Namen); die Entity-ID bleibt.",
             "zones": "Mindestens zwei Zonen; eine Zone kann nur in einer Gruppe sein.",
-            "device_class": "Wie der Gruppensensor angezeigt wird, z. B. als Fenster oder Tür.",
+            "device_class": "Wie der Gruppensensor angezeigt wird, z. B. als Fenster oder Tür. „Wie die Zonen“ übernimmt den Typ der Zonen und folgt ihm.",
             "hide_members": "Verbirgt die Entitäten der gruppierten Zonen in Home Assistant; sie arbeiten weiter und lassen sich in Automationen verwenden."
           }
         }
@@ -244,7 +245,8 @@
       "error": {
         "name_required": "Gib einen Namen ein.",
         "name_exists": "Eine Gruppe mit diesem Namen gibt es schon.",
-        "too_few_zones": "Wähle mindestens zwei Zonen aus."
+        "too_few_zones": "Wähle mindestens zwei Zonen aus.",
+        "zones_differ": "Die Zonen haben unterschiedliche Typen; wähle einen aus."
       },
       "abort": {
         "not_loaded": "Die Integration ist nicht geladen. Behebe zuerst das angezeigte Problem und ändere dann die Zonengruppen.",
