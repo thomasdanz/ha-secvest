@@ -126,7 +126,8 @@
       "versions": [
         "0.1.7",
         "0.1.8",
-        "0.1.9"
+        "0.1.9",
+        "0.1.10"
       ],
       "minor_version": 2,
       "data": {
@@ -196,6 +197,64 @@
             ],
             "device_class": "window",
             "hide_members": true
+          }
+        }
+      ],
+      "unique_ids": {
+        "panel": [
+          "installer_lock",
+          "problem",
+          "faults"
+        ],
+        "partition_1": [
+          "alarm",
+          "arming_blocked",
+          "open_zones"
+        ],
+        "zones": [
+          "open",
+          "problem"
+        ],
+        "groups": [
+          "open"
+        ]
+      }
+    },
+    {
+      "name": "with a zone group, same as the zones and an area",
+      "versions": [
+        "0.1.10"
+      ],
+      "minor_version": 2,
+      "data": {
+        "url": "{url}",
+        "user_code": "{user_code}",
+        "password": "{password}",
+        "verify_ssl": false,
+        "user_agent": ""
+      },
+      "options": {
+        "partitions": [
+          1
+        ],
+        "excluded_zones": [],
+        "zone_device_classes": {}
+      },
+      "subentries": [
+        {
+          "subentry_id": "01JZONEGROUP0000000000000A",
+          "subentry_type": "zone_group",
+          "title": "Room 3",
+          "unique_id": null,
+          "data": {
+            "name": "Room 3",
+            "zones": [
+              "203",
+              "204"
+            ],
+            "device_class": "same_as_zones",
+            "hide_members": true,
+            "area_id": "first_floor"
           }
         }
       ],

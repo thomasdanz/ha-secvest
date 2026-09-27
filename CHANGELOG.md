@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-09-28
+
+### Changed
+
+- Zone groups: no zone is preselected anymore, and the type defaults to "Same as the zones", which takes the type the zones show and follows it. A zone group can be given an area when it is added or reconfigured.
+- Changing options or zone groups reloads at once, using the last round's result, instead of waiting up to 24 seconds for a new round; the next group can be added right away.
+
 ## [0.1.9] - 2026-09-27
 
 ### Added
@@ -105,7 +112,8 @@ First version, read-only: the state of partitions, zones and faults.
 - README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
 - Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
 
-[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.9...HEAD
+[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.10...HEAD
+[0.1.10]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.6...v0.1.7

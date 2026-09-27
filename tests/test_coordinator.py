@@ -111,20 +111,46 @@ async def test_minimum_spacing(
     assert fake_panel.stats.requests == ROUND * 2
 
 
+async def test_quick_reload_reuses_the_round(
+    hass: HomeAssistant,
+    fake_panel: FakePanel,
+    setup: Setup,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A reload within the spacing takes the last round; nothing is sent."""
+    monkeypatch.setattr(coordinator_module, "MIN_SCAN_INTERVAL", 0.5)
+    entry = await setup()
+    state = coordinator_of(entry).data
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    assert entry.state is ConfigEntryState.LOADED
+    assert coordinator_of(entry).data is state
+    assert fake_panel.stats.requests == ROUND
+    # the next round still keeps the spacing
+    before = _round_start(hass, entry)
+    await coordinator_of(entry).async_refresh()
+    assert _round_start(hass, entry) - before >= 0.5
+    assert fake_panel.stats.requests == ROUND * 2
+
+
 async def test_spacing_survives_a_reload(
     hass: HomeAssistant,
     fake_panel: FakePanel,
     setup: Setup,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A reload creates a new coordinator but keeps the spacing."""
+    """With other partitions, a reload reads again, keeping the spacing."""
     monkeypatch.setattr(coordinator_module, "MIN_SCAN_INTERVAL", 0.5)
     entry = await setup()
     before = _round_start(hass, entry)
-    assert await hass.config_entries.async_reload(entry.entry_id)
+    hass.config_entries.async_update_entry(
+        entry, options={**entry.options, CONF_PARTITIONS: [1, 2]}
+    )
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.LOADED
+    assert coordinator_of(entry).selected_partitions == (1, 2)
     # measured between the rounds' starts, which the spacing is about
     assert _round_start(hass, entry) - before >= 0.5
-    assert fake_panel.stats.requests == ROUND * 2
+    assert len(fake_panel.stats.requests) == len(ROUND) * 2
 
 
 async def test_requested_refresh(

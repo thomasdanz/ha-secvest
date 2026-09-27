@@ -8,6 +8,7 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.const import EntityCategory, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import slugify
@@ -17,7 +18,7 @@ from .api.models import FaultType, Partition, Zone, ZoneState
 from .const import CONF_EXCLUDED_ZONES, CONF_ZONE_DEVICE_CLASSES, DOMAIN
 from .coordinator import SecvestCoordinator
 from .entity import SecvestEntity, SecvestZoneEntity, zone_model
-from .groups import ZoneGroup, zone_groups
+from .groups import SAME_AS_ZONES, ZoneGroup, zone_groups, zones_device_class
 
 # the entities only read the coordinator's state
 PARALLEL_UPDATES = 0
@@ -219,8 +220,17 @@ class ZoneGroupSensor(SecvestEntity, BinarySensorEntity):
             translation_placeholders={"name": group.name},
             via_device_id=coordinator.panel_device_id,
         )
-        if group.device_class in BinarySensorDeviceClass:
-            self._attr_device_class = BinarySensorDeviceClass(group.device_class)
+        # used only when the device is created; afterwards the device page
+        # (or reconfiguring the group) decides
+        if group.area_id and (
+            area := ar.async_get(coordinator.hass).async_get_area(group.area_id)
+        ):
+            self._attr_device_info["suggested_area"] = area.name
+        device_class: str | None = group.device_class
+        if device_class == SAME_AS_ZONES:
+            device_class = zones_device_class(coordinator.hass, entry, group.zone_ids)
+        if device_class is not None and device_class in BinarySensorDeviceClass:
+            self._attr_device_class = BinarySensorDeviceClass(device_class)
 
     def _listed(self) -> list[str]:
         """Return the members the selected partitions still list."""

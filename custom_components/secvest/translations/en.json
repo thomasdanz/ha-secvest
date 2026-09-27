@@ -165,7 +165,8 @@
         "moisture": "Moisture (water)",
         "lock": "Lock (e.g. bolt contact)",
         "tamper": "Tamper",
-        "vibration": "Vibration"
+        "vibration": "Vibration",
+        "same_as_zones": "Same as the zones"
       }
     }
   },
@@ -215,13 +216,15 @@
             "name": "Name",
             "zones": "Zones",
             "device_class": "Show as",
-            "hide_members": "Hide grouped zones"
+            "hide_members": "Hide grouped zones",
+            "area_id": "Area"
           },
           "data_description": {
             "name": "Used for the device (\"Zone group\" followed by the name) and the entity id.",
             "zones": "At least two zones; a zone can be in one group only.",
-            "device_class": "How the group sensor is shown, e.g. window or door.",
-            "hide_members": "Hide the entities of the grouped zones in Home Assistant; they keep working and can still be used in automations."
+            "device_class": "How the group sensor is shown, e.g. window or door. \"Same as the zones\" takes the type the zones show and follows it.",
+            "hide_members": "Hide the entities of the grouped zones in Home Assistant; they keep working and can still be used in automations.",
+            "area_id": "The area of the group device. Can also be changed on the device page later."
           }
         },
         "reconfigure": {
@@ -231,20 +234,23 @@
             "name": "Name",
             "zones": "Zones",
             "device_class": "Show as",
-            "hide_members": "Hide grouped zones"
+            "hide_members": "Hide grouped zones",
+            "area_id": "Area"
           },
           "data_description": {
             "name": "Used for the device (\"Zone group\" followed by the name); the entity id stays.",
             "zones": "At least two zones; a zone can be in one group only.",
-            "device_class": "How the group sensor is shown, e.g. window or door.",
-            "hide_members": "Hide the entities of the grouped zones in Home Assistant; they keep working and can still be used in automations."
+            "device_class": "How the group sensor is shown, e.g. window or door. \"Same as the zones\" takes the type the zones show and follows it.",
+            "hide_members": "Hide the entities of the grouped zones in Home Assistant; they keep working and can still be used in automations.",
+            "area_id": "The area of the group device. Can also be changed on the device page later."
           }
         }
       },
       "error": {
         "name_required": "Enter a name.",
         "name_exists": "A group with this name exists already.",
-        "too_few_zones": "Select at least two zones."
+        "too_few_zones": "Select at least two zones.",
+        "zones_differ": "The zones show different types; choose one."
       },
       "abort": {
         "not_loaded": "The integration isn't loaded. Fix the problem shown for it first, then change the zone groups.",

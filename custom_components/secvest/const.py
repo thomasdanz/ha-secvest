@@ -22,6 +22,8 @@ CONF_EXCLUDED_ZONES = "excluded_zones"
 SUBENTRY_ZONE_GROUP = "zone_group"
 CONF_ZONES = "zones"
 CONF_HIDE_MEMBERS = "hide_members"
+# area of a new group device; the device page manages it afterwards
+CONF_AREA_ID = "area_id"
 
 # offered per zone; the API has no detector type
 ZONE_DEVICE_CLASSES = (

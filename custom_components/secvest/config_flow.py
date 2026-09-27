@@ -25,7 +25,9 @@ from homeassistant.const import (
 )
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.selector import (
+    AreaSelector,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
@@ -51,6 +53,7 @@ from .api.models import Partition, Zone
 from .api.transport import Transport
 from .const import (
     CONF_ADVANCED,
+    CONF_AREA_ID,
     CONF_AUTH_FAILED,
     CONF_EXCLUDED_ZONES,
     CONF_HIDE_MEMBERS,
@@ -70,7 +73,7 @@ from .const import (
     TESTED_MODEL,
     ZONE_DEVICE_CLASSES,
 )
-from .groups import zone_groups
+from .groups import SAME_AS_ZONES, zone_groups, zones_device_class
 
 STEP_REAUTH_SCHEMA = vol.Schema(
     {
@@ -575,15 +578,25 @@ class ZoneGroupFlow(ConfigSubentryFlow):
                 errors[CONF_NAME] = "name_exists"
             elif len(chosen) < 2:
                 errors[CONF_ZONES] = "too_few_zones"
+            elif user_input[
+                CONF_DEVICE_CLASS
+            ] == SAME_AS_ZONES and not zones_device_class(self.hass, entry, chosen):
+                errors[CONF_DEVICE_CLASS] = "zones_differ"
             else:
                 data = {
                     CONF_NAME: name,
                     CONF_ZONES: chosen,
                     CONF_DEVICE_CLASS: user_input[CONF_DEVICE_CLASS],
                     CONF_HIDE_MEMBERS: user_input[CONF_HIDE_MEMBERS],
+                    CONF_AREA_ID: user_input.get(CONF_AREA_ID),
                 }
                 if subentry is None:
                     return self.async_create_entry(title=name, data=data)
+                # the device exists: set its area directly
+                if (device := _group_device(self.hass, entry, subentry)) is not None:
+                    dr.async_get(self.hass).async_update_device(
+                        device.id, area_id=data[CONF_AREA_ID]
+                    )
                 # the entry reloads, since its subentries changed
                 return self.async_update_and_abort(
                     entry, subentry, title=name, data=data
@@ -591,7 +604,9 @@ class ZoneGroupFlow(ConfigSubentryFlow):
         schema = vol.Schema(
             {
                 vol.Required(CONF_NAME): TextSelector(),
-                vol.Required(CONF_ZONES): SelectSelector(
+                # optional, so the frontend doesn't preselect the first zone;
+                # at least two are checked above
+                vol.Optional(CONF_ZONES): SelectSelector(
                     SelectSelectorConfig(
                         options=[
                             SelectOptionDict(value=zone_id, label=label)
@@ -603,21 +618,40 @@ class ZoneGroupFlow(ConfigSubentryFlow):
                 ),
                 vol.Required(CONF_DEVICE_CLASS): SelectSelector(
                     SelectSelectorConfig(
-                        options=list(ZONE_DEVICE_CLASSES),
+                        options=[SAME_AS_ZONES, *ZONE_DEVICE_CLASSES],
                         translation_key="device_class",
                         mode=SelectSelectorMode.DROPDOWN,
                     )
                 ),
                 vol.Required(CONF_HIDE_MEMBERS): bool,
+                vol.Optional(CONF_AREA_ID): AreaSelector(),
             }
         )
-        suggested: Mapping[str, Any] = user_input or (
-            subentry.data
-            if subentry is not None
-            else {CONF_DEVICE_CLASS: "window", CONF_HIDE_MEMBERS: False}
-        )
+        suggested: Mapping[str, Any]
+        if user_input is not None:
+            suggested = user_input
+        elif subentry is not None:
+            # the device's current area, which the device page may have changed
+            device = _group_device(self.hass, entry, subentry)
+            suggested = {
+                **subentry.data,
+                CONF_AREA_ID: device.area_id if device is not None else None,
+            }
+        else:
+            suggested = {CONF_DEVICE_CLASS: SAME_AS_ZONES, CONF_HIDE_MEMBERS: False}
         return self.async_show_form(
             step_id=step_id,
             data_schema=self.add_suggested_values_to_schema(schema, suggested),
             errors=errors,
         )
+
+
+def _group_device(
+    hass: Any, entry: ConfigEntry, subentry: ConfigSubentry
+) -> dr.DeviceEntry | None:
+    """Return the device of a zone group, if it exists yet."""
+    identifier = (DOMAIN, f"{entry.entry_id}_group_{subentry.subentry_id}")
+    for device in dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id):
+        if identifier in device.identifiers and isinstance(device, dr.DeviceEntry):
+            return device
+    return None

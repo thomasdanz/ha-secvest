@@ -9,12 +9,24 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from homeassistant.const import CONF_DEVICE_CLASS, CONF_NAME
+from homeassistant.const import CONF_DEVICE_CLASS, CONF_NAME, Platform
+from homeassistant.helpers import entity_registry as er
 
-from .const import CONF_HIDE_MEMBERS, CONF_USER_AGENT, CONF_ZONES, SUBENTRY_ZONE_GROUP
+from .const import (
+    CONF_AREA_ID,
+    CONF_HIDE_MEMBERS,
+    CONF_USER_AGENT,
+    CONF_ZONES,
+    DOMAIN,
+    SUBENTRY_ZONE_GROUP,
+)
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
+
+# a group's device class that follows its zones
+SAME_AS_ZONES = "same_as_zones"
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,6 +38,8 @@ class ZoneGroup:
     zone_ids: tuple[str, ...]
     device_class: str
     hide_members: bool
+    # for a new group device only
+    area_id: str | None = None
 
 
 def zone_groups(entry: ConfigEntry) -> list[ZoneGroup]:
@@ -37,6 +51,7 @@ def zone_groups(entry: ConfigEntry) -> list[ZoneGroup]:
             zone_ids=tuple(subentry.data[CONF_ZONES]),
             device_class=subentry.data[CONF_DEVICE_CLASS],
             hide_members=subentry.data.get(CONF_HIDE_MEMBERS, False),
+            area_id=subentry.data.get(CONF_AREA_ID),
         )
         for subentry in entry.subentries.values()
         if subentry.subentry_type == SUBENTRY_ZONE_GROUP
@@ -57,3 +72,26 @@ def reload_snapshot(entry: ConfigEntry) -> object:
         },
         entry.data.get(CONF_USER_AGENT),
     )
+
+
+def zones_device_class(
+    hass: HomeAssistant, entry: ConfigEntry, zone_ids: tuple[str, ...] | list[str]
+) -> str | None:
+    """Return the device class all zones show, or None if they differ.
+
+    What the zone sensors show counts: the user's "Show as" in Home
+    Assistant, else the class from the options.
+    """
+    registry = er.async_get(hass)
+    classes = set()
+    for zone_id in zone_ids:
+        entity_id = registry.async_get_entity_id(
+            Platform.BINARY_SENSOR, DOMAIN, f"{entry.entry_id}_zone_{zone_id}_open"
+        )
+        entity = registry.async_get(entity_id) if entity_id else None
+        classes.add(
+            entity.device_class or entity.original_device_class if entity else None
+        )
+    if len(classes) != 1:
+        return None
+    return classes.pop()
