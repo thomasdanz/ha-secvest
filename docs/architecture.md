@@ -74,7 +74,7 @@ The API client is a self-contained Python package without any Home Assistant dep
 | `sensor.py` | Faults count with details. |
 | `event.py` | Log entries as events. |
 | `config_flow.py` | Setup, partition/zone selection, options (including zone groups), reauthentication. |
-| `repairs.py` | Repair issues for maintenance faults and selected partitions the panel no longer reports. |
+| `repairs.py` | Repair issues for maintenance faults and for selected partitions that are empty or missing. |
 | `diagnostics.py` | Redacted diagnostics download. |
 | `log_patterns.py` | Text patterns for the optional entry delay detection, one per panel language, plus the user's custom pattern. The only place where logic depends on panel texts (see principle 4). |
 | `translations/` | `en.json`, `de.json`. |
@@ -130,7 +130,7 @@ The coordinator merges the results into one immutable `PanelState` and notifies 
 - **Minimum spacing:** a round never starts sooner than 24 s after the previous one started, whatever triggers it (interval, a manual refresh, setup retry, reload after an options change). The time of the last round is kept outside the coordinator, so a new coordinator after a reload or setup retry keeps the spacing; a round that comes too early waits.
 - **Manual refresh:** there is no refresh button; Home Assistant's `homeassistant.update_entity` action on any of the integration's entities runs a round, within the same minimum spacing.
 - **Commands go first:** a round doesn't hold the request queue, so a command can go ahead between two of its reads.
-- **Zones:** only the zone lists of the selected partitions are read; a zone in several selected partitions is kept once. A selected partition the panel no longer reports is skipped and logged once; a repair issue leads the user to the options to change the selection.
+- **Zones:** only the zone lists of the selected partitions that have zones (according to `/system/partitions/`) are read; a zone in several selected partitions is kept once. A selected partition without zones raises a repair issue (it shows only its state and can't be armed), which leads to the options to deselect it and can be ignored if the partition is empty on purpose; it disappears once the partition has zones again or is deselected. A selected partition the panel doesn't report at all (not expected: the tested panel always reports its four partitions) is skipped and raises the same kind of issue. The issue is logged once per change.
 
 ### Commands and verification
 

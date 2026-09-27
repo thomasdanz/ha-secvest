@@ -156,6 +156,10 @@
     "missing_partition": {
       "title": "Teilbereich {partition} nicht gefunden",
       "description": "Die Zentrale von {name} meldet den Teilbereich {partition} nicht mehr, der in den Optionen der Integration ausgewählt ist. Seine Entitäten sind nicht verfügbar. Öffne die Optionen der Integration und ändere die Auswahl."
+    },
+    "empty_partition": {
+      "title": "Teilbereich {partition} hat keine Zonen",
+      "description": "Der Teilbereich {partition} von {name} ist in den Optionen der Integration ausgewählt, hat aber keine Zonen mehr. Home Assistant zeigt daher nur seinen Zustand, und er lässt sich nicht aktivieren. Bleibt er leer, öffne die Optionen der Integration und wähle ihn ab; sonst ignoriere diesen Hinweis."
     }
   },
   "device": {

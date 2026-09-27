@@ -156,6 +156,10 @@
     "missing_partition": {
       "title": "Partition {partition} not found",
       "description": "The panel of {name} no longer reports partition {partition}, which is selected in the integration's options. Its entities are unavailable. Open the integration's options and change the selection."
+    },
+    "empty_partition": {
+      "title": "Partition {partition} has no zones",
+      "description": "Partition {partition} of {name} is selected in the integration's options but has no zones anymore, so Home Assistant shows only its state and it can't be armed. If it stays empty, open the integration's options and deselect it; otherwise ignore this issue."
     }
   },
   "device": {
