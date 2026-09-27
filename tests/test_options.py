@@ -87,11 +87,11 @@ async def test_change_options(
     assert coordinator.update_interval == timedelta(seconds=60)
     assert coordinator.selected_partitions == (1, 2)
     assert fake_panel.stats.user_agents[-1] == "Proxy/2"
-    state = hass.states.get("binary_sensor.room_6_l")
+    state = hass.states.get("binary_sensor.alarmanlage_room_6_l")
     assert state is not None
     assert state.attributes[ATTR_DEVICE_CLASS] == BinarySensorDeviceClass.DOOR
     # the excluded zone lost its entities and its device
-    assert hass.states.get("binary_sensor.room_1") is None
+    assert hass.states.get("binary_sensor.alarmanlage_room_1") is None
     assert "201" not in _zone_devices(hass, entry)
     assert "209" in _zone_devices(hass, entry)
 

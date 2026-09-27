@@ -223,6 +223,8 @@ The panel's partitions are independent of each other, so everything that belongs
 
 A zone belongs to at most one group; zones without a group keep their own device. Groups are never formed from zone names (principle 4).
 
+**Entity ids** (suggested at registration; users can rename them): `<domain>.<installation>_<partition>[_<entity>]` for partition entities, `<domain>.<installation>_<entity>` for the panel's own and `<domain>.<installation>_<zone>[_<entity>]` for zone entities, with the installation being the entry's title (the panel's system name) and all parts slugified. Partition and panel entities get this from Home Assistant (panel device name plus entity name); zone entities, whose device is named after the zone, suggest it explicitly.
+
 **Unique ids:** `<config entry id>_partition_<partition id>_<entity>`, `<config entry id>_zone_<zone id>_<entity>` and `<config entry id>_group_<group id>_<entity>`. Zone entities keep their unique id when their zone joins or leaves a group; only the device changes. The API reports no serial number, so ids are tied to the config entry: removing and re-adding the integration creates new entities (entity ids can be renamed back in Home Assistant).
 
 ## Configuration

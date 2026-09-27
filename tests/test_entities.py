@@ -52,3 +52,27 @@ async def test_entity_registry(
             entities[f"zone_{zone_id}_problem"].entity_category
             is EntityCategory.DIAGNOSTIC
         )
+
+
+async def test_entity_ids_follow_installation_and_names(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """<domain>.<installation>_<partition or zone>, slugified."""
+    # the setup fixture titles the entry like the config flow: system name
+    fake_panel.name = "Butterkeks"
+    fake_panel.partitions[1].name = "Krümelmonster"
+    fake_panel.zones["209"].name = "Haustür"
+    entry = await setup()
+    ids = {
+        entity.unique_id.removeprefix(f"{entry.entry_id}_"): entity.entity_id
+        for entity in er.async_entries_for_config_entry(
+            er.async_get(hass), entry.entry_id
+        )
+    }
+    assert ids["partition_1_alarm"] == "alarm_control_panel.butterkeks_krumelmonster"
+    assert ids["partition_1_arming_blocked"] == (
+        "binary_sensor.butterkeks_krumelmonster_arming_blocked"
+    )
+    assert ids["faults"] == "sensor.butterkeks_faults"
+    assert ids["zone_209_open"] == "binary_sensor.butterkeks_haustur"
+    assert ids["zone_209_problem"] == "binary_sensor.butterkeks_haustur_problem"

@@ -56,6 +56,8 @@ If a selected partition disappears from the panel, a repair issue asks you to ch
 - **Arming blocked** per selected partition: on while a fault that prevents arming affects the partition; the attributes name the blocking zones and faults. The panel checks some conditions only when arming is requested (depending on its configuration, e.g. an open entry door), so arming can still fail while this sensor is off.
 - **Installer lock** (diagnostic) on the panel device.
 
+Entity ids start with the installation's name, followed by the partition or zone, e.g. `alarm_control_panel.alarmanlage_ground_floor` or `binary_sensor.alarmanlage_front_door`. They are set once when the entities are created; you can rename them in Home Assistant.
+
 To show the faults on a dashboard, use a Markdown card:
 
 ```yaml

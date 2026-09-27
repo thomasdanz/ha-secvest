@@ -6,7 +6,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
 )
-from homeassistant.const import EntityCategory
+from homeassistant.const import EntityCategory, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -43,7 +43,7 @@ async def async_setup_entry(
         if zone.id in excluded:
             continue
         entities.append(ZoneSensor(coordinator, zone, device_classes.get(zone.id)))
-        entities.append(ZoneProblemSensor(coordinator, zone, "problem"))
+        entities.append(ZoneProblemSensor(coordinator, zone))
     async_add_entities(entities)
 
 
@@ -124,6 +124,7 @@ class ZoneSensor(SecvestZoneEntity, BinarySensorEntity):
 
     # named after the device, i.e. the zone
     _attr_name = None
+    platform_domain = Platform.BINARY_SENSOR
 
     def __init__(
         self,
@@ -168,6 +169,11 @@ class ZoneProblemSensor(SecvestZoneEntity, BinarySensorEntity):
     _attr_translation_key = "zone_problem"
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    platform_domain = Platform.BINARY_SENSOR
+
+    def __init__(self, coordinator: SecvestCoordinator, zone: Zone) -> None:
+        """Suggest <installation>_<zone>_problem as the entity id."""
+        super().__init__(coordinator, zone, "problem", suffix="problem")
 
     @property
     def is_on(self) -> bool | None:

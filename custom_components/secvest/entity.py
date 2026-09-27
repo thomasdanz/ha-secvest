@@ -1,7 +1,9 @@
 """Base entity classes."""
 
+from homeassistant.const import Platform
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import slugify
 
 from .api.models import Zone
 from .const import DOMAIN, MANUFACTURER
@@ -35,11 +37,33 @@ class SecvestEntity(CoordinatorEntity[SecvestCoordinator]):
 class SecvestZoneEntity(SecvestEntity):
     """An entity on the device of one zone (detector)."""
 
-    def __init__(self, coordinator: SecvestCoordinator, zone: Zone, key: str) -> None:
-        """Attach the entity to the zone's device, linked to the panel."""
+    # the platform of the subclass, for the suggested entity id
+    platform_domain: Platform
+
+    def __init__(
+        self,
+        coordinator: SecvestCoordinator,
+        zone: Zone,
+        key: str,
+        *,
+        suffix: str = "",
+    ) -> None:
+        """Attach the entity to the zone's device, linked to the panel.
+
+        The device is named after the zone, so Home Assistant would derive
+        the entity id from the zone name alone; the suggested id adds the
+        installation's name, like the panel's entities have it:
+        <domain>.<installation>_<zone>[_<suffix>]. Only used when the entity
+        is registered; users can rename it.
+        """
         super().__init__(coordinator, f"zone_{zone.id}_{key}")
         self.zone_id = zone.id
-        entry_id = coordinator.config_entry.entry_id
+        entry = coordinator.config_entry
+        object_id = "_".join(
+            part for part in (slugify(entry.title), slugify(zone.name), suffix) if part
+        )
+        self.entity_id = f"{self.platform_domain}.{object_id}"
+        entry_id = entry.entry_id
         # only the device changes when zones are grouped later (#67); the
         # unique id stays
         self._attr_device_info = DeviceInfo(
