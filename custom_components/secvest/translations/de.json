@@ -46,6 +46,16 @@
           "user_code": "Der Code des Benutzers der Zentrale, mit dem sich Home Assistant anmeldet.",
           "password": "Das Passwort dieses Benutzers."
         }
+      },
+      "zones": {
+        "title": "Zonen",
+        "description": "Wähle, was für ein Melder jede Zone ist; die Zentrale verrät es nicht. Ausgeschlossene Zonen bekommen keine Entitäten. Das lässt sich später in den Optionen der Integration ändern.",
+        "data": {
+          "excluded_zones": "Ausgeschlossene Zonen"
+        },
+        "data_description": {
+          "excluded_zones": "Diese Zonen werden mit ihrem Teilbereich weiter gelesen, bekommen aber keine Entitäten und kein Gerät."
+        }
       }
     },
     "error": {

@@ -38,7 +38,7 @@ from .api.errors import (
     InstallerLockedError,
     SecvestError,
 )
-from .api.models import Partition
+from .api.models import Partition, Zone
 from .api.transport import Transport
 from .const import (
     CONF_ADVANCED,
@@ -118,6 +118,93 @@ def partition_selector(partitions: Iterable[Partition]) -> SelectSelector:
     )
 
 
+def zone_labels(
+    partitions: Mapping[int, Partition],
+    zones: Mapping[str, Zone],
+    selected: Iterable[int],
+) -> list[tuple[str, str]]:
+    """Return (zone id, label) for the zones of the selected partitions.
+
+    The labels are the field names of the zones step, since the zones are
+    the panel's and have no translations.
+    """
+    zone_ids = {
+        zone_id
+        for number in selected
+        if (partition := partitions.get(number)) is not None
+        for zone_id in partition.zone_ids
+    }
+    labels = []
+    for zone_id in sorted(zone_ids, key=lambda value: (len(value), value)):
+        # zones not read yet (a newly selected partition in the options) are
+        # only known by their id
+        zone = zones.get(zone_id)
+        name = zone.name if zone is not None else "Zone"
+        labels.append((zone_id, f"{name} ({zone_id})"))
+    return labels
+
+
+def zone_schema(
+    zones: list[tuple[str, str]],
+    classes: Mapping[str, str],
+    excluded: Iterable[str],
+) -> vol.Schema:
+    """Build the zones step: excluded zones and a device class per zone."""
+    fields: dict[Any, Any] = {
+        vol.Optional(
+            CONF_EXCLUDED_ZONES,
+            default=[zone_id for zone_id in excluded if zone_id in dict(zones)],
+        ): SelectSelector(
+            SelectSelectorConfig(
+                options=[
+                    SelectOptionDict(value=zone_id, label=label)
+                    for zone_id, label in zones
+                ],
+                multiple=True,
+                mode=SelectSelectorMode.DROPDOWN,
+            )
+        )
+    }
+    device_classes = SelectSelector(
+        SelectSelectorConfig(
+            options=["none", *ZONE_DEVICE_CLASSES],
+            translation_key="device_class",
+            mode=SelectSelectorMode.DROPDOWN,
+        )
+    )
+    for zone_id, label in zones:
+        default = classes.get(zone_id, "none")
+        fields[vol.Required(label, default=default)] = device_classes
+    return vol.Schema(fields)
+
+
+def zone_options(
+    zones: list[tuple[str, str]],
+    user_input: Mapping[str, Any],
+    previous: Mapping[str, str],
+) -> tuple[list[str], dict[str, str]]:
+    """Return the excluded zones and the device classes from the zones step.
+
+    Classes of zones that aren't shown, e.g. of a partition deselected for
+    now, are kept.
+    """
+    shown = {zone_id for zone_id, _ in zones}
+    excluded = [
+        zone_id
+        for zone_id, _ in zones
+        if zone_id in user_input.get(CONF_EXCLUDED_ZONES, [])
+    ]
+    classes = {
+        zone_id: device_class
+        for zone_id, device_class in previous.items()
+        if zone_id not in shown
+    }
+    for zone_id, label in zones:
+        if (device_class := user_input.get(label, "none")) != "none":
+            classes[zone_id] = device_class
+    return excluded, classes
+
+
 async def default_user_agent(hass: Any) -> str:
     """Return ha-secvest/<version> from the manifest."""
     integration = await async_get_integration(hass, DOMAIN)
@@ -140,6 +227,8 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
         self._data: dict[str, Any] = {}
         self._title = ""
         self._partitions: list[Partition] = []
+        self._zones: dict[str, Zone] = {}
+        self._selected: list[int] = []
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -187,11 +276,8 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             selected = sorted(int(value) for value in user_input[CONF_PARTITIONS])
             if selected:
-                return self.async_create_entry(
-                    title=self._title,
-                    data=self._data,
-                    options={CONF_PARTITIONS: selected},
-                )
+                self._selected = selected
+                return await self.async_step_zones()
             errors["base"] = "no_partitions"
         # the panel doesn't reveal the user's rights, so all partitions are
         # offered; those without zones are deselected by default
@@ -205,6 +291,27 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
         )
         return self.async_show_form(
             step_id="partitions", data_schema=schema, errors=errors
+        )
+
+    async def async_step_zones(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Exclude zones and choose a device class per zone, as in the options."""
+        partitions = {p.number: p for p in self._partitions}
+        zones = zone_labels(partitions, self._zones, self._selected)
+        if user_input is not None or not zones:
+            excluded, classes = zone_options(zones, user_input or {}, {})
+            return self.async_create_entry(
+                title=self._title,
+                data=self._data,
+                options={
+                    CONF_PARTITIONS: self._selected,
+                    CONF_EXCLUDED_ZONES: excluded,
+                    CONF_ZONE_DEVICE_CLASSES: classes,
+                },
+            )
+        return self.async_show_form(
+            step_id="zones", data_schema=zone_schema(zones, {}, [])
         )
 
     async def async_step_reauth(
@@ -267,6 +374,12 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
             system = await client.get_system()
             if read_partitions:
                 self._partitions = await client.get_partitions()
+                # for the zones step; only partitions that have zones, and on
+                # the same connection
+                for partition in self._partitions:
+                    if partition.zone_ids:
+                        for zone in await client.get_zones(partition.number):
+                            self._zones.setdefault(zone.id, zone)
         except AuthenticationError:
             return "invalid_auth"
         except InstallerLockedError:
@@ -357,27 +470,14 @@ class SecvestOptionsFlow(OptionsFlowWithReload):
     ) -> ConfigFlowResult:
         """Exclude zones and choose a device class per zone."""
         entry = self.config_entry
-        zones = self._zones()
+        state = entry.runtime_data.data
+        zones = zone_labels(
+            state.partitions, state.zones, self._options[CONF_PARTITIONS]
+        )
         if user_input is not None or not zones:
-            user_input = user_input or {}
-            shown = {zone_id for zone_id, _ in zones}
-            excluded = [
-                zone_id
-                for zone_id, _ in zones
-                if zone_id in user_input.get(CONF_EXCLUDED_ZONES, [])
-            ]
-            # keep the classes of zones that aren't shown, e.g. of a partition
-            # that is deselected for now
-            classes = {
-                zone_id: device_class
-                for zone_id, device_class in entry.options.get(
-                    CONF_ZONE_DEVICE_CLASSES, {}
-                ).items()
-                if zone_id not in shown
-            }
-            for zone_id, label in zones:
-                if (device_class := user_input.get(label, "none")) != "none":
-                    classes[zone_id] = device_class
+            excluded, classes = zone_options(
+                zones, user_input or {}, entry.options.get(CONF_ZONE_DEVICE_CLASSES, {})
+            )
             if self._user_agent is not None:
                 self.hass.config_entries.async_update_entry(
                     entry, data={**entry.data, CONF_USER_AGENT: self._user_agent}
@@ -389,53 +489,11 @@ class SecvestOptionsFlow(OptionsFlowWithReload):
                     CONF_ZONE_DEVICE_CLASSES: classes,
                 }
             )
-        classes = entry.options.get(CONF_ZONE_DEVICE_CLASSES, {})
-        fields: dict[Any, Any] = {
-            vol.Optional(
-                CONF_EXCLUDED_ZONES,
-                default=[
-                    zone_id
-                    for zone_id in entry.options.get(CONF_EXCLUDED_ZONES, [])
-                    if zone_id in dict(zones)
-                ],
-            ): SelectSelector(
-                SelectSelectorConfig(
-                    options=[
-                        SelectOptionDict(value=zone_id, label=label)
-                        for zone_id, label in zones
-                    ],
-                    multiple=True,
-                    mode=SelectSelectorMode.DROPDOWN,
-                )
-            )
-        }
-        device_classes = SelectSelector(
-            SelectSelectorConfig(
-                options=["none", *ZONE_DEVICE_CLASSES],
-                translation_key="device_class",
-                mode=SelectSelectorMode.DROPDOWN,
-            )
+        return self.async_show_form(
+            step_id="zones",
+            data_schema=zone_schema(
+                zones,
+                entry.options.get(CONF_ZONE_DEVICE_CLASSES, {}),
+                entry.options.get(CONF_EXCLUDED_ZONES, []),
+            ),
         )
-        # the zones are the panel's, so their labels are the field names
-        for zone_id, label in zones:
-            default = classes.get(zone_id, "none")
-            fields[vol.Required(label, default=default)] = device_classes
-        return self.async_show_form(step_id="zones", data_schema=vol.Schema(fields))
-
-    def _zones(self) -> list[tuple[str, str]]:
-        """Return (zone id, label) for the zones of the selected partitions."""
-        state = self.config_entry.runtime_data.data
-        zone_ids = {
-            zone_id
-            for number in self._options[CONF_PARTITIONS]
-            if (partition := state.partitions.get(number)) is not None
-            for zone_id in partition.zone_ids
-        }
-        zones = []
-        for zone_id in sorted(zone_ids, key=lambda value: (len(value), value)):
-            # zones of a newly selected partition are only known by their id
-            # until the next round
-            zone = state.zones.get(zone_id)
-            name = zone.name if zone is not None else "Zone"
-            zones.append((zone_id, f"{name} ({zone_id})"))
-        return zones

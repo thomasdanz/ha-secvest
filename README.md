@@ -55,6 +55,8 @@ The credentials are checked with a single request. If the panel rejects them, no
 
 Then select the **partitions** Home Assistant should show and operate; their zones are added automatically. The panel doesn't reveal which partitions the user may operate, so all of them are listed; partitions without zones are deselected.
 
+Finally choose what kind of detector each **zone** is (door, window, garage door, motion, …) and exclude zones you don't want in Home Assistant. The panel doesn't tell detector types apart, so this is up to you; you can change it later in the options.
+
 ## Options
 
 In the integration's options (Settings → Devices & services → ABUS Secvest → Configure) you can change the selected partitions, the status interval (at least 24 seconds) and, under Advanced, the User-Agent. The second step lists the zones of the selected partitions: choose a device class per zone (door, window, motion, …; the panel doesn't tell detector types apart) and exclude zones you don't want in Home Assistant. Saving reloads the integration; nothing is sent to the panel while you change the options.

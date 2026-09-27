@@ -17,13 +17,22 @@ from custom_components.secvest.api.errors import CommunicationError
 from custom_components.secvest.config_flow import normalize_address
 from custom_components.secvest.const import (
     CONF_ADVANCED,
+    CONF_EXCLUDED_ZONES,
     CONF_PARTITIONS,
     CONF_USER_AGENT,
     CONF_USER_CODE,
+    CONF_ZONE_DEVICE_CLASSES,
     DOMAIN,
 )
 
 from .fake_panel import FakePanel, Injection
+
+# credentials, partitions, and the zones of the partitions that have zones
+SETUP_READS = [
+    ("GET", "/system/"),
+    ("GET", "/system/partitions/"),
+    ("GET", "/system/partitions-1/zones/"),
+]
 
 MANIFEST = Path(__file__).parent.parent / "custom_components/secvest/manifest.json"
 
@@ -59,12 +68,23 @@ async def _submit(hass: HomeAssistant, user_input: dict[str, Any]) -> Any:
     return await hass.config_entries.flow.async_configure(result["flow_id"], user_input)
 
 
-async def _select(hass: HomeAssistant, result: Any, partitions: list[str]) -> Any:
+async def _select(
+    hass: HomeAssistant,
+    result: Any,
+    partitions: list[str],
+    zones: dict[str, Any] | None = None,
+) -> Any:
+    """Select partitions, then submit the zones step (defaults if not given)."""
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "partitions"
-    return await hass.config_entries.flow.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {CONF_PARTITIONS: partitions}
     )
+    if result["type"] is FlowResultType.FORM and result["step_id"] == "zones":
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], zones or {}
+        )
+    return result
 
 
 async def test_create_entry(hass: HomeAssistant, fake_panel: FakePanel) -> None:
@@ -80,16 +100,17 @@ async def test_create_entry(hass: HomeAssistant, fake_panel: FakePanel) -> None:
         CONF_VERIFY_SSL: False,
         CONF_USER_AGENT: "",
     }
-    assert result["options"] == {CONF_PARTITIONS: [1]}
+    assert result["options"] == {
+        CONF_PARTITIONS: [1],
+        CONF_EXCLUDED_ZONES: [],
+        CONF_ZONE_DEVICE_CLASSES: {},
+    }
     assert result["result"].unique_id == f"{fake_panel.host}:{fake_panel.port}"
-    # both reads share one connection; the selection sends nothing
-    assert fake_panel.stats.requests == [
-        ("GET", "/system/"),
-        ("GET", "/system/partitions/"),
-    ]
+    # the reads share one connection; the selection and zones steps send nothing
+    assert fake_panel.stats.requests == SETUP_READS
     assert fake_panel.stats.connections == 1
     version = json.loads(MANIFEST.read_text())["version"]
-    assert fake_panel.stats.user_agents == [f"ha-secvest/{version}"] * 2
+    assert fake_panel.stats.user_agents == [f"ha-secvest/{version}"] * 3
 
 
 async def test_partitions_offered(hass: HomeAssistant, fake_panel: FakePanel) -> None:
@@ -108,7 +129,7 @@ async def test_several_partitions(hass: HomeAssistant, fake_panel: FakePanel) ->
     """Several partitions are stored as sorted numbers."""
     result = await _submit(hass, _input(fake_panel))
     result = await _select(hass, result, ["3", "1"])
-    assert result["options"] == {CONF_PARTITIONS: [1, 3]}
+    assert result["options"][CONF_PARTITIONS] == [1, 3]
 
 
 async def test_no_partition_selected(
@@ -120,7 +141,7 @@ async def test_no_partition_selected(
     assert result["errors"] == {"base": "no_partitions"}
     result = await _select(hass, result, ["1"])
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert len(fake_panel.stats.requests) == 2
+    assert fake_panel.stats.requests == SETUP_READS
 
 
 async def test_user_agent_override(hass: HomeAssistant, fake_panel: FakePanel) -> None:
@@ -130,7 +151,7 @@ async def test_user_agent_override(hass: HomeAssistant, fake_panel: FakePanel) -
     )
     result = await _select(hass, result, ["1"])
     assert result["data"][CONF_USER_AGENT] == "Proxy/1"
-    assert fake_panel.stats.user_agents == ["Proxy/1"] * 2
+    assert fake_panel.stats.user_agents == ["Proxy/1"] * 3
 
 
 async def test_invalid_auth(hass: HomeAssistant, fake_panel: FakePanel) -> None:
@@ -146,7 +167,7 @@ async def test_invalid_auth(hass: HomeAssistant, fake_panel: FakePanel) -> None:
     )
     result = await _select(hass, result, ["1"])
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert len(fake_panel.stats.requests) == 3
+    assert fake_panel.stats.requests == [("GET", "/system/"), *SETUP_READS]
 
 
 async def test_partitions_unreadable(
@@ -263,3 +284,41 @@ async def test_already_configured(hass: HomeAssistant, fake_panel: FakePanel) ->
 def test_normalize_address(value: str, expected: str) -> None:
     """Addresses are normalised; without a scheme the panel's port applies."""
     assert normalize_address(value) == expected
+
+
+async def test_zone_types_during_setup(
+    hass: HomeAssistant, fake_panel: FakePanel
+) -> None:
+    """The zones step of the options is part of setup too."""
+    result = await _submit(hass, _input(fake_panel))
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_PARTITIONS: ["1"]}
+    )
+    assert result["step_id"] == "zones"
+    schema = result["data_schema"]
+    assert schema is not None
+    fields = {str(key) for key in schema.schema}
+    assert len(fields) == 1 + len(fake_panel.partitions[1].zone_ids)
+    assert "Room 6 L (209)" in fields
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_EXCLUDED_ZONES: ["201"], "Room 6 L (209)": "window"},
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["options"] == {
+        CONF_PARTITIONS: [1],
+        CONF_EXCLUDED_ZONES: ["201"],
+        CONF_ZONE_DEVICE_CLASSES: {"209": "window"},
+    }
+
+
+async def test_no_zones_step_without_zones(
+    hass: HomeAssistant, fake_panel: FakePanel
+) -> None:
+    """Selecting only partitions without zones skips the zones step."""
+    result = await _submit(hass, _input(fake_panel))
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_PARTITIONS: ["2"]}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["options"][CONF_ZONE_DEVICE_CLASSES] == {}

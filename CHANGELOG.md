@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-09-27
+
+### Added
+
+- Setup ends with the zones step of the options: a device class per zone and excluded zones (#101).
+
 ## [0.1.6] - 2026-09-27
 
 ### Added
@@ -79,7 +85,8 @@ First version, read-only: the state of partitions, zones and faults.
 - README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
 - Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
 
-[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.3...v0.1.4
