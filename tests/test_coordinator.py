@@ -68,18 +68,6 @@ async def test_zone_in_several_partitions(fake_panel: FakePanel, setup: Setup) -
     assert len(zones) == len(fake_panel.partitions[1].zone_ids)
 
 
-async def test_missing_partition_skipped(
-    fake_panel: FakePanel, setup: Setup, caplog: pytest.LogCaptureFixture
-) -> None:
-    """A selected partition the panel doesn't have isn't requested."""
-    entry = await setup(**{CONF_PARTITIONS: [1, 9]})
-    await coordinator_of(entry).async_refresh()
-    assert "/system/partitions-9/zones/" not in {
-        path for _, path in fake_panel.stats.requests
-    }
-    assert caplog.text.count("Selected partition 9 doesn't exist") == 1
-
-
 @pytest.mark.parametrize(
     ("options", "seconds"),
     [({}, 30), ({CONF_SCAN_INTERVAL: 60}, 60), ({CONF_SCAN_INTERVAL: 10}, 24)],

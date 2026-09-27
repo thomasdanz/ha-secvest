@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-09-27
+
+### Changed
+
+- The repair issue for a selected partition now also covers a partition without zones, the case that can happen on the panel (it always reports its four partitions); an empty partition's zone list is no longer requested.
+
 ## [0.1.3] - 2026-09-27
 
 ### Added
@@ -56,7 +62,8 @@ First version, read-only: the state of partitions, zones and faults.
 - README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
 - Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
 
-[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.0...v0.1.1

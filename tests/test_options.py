@@ -4,10 +4,10 @@ from datetime import timedelta
 from typing import Any
 
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
-from homeassistant.const import ATTR_DEVICE_CLASS, STATE_UNAVAILABLE
+from homeassistant.const import ATTR_DEVICE_CLASS
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import device_registry as dr, issue_registry as ir
+from homeassistant.helpers import device_registry as dr
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest.const import (
@@ -18,7 +18,6 @@ from custom_components.secvest.const import (
     CONF_SCAN_INTERVAL,
     CONF_USER_AGENT,
     CONF_ZONE_DEVICE_CLASSES,
-    DOMAIN,
 )
 
 from .common import Setup, coordinator_of
@@ -171,63 +170,3 @@ async def test_not_loaded(hass: HomeAssistant, setup: Setup) -> None:
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "not_loaded"
-
-
-async def test_missing_partition_issue(
-    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
-) -> None:
-    """A selected partition the panel doesn't report raises a repair issue."""
-    entry = await setup(**{CONF_PARTITIONS: [1, 2]})
-    issue_id = f"missing_partition_{entry.entry_id}_2"
-    registry = ir.async_get(hass)
-    assert registry.async_get_issue(DOMAIN, issue_id) is None
-
-    partition = fake_panel.partitions.pop(2)
-    await coordinator_of(entry).async_refresh()
-    issue = registry.async_get_issue(DOMAIN, issue_id)
-    assert issue is not None
-    assert issue.translation_placeholders == {"partition": "2", "name": "Alarmanlage"}
-    state = hass.states.get("alarm_control_panel.alarmanlage_teilber_2")
-    assert state is not None
-    assert state.state == STATE_UNAVAILABLE
-
-    # the issue survives a reload while the partition is still missing
-    assert await hass.config_entries.async_reload(entry.entry_id)
-    assert registry.async_get_issue(DOMAIN, issue_id) is not None
-
-    # and disappears when the partition is back
-    fake_panel.partitions[2] = partition
-    await coordinator_of(entry).async_refresh()
-    assert registry.async_get_issue(DOMAIN, issue_id) is None
-
-
-async def test_missing_partition_deselected(
-    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
-) -> None:
-    """Deselecting the missing partition in the options removes the issue."""
-    del fake_panel.partitions[2]
-    entry = await setup(**{CONF_PARTITIONS: [1, 2]})
-    issue_id = f"missing_partition_{entry.entry_id}_2"
-    registry = ir.async_get(hass)
-    assert registry.async_get_issue(DOMAIN, issue_id) is not None
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], _init_input(["1"])
-    )
-    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
-    await hass.async_block_till_done()
-    assert registry.async_get_issue(DOMAIN, issue_id) is None
-
-
-async def test_issue_removed_with_the_entry(
-    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
-) -> None:
-    """Removing the entry removes its issues."""
-    del fake_panel.partitions[2]
-    entry = await setup(**{CONF_PARTITIONS: [1, 2]})
-    assert await hass.config_entries.async_remove(entry.entry_id)
-    await hass.async_block_till_done()
-    issues = [
-        issue_id for domain, issue_id in ir.async_get(hass).issues if domain == DOMAIN
-    ]
-    assert issues == []

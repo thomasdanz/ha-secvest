@@ -108,19 +108,20 @@ class Backoff:
 
 
 def _partition_issue_id(entry_id: str, number: int) -> str:
-    return f"missing_partition_{entry_id}_{number}"
+    return f"partition_{entry_id}_{number}"
 
 
 def clear_partition_issues(
     hass: HomeAssistant, entry_id: str, keep: Iterable[int]
 ) -> None:
-    """Delete the missing partition issues of an entry, except those in keep."""
+    """Delete the partition issues of an entry, except those in keep."""
     keep_ids = {_partition_issue_id(entry_id, number) for number in keep}
-    prefix = _partition_issue_id(entry_id, 0).removesuffix("0")
+    # 0.1.x named the issue for a missing partition differently
+    prefixes = (f"partition_{entry_id}_", f"missing_partition_{entry_id}_")
     for domain, issue_id in list(ir.async_get(hass).issues):
         if (
             domain == DOMAIN
-            and issue_id.startswith(prefix)
+            and issue_id.startswith(prefixes)
             and issue_id not in keep_ids
         ):
             ir.async_delete_issue(hass, DOMAIN, issue_id)
@@ -155,7 +156,8 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         self.selected_partitions: tuple[int, ...] = tuple(
             entry.options.get(CONF_PARTITIONS, ())
         )
-        self._missing_reported: set[int] = set()
+        # selected partitions that are empty or missing, with the issue raised
+        self._partition_problems: dict[int, str] = {}
         self.backoff = Backoff()
         # the installer is logged in at the panel, which locks the API (#21)
         self.installer_locked = False
@@ -231,24 +233,42 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
     def clear_partition_issues(self) -> None:
         """Delete the issues of partitions that are no longer selected."""
         clear_partition_issues(
-            self.hass, self.config_entry.entry_id, keep=self._missing_reported
+            self.hass, self.config_entry.entry_id, keep=self._partition_problems
         )
 
-    def _report_missing(self, number: int) -> None:
-        """Log once and raise a repair issue that leads to the options."""
-        if number in self._missing_reported:
+    def _check_partition(self, number: int, partition: Partition | None) -> None:
+        """Raise or clear the repair issue for a selected partition.
+
+        An empty partition (no zones) shows nothing but its state and can't
+        be armed; a missing one isn't expected on the tested panel, which
+        always reports its four partitions. Both lead to the options.
+        """
+        if partition is None:
+            problem: str | None = "missing_partition"
+        elif not partition.zone_ids:
+            problem = "empty_partition"
+        else:
+            problem = None
+        if problem == self._partition_problems.get(number):
             return
-        self._missing_reported.add(number)
-        _LOGGER.warning("Selected partition %s doesn't exist", number)
+        issue_id = _partition_issue_id(self.config_entry.entry_id, number)
+        if problem is None:
+            del self._partition_problems[number]
+            ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+            return
+        self._partition_problems[number] = problem
+        _LOGGER.warning("Selected partition %s: %s", number, problem)
         ir.async_create_issue(
             self.hass,
             DOMAIN,
-            _partition_issue_id(self.config_entry.entry_id, number),
+            issue_id,
             is_fixable=False,
             severity=ir.IssueSeverity.WARNING,
-            translation_key="missing_partition",
+            translation_key=problem,
             translation_placeholders={
-                "partition": str(number),
+                "partition": str(number)
+                if partition is None
+                else f"{number} ({partition.name})",
                 "name": self.config_entry.title,
             },
         )
@@ -263,16 +283,11 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         faults = await self.client.get_faults()
         zones: dict[str, Zone] = {}
         for number in self.selected_partitions:
-            if number not in partitions:
-                self._report_missing(number)
+            partition = partitions.get(number)
+            self._check_partition(number, partition)
+            if partition is None or not partition.zone_ids:
+                # nothing to read
                 continue
-            if number in self._missing_reported:
-                self._missing_reported.discard(number)
-                ir.async_delete_issue(
-                    self.hass,
-                    DOMAIN,
-                    _partition_issue_id(self.config_entry.entry_id, number),
-                )
             for zone in await self.client.get_zones(number):
                 zones.setdefault(zone.id, zone)
         return PanelState(
