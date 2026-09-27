@@ -6,7 +6,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
 from .api.models import Zone
-from .const import DOMAIN, MANUFACTURER
+from .const import DOMAIN, MANUFACTURER, PANEL_MODEL
 from .coordinator import SecvestCoordinator
 
 
@@ -25,6 +25,7 @@ class SecvestEntity(CoordinatorEntity[SecvestCoordinator]):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             manufacturer=MANUFACTURER,
+            model=PANEL_MODEL,
             name=entry.title,
         )
 

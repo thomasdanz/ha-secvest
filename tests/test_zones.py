@@ -50,6 +50,7 @@ async def test_one_device_per_zone(
     assert len(devices) == 1 + len(zone_ids)
     panel = devices[entry.entry_id]
     assert panel.name == "Alarmanlage"
+    assert (panel.manufacturer, panel.model) == ("ABUS", "Secvest")
     device = devices[f"{entry.entry_id}_zone_209"]
     assert device.name == "Wireless zone Room 6 L"
     assert device.manufacturer == "ABUS"

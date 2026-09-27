@@ -2,6 +2,9 @@
 
 DOMAIN = "secvest"
 MANUFACTURER = "ABUS"
+# the API reports no model, serial number or firmware; the product family is
+# certain, since only a Secvest speaks this API
+PANEL_MODEL = "Secvest"
 
 CONF_USER_CODE = "user_code"
 CONF_USER_AGENT = "user_agent"
