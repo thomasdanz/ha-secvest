@@ -204,7 +204,19 @@ async def test_unexpected_response(hass: HomeAssistant, fake_panel: FakePanel) -
     fake_panel.violations.clear()
 
 
-@pytest.mark.parametrize("address", ["http://panel", "", "https://", "a b:x"])
+@pytest.mark.parametrize(
+    "address",
+    [
+        "http://panel",
+        "",
+        "https://",
+        "a b:x",
+        # credentials, queries and fragments don't belong in the address
+        "https://user:pw@panel",
+        "https://panel/?x=1",
+        "https://panel/#x",
+    ],
+)
 async def test_invalid_address(hass: HomeAssistant, address: str) -> None:
     """An address that isn't usable is refused without a request."""
     result = await _submit(

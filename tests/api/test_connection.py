@@ -305,3 +305,34 @@ def test_address_must_be_https() -> None:
     """Only https addresses are accepted."""
     with pytest.raises(ValueError, match="https"):
         Transport("http://panel", "1", "x")
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "body"),
+    [
+        ("GET", "/faults/", None),
+        ("PUT", "/system/partitions-1/", {"state": "partset"}),
+    ],
+)
+async def test_closed_connection_not_noticed_in_time(
+    fake_panel: FakePanel,
+    transport: Transport,
+    monkeypatch: pytest.MonkeyPatch,
+    method: str,
+    path: str,
+    body: dict[str, str] | None,
+) -> None:
+    """A request into a connection the panel closed goes out once, anew.
+
+    The panel may close the connection just as a request starts; since the
+    request didn't go out, it is sent on a new connection, even a command.
+    """
+    fake_panel.idle_timeout = 0.2
+    monkeypatch.setattr(transport_module, "MAX_IDLE", 60)
+    await transport.request("GET", "/system/")
+    await asyncio.sleep(0.5)
+    # the check before sending misses the close
+    monkeypatch.setattr(transport_module, "_closed", lambda conn: False)
+    await transport.request(method, path, body)
+    assert fake_panel.stats.requests == [("GET", "/system/"), (method, path)]
+    assert transport.stats.reconnects == 1
