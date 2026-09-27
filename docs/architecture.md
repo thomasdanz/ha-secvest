@@ -190,7 +190,7 @@ Only the reason differs:
 
 The panel's partitions are independent of each other, so everything that belongs to a partition exists once per selected partition. Zones are detectors; a zone can belong to more than one partition, so zones are modelled on their own and reference their partitions.
 
-**Panel device** (one per config entry)
+**Panel device** (one per config entry; manufacturer ABUS, model "Secvest": the API reports no model, serial number or firmware, but only a Secvest speaks it)
 
 | Entity | Platform | Content |
 |---|---|---|

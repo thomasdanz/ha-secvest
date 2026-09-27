@@ -16,6 +16,7 @@ from .const import (
     CONF_USER_CODE,
     DOMAIN,
     MANUFACTURER,
+    PANEL_MODEL,
 )
 from .coordinator import SecvestCoordinator, clear_partition_issues
 
@@ -52,6 +53,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> b
         config_entry_id=entry.entry_id,
         identifiers={(DOMAIN, entry.entry_id)},
         manufacturer=MANUFACTURER,
+        model=PANEL_MODEL,
         name=entry.title,
     )
     coordinator.panel_device_id = panel.id
