@@ -2,6 +2,8 @@
 
 import asyncio
 from datetime import timedelta
+import json
+from pathlib import Path
 import time
 from typing import Any
 
@@ -16,6 +18,7 @@ from custom_components.secvest.api.models import ZoneState
 from custom_components.secvest.const import (
     CONF_PARTITIONS,
     CONF_SCAN_INTERVAL,
+    CONF_USER_AGENT,
 )
 from custom_components.secvest.coordinator import (
     Backoff,
@@ -25,6 +28,8 @@ from custom_components.secvest.coordinator import (
 
 from .common import ROUND, Setup, coordinator_of
 from .fake_panel import FakePanel, Injection
+
+MANIFEST = Path(__file__).parent.parent / "custom_components/secvest/manifest.json"
 
 
 def _available(coordinator: SecvestCoordinator) -> bool:
@@ -239,3 +244,18 @@ async def test_retry_after_is_the_backoff(fake_panel: FakePanel, setup: Setup) -
     await coordinator.async_refresh()
     assert isinstance(coordinator.last_exception, UpdateFailed)
     assert coordinator.last_exception.retry_after == 60
+
+
+@pytest.mark.parametrize(
+    ("stored", "expected"), [("", "ha-secvest/{version}"), ("Proxy/1", "Proxy/1")]
+)
+async def test_user_agent_in_every_request(
+    fake_panel: FakePanel, setup: Setup, stored: str, expected: str
+) -> None:
+    """Polling sends the stored override, or ha-secvest/<manifest version>."""
+    version = json.loads(MANIFEST.read_text())["version"]
+    entry = await setup(data={CONF_USER_AGENT: stored})
+    await coordinator_of(entry).async_refresh()
+    assert fake_panel.stats.user_agents == [expected.format(version=version)] * (
+        2 * len(ROUND)
+    )

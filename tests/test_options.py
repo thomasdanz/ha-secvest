@@ -122,6 +122,22 @@ async def test_form_shows_the_current_options(
     assert fields["Room 6 L (209)"].default() == "window"
 
 
+async def test_user_agent_reset(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """Clearing the override goes back to ha-secvest/<version>."""
+    entry = await setup(data={CONF_USER_AGENT: "Proxy/1"})
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], _init_input(["1"], user_agent="")
+    )
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
+    await hass.async_block_till_done()
+    assert entry.data[CONF_USER_AGENT] == ""
+    assert fake_panel.stats.user_agents[0] == "Proxy/1"
+    assert fake_panel.stats.user_agents[-1].startswith("ha-secvest/")  # type: ignore[union-attr]
+
+
 async def test_no_partition(hass: HomeAssistant, setup: Setup) -> None:
     """At least one partition has to stay selected."""
     entry = await setup()
