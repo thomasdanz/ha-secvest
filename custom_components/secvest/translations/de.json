@@ -214,7 +214,7 @@
             "hide_members": "Gruppierte Zonen verbergen"
           },
           "data_description": {
-            "name": "Wird für das Gerät („Zonengruppe <Name>“) und die Entity-ID verwendet.",
+            "name": "Wird für das Gerät („Zonengruppe“ mit dem Namen) und die Entity-ID verwendet.",
             "zones": "Mindestens zwei Zonen; eine Zone kann nur in einer Gruppe sein.",
             "device_class": "Wie der Gruppensensor angezeigt wird, z. B. als Fenster oder Tür.",
             "hide_members": "Verbirgt die Entitäten der gruppierten Zonen in Home Assistant; sie arbeiten weiter und lassen sich in Automationen verwenden."
@@ -230,7 +230,7 @@
             "hide_members": "Gruppierte Zonen verbergen"
           },
           "data_description": {
-            "name": "Wird für das Gerät verwendet („Zonengruppe <Name>“); die Entity-ID bleibt.",
+            "name": "Wird für das Gerät verwendet („Zonengruppe“ mit dem Namen); die Entity-ID bleibt.",
             "zones": "Mindestens zwei Zonen; eine Zone kann nur in einer Gruppe sein.",
             "device_class": "Wie der Gruppensensor angezeigt wird, z. B. als Fenster oder Tür.",
             "hide_members": "Verbirgt die Entitäten der gruppierten Zonen in Home Assistant; sie arbeiten weiter und lassen sich in Automationen verwenden."

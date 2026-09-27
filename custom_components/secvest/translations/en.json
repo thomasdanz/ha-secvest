@@ -214,7 +214,7 @@
             "hide_members": "Hide grouped zones"
           },
           "data_description": {
-            "name": "Used for the device (\"Zone group <name>\") and the entity id.",
+            "name": "Used for the device (\"Zone group\" followed by the name) and the entity id.",
             "zones": "At least two zones; a zone can be in one group only.",
             "device_class": "How the group sensor is shown, e.g. window or door.",
             "hide_members": "Hide the entities of the grouped zones in Home Assistant; they keep working and can still be used in automations."
@@ -230,7 +230,7 @@
             "hide_members": "Hide grouped zones"
           },
           "data_description": {
-            "name": "Used for the device (\"Zone group <name>\"); the entity id stays.",
+            "name": "Used for the device (\"Zone group\" followed by the name); the entity id stays.",
             "zones": "At least two zones; a zone can be in one group only.",
             "device_class": "How the group sensor is shown, e.g. window or door.",
             "hide_members": "Hide the entities of the grouped zones in Home Assistant; they keep working and can still be used in automations."
