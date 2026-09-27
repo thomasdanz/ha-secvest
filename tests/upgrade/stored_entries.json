@@ -1,0 +1,165 @@
+{
+  "_comment": "Config entries as released versions stored them, for the update test (#103). Placeholders: {url}, {user_code}, {password}; zones stand for every zone of the fake panel's partition 1 that isn't excluded. Add the new version to an entry on every release, or add an entry when the stored data or the entities change.",
+  "entries": [
+    {
+      "name": "after setup",
+      "versions": [
+        "0.1.0",
+        "0.1.1",
+        "0.1.2",
+        "0.1.3",
+        "0.1.4",
+        "0.1.5"
+      ],
+      "minor_version": 1,
+      "data": {
+        "url": "{url}",
+        "user_code": "{user_code}",
+        "password": "{password}",
+        "verify_ssl": false,
+        "user_agent": ""
+      },
+      "options": {
+        "partitions": [
+          1
+        ]
+      },
+      "unique_ids": {
+        "panel": [
+          "installer_lock",
+          "problem",
+          "faults"
+        ],
+        "partition_1": [
+          "alarm",
+          "arming_blocked"
+        ],
+        "zones": [
+          "open",
+          "problem"
+        ]
+      }
+    },
+    {
+      "name": "after the options",
+      "versions": [
+        "0.1.0",
+        "0.1.1",
+        "0.1.2",
+        "0.1.3",
+        "0.1.4",
+        "0.1.5"
+      ],
+      "minor_version": 1,
+      "data": {
+        "url": "{url}",
+        "user_code": "{user_code}",
+        "password": "{password}",
+        "verify_ssl": false,
+        "user_agent": "Proxy/1"
+      },
+      "options": {
+        "partitions": [
+          1
+        ],
+        "scan_interval": 60,
+        "excluded_zones": [
+          "201"
+        ],
+        "zone_device_classes": {
+          "209": "door"
+        }
+      },
+      "unique_ids": {
+        "panel": [
+          "installer_lock",
+          "problem",
+          "faults"
+        ],
+        "partition_1": [
+          "alarm",
+          "arming_blocked"
+        ],
+        "zones": [
+          "open",
+          "problem"
+        ]
+      }
+    },
+    {
+      "name": "after setup, with open zones",
+      "versions": [
+        "0.1.6"
+      ],
+      "minor_version": 1,
+      "data": {
+        "url": "{url}",
+        "user_code": "{user_code}",
+        "password": "{password}",
+        "verify_ssl": false,
+        "user_agent": ""
+      },
+      "options": {
+        "partitions": [
+          1
+        ]
+      },
+      "unique_ids": {
+        "panel": [
+          "installer_lock",
+          "problem",
+          "faults"
+        ],
+        "partition_1": [
+          "alarm",
+          "arming_blocked",
+          "open_zones"
+        ],
+        "zones": [
+          "open",
+          "problem"
+        ]
+      }
+    },
+    {
+      "name": "after setup with the zones step",
+      "versions": [
+        "0.1.7",
+        "0.1.8"
+      ],
+      "minor_version": 2,
+      "data": {
+        "url": "{url}",
+        "user_code": "{user_code}",
+        "password": "{password}",
+        "verify_ssl": false,
+        "user_agent": ""
+      },
+      "options": {
+        "partitions": [
+          1
+        ],
+        "excluded_zones": [],
+        "zone_device_classes": {
+          "209": "window"
+        }
+      },
+      "unique_ids": {
+        "panel": [
+          "installer_lock",
+          "problem",
+          "faults"
+        ],
+        "partition_1": [
+          "alarm",
+          "arming_blocked",
+          "open_zones"
+        ],
+        "zones": [
+          "open",
+          "problem"
+        ]
+      }
+    }
+  ]
+}

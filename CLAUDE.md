@@ -30,7 +30,8 @@ The panel is security equipment and fragile. These rules are not negotiable:
 ## Working rules
 
 - Everything in English: code, comments, docs, commits, issues.
-- One story per branch and pull request. Definition of Done: tests pass and cover the change; README updated for user-visible changes; UI texts in English and German using the glossary; changelog entry.
+- One story per branch and pull request. Definition of Done: tests pass and cover the change; README updated for user-visible changes; UI texts in English and German using the glossary; changelog entry; update compatibility (below).
+- **Updates never require setting up again.** Users install new versions over their config entry. A change to the stored data (entry data or options) bumps `MINOR_VERSION` (compatible) or `VERSION` (breaking) in `config_flow.py` and adds a migration step in `async_migrate_entry` with a test. Unique ids never change without a registry migration. A removed kind of entity is removed from `_ENTITY_KINDS`, so its registry entries are cleaned up. Every release adds its version to `tests/upgrade/stored_entries.json` (a test enforces it), or a new entry there when the stored data or the entities change. Anything a user has to know goes under "Upgrade notes" in the changelog.
 - When a decision changes the design, update `docs/architecture.md` or add an ADR, **and** update the affected issues in the same step.
 - Tests run against the specification's fixtures (copied by `scripts/sync_fixtures.py`, ADR 0004) and a fake panel; never against a real panel in CI.
 - This repository is public: no installation-specific data (host names, IPs, codes, serial numbers, zone or room names), no credentials.

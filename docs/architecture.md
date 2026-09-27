@@ -246,6 +246,16 @@ Changing options reloads the entry. The options flow sends nothing to the panel:
 
 Devices follow the configuration: at setup, zone devices that are no longer selected or are excluded are removed. This is decided from the partitions' zone lists, not from the zones read, so a zone the panel briefly doesn't report keeps its device and settings. Later, zones that disappear or are excluded also drop out of their group, and empty groups are removed (#67).
 
+## Updates
+
+Users install new versions over their existing config entry; an update never requires setting up again.
+
+- **Stored data is versioned.** `VERSION` changes break compatibility, `MINOR_VERSION` changes don't. `async_migrate_entry` brings older entries up step by step (1.1 → 1.2 adds the zone settings' defaults, which setup stores since 0.1.7). Home Assistant refuses an entry of a newer major version itself, so a downgrade never misreads data; a newer minor version loads as it is.
+- **Unique ids are stable** (see "Unique ids"); the entity registry test catches accidental changes.
+- **Removed kinds of entities** are removed from the entity registry at setup, instead of staying as "no longer provided". The kinds are matched by unique id; entities of zones or partitions that are only temporarily missing are kept.
+- **Devices** get their name and model at every start, so such changes need no migration.
+- **Test set:** `tests/upgrade/stored_entries.json` holds the entry as each released version stored it, with the unique ids it registered. The update test loads each with the current code: it has to load, keep every entity and send nothing beyond a normal round.
+
 ## Testing
 
 - **API client:** unit tests against the fixtures of the specification (see [ADR 0004](adr/0004-fixtures.md)), including every error response.

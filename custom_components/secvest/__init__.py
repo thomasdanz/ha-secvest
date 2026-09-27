@@ -1,10 +1,13 @@
 """The ABUS Secvest integration."""
 
+import logging
+import re
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_URL, CONF_VERIFY_SSL, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
-from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 from .api.client import Client
 from .api.transport import Transport
@@ -14,11 +17,14 @@ from .const import (
     CONF_EXCLUDED_ZONES,
     CONF_USER_AGENT,
     CONF_USER_CODE,
+    CONF_ZONE_DEVICE_CLASSES,
     DOMAIN,
     MANUFACTURER,
     PANEL_MODEL,
 )
 from .coordinator import SecvestCoordinator, clear_partition_issues
+
+_LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [Platform.ALARM_CONTROL_PANEL, Platform.BINARY_SENSOR, Platform.SENSOR]
 
@@ -61,7 +67,54 @@ async def async_setup_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> b
     _remove_orphaned_devices(hass, entry, coordinator)
     coordinator.clear_partition_issues()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    _remove_stale_entities(hass, entry)
     return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> bool:
+    """Bring an entry stored by an older version up to date.
+
+    Home Assistant refuses entries of a newer major version itself; a newer
+    minor version is compatible by definition and loads as it is.
+    """
+    if entry.version != 1:
+        return False
+    if entry.minor_version < 2:
+        # 1.2: setup stores the zone settings too (0.1.7); older entries get
+        # the defaults the code assumed so far
+        options = {
+            CONF_EXCLUDED_ZONES: [],
+            CONF_ZONE_DEVICE_CLASSES: {},
+            **entry.options,
+        }
+        hass.config_entries.async_update_entry(entry, options=options, minor_version=2)
+    return True
+
+
+# the kinds of entities this version provides, by unique id after the entry
+# id; registry entries of other kinds come from an older version
+_ENTITY_KINDS = re.compile(
+    r"(installer_lock|problem|faults"
+    r"|partition_\d+_(alarm|arming_blocked|open_zones)"
+    r"|zone_[^_]+_(open|problem))"
+)
+
+
+def _remove_stale_entities(hass: HomeAssistant, entry: SecvestConfigEntry) -> None:
+    """Remove entities of kinds that no longer exist.
+
+    Zones and partitions that are only temporarily missing keep theirs; the
+    kind is what counts.
+    """
+    registry = er.async_get(hass)
+    prefix = f"{entry.entry_id}_"
+    for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
+        kind = entity.unique_id.removeprefix(prefix)
+        if not _ENTITY_KINDS.fullmatch(kind):
+            _LOGGER.info(
+                "Removing %s, which this version no longer provides", entity.entity_id
+            )
+            registry.async_remove(entity.entity_id)
 
 
 def _remove_orphaned_devices(
