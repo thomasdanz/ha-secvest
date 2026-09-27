@@ -49,7 +49,7 @@
       },
       "zones": {
         "title": "Zonen",
-        "description": "Wähle, was für ein Melder jede Zone ist; die Zentrale verrät es nicht. Ausgeschlossene Zonen bekommen keine Entitäten. Das lässt sich später in den Optionen der Integration ändern.",
+        "description": "Wähle, was für ein Melder jede Zone ist; die Zentrale verrät es nicht. Ausgeschlossene Zonen bekommen keine Entitäten. Das lässt sich später in den Optionen der Integration ändern. Zonen, die zu einer Öffnung gehören, etwa die beiden Flügel eines Fensters, fasst du danach auf der Seite der Integration mit „Zonengruppe hinzufügen“ zusammen.",
         "data": {
           "excluded_zones": "Ausgeschlossene Zonen"
         },
@@ -136,7 +136,7 @@
       },
       "zones": {
         "title": "Zonen",
-        "description": "Wähle, was für ein Melder jede Zone ist; die Zentrale verrät es nicht. Ausgeschlossene Zonen bekommen keine Entitäten. Zonen eines neu gewählten Teilbereichs zeigen ihre Namen nach dem nächsten Neuladen.",
+        "description": "Wähle, was für ein Melder jede Zone ist; die Zentrale verrät es nicht. Ausgeschlossene Zonen bekommen keine Entitäten. Zonen eines neu gewählten Teilbereichs zeigen ihre Namen nach dem nächsten Neuladen. Zonen, die zu einer Öffnung gehören, etwa die beiden Flügel eines Fensters, fasst du danach auf der Seite der Integration mit „Zonengruppe hinzufügen“ zusammen.",
         "data": {
           "excluded_zones": "Ausgeschlossene Zonen"
         },

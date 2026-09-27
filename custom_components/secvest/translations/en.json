@@ -49,7 +49,7 @@
       },
       "zones": {
         "title": "Zones",
-        "description": "Choose what kind of detector each zone is; the panel doesn't tell. Excluded zones get no entities. You can change this later in the integration's options.",
+        "description": "Choose what kind of detector each zone is; the panel doesn't tell. Excluded zones get no entities. You can change this later in the integration's options. Zones that belong to one opening, such as the two wings of a window, can be combined afterwards with \"Add zone group\" on the integration's page.",
         "data": {
           "excluded_zones": "Excluded zones"
         },
@@ -136,7 +136,7 @@
       },
       "zones": {
         "title": "Zones",
-        "description": "Choose what kind of detector each zone is; the panel doesn't tell. Excluded zones get no entities. Zones of a newly selected partition show their names after the next reload.",
+        "description": "Choose what kind of detector each zone is; the panel doesn't tell. Excluded zones get no entities. Zones of a newly selected partition show their names after the next reload. Zones that belong to one opening, such as the two wings of a window, can be combined afterwards with \"Add zone group\" on the integration's page.",
         "data": {
           "excluded_zones": "Excluded zones"
         },
