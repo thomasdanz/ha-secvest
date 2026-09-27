@@ -18,6 +18,11 @@ CONF_SCAN_INTERVAL = "scan_interval"
 CONF_ZONE_DEVICE_CLASSES = "zone_device_classes"
 CONF_EXCLUDED_ZONES = "excluded_zones"
 
+# zone groups: config subentries, a Home Assistant concept (#67)
+SUBENTRY_ZONE_GROUP = "zone_group"
+CONF_ZONES = "zones"
+CONF_HIDE_MEMBERS = "hide_members"
+
 # offered per zone; the API has no detector type
 ZONE_DEVICE_CLASSES = (
     "door",

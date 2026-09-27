@@ -191,6 +191,61 @@
     },
     "zone": {
       "name": "{name}"
+    },
+    "zone_group": {
+      "name": "Zone group {name}"
+    }
+  },
+  "config_subentries": {
+    "zone_group": {
+      "initiate_flow": {
+        "user": "Add zone group",
+        "reconfigure": "Change zone group"
+      },
+      "entry_type": "Zone group",
+      "step": {
+        "user": {
+          "title": "Add zone group",
+          "description": "Combine zones that belong to one opening, e.g. the two wings of a window. The group gets its own device and a sensor that is on while any of its zones is open. The zones keep their own devices.",
+          "data": {
+            "name": "Name",
+            "zones": "Zones",
+            "device_class": "Show as",
+            "hide_members": "Hide grouped zones"
+          },
+          "data_description": {
+            "name": "Used for the device (\"Zone group <name>\") and the entity id.",
+            "zones": "At least two zones; a zone can be in one group only.",
+            "device_class": "How the group sensor is shown, e.g. window or door.",
+            "hide_members": "Hide the entities of the grouped zones in Home Assistant; they keep working and can still be used in automations."
+          }
+        },
+        "reconfigure": {
+          "title": "Change zone group",
+          "description": "Change the zones or settings of this group.",
+          "data": {
+            "name": "Name",
+            "zones": "Zones",
+            "device_class": "Show as",
+            "hide_members": "Hide grouped zones"
+          },
+          "data_description": {
+            "name": "Used for the device (\"Zone group <name>\"); the entity id stays.",
+            "zones": "At least two zones; a zone can be in one group only.",
+            "device_class": "How the group sensor is shown, e.g. window or door.",
+            "hide_members": "Hide the entities of the grouped zones in Home Assistant; they keep working and can still be used in automations."
+          }
+        }
+      },
+      "error": {
+        "name_required": "Enter a name.",
+        "name_exists": "A group with this name exists already.",
+        "too_few_zones": "Select at least two zones."
+      },
+      "abort": {
+        "not_loaded": "The integration isn't loaded. Fix the problem shown for it first, then change the zone groups.",
+        "reconfigure_successful": "The zone group was changed."
+      }
     }
   }
 }

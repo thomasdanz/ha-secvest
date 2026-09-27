@@ -8,13 +8,16 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.const import EntityCategory, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.util import slugify
 
 from . import SecvestConfigEntry
 from .api.models import FaultType, Partition, Zone, ZoneState
-from .const import CONF_EXCLUDED_ZONES, CONF_ZONE_DEVICE_CLASSES
+from .const import CONF_EXCLUDED_ZONES, CONF_ZONE_DEVICE_CLASSES, DOMAIN
 from .coordinator import SecvestCoordinator
-from .entity import SecvestEntity, SecvestZoneEntity
+from .entity import SecvestEntity, SecvestZoneEntity, zone_model
+from .groups import ZoneGroup, zone_groups
 
 # the entities only read the coordinator's state
 PARALLEL_UPDATES = 0
@@ -45,6 +48,12 @@ async def async_setup_entry(
         entities.append(ZoneSensor(coordinator, zone, device_classes.get(zone.id)))
         entities.append(ZoneProblemSensor(coordinator, zone))
     async_add_entities(entities)
+    # each group belongs to its subentry, so deleting the group removes it
+    for group in zone_groups(entry):
+        async_add_entities(
+            [ZoneGroupSensor(coordinator, group)],
+            config_subentry_id=group.subentry_id,
+        )
 
 
 class InstallerLockSensor(SecvestEntity, BinarySensorEntity):
@@ -183,3 +192,65 @@ class ZoneProblemSensor(SecvestZoneEntity, BinarySensorEntity):
             fault.zone_id == zone.id and fault.type != FaultType.ZONE_OPEN
             for fault in self.coordinator.data.faults
         )
+
+
+class ZoneGroupSensor(SecvestEntity, BinarySensorEntity):
+    """On while any zone of a group is open; the group device's main entity.
+
+    The group is a Home Assistant concept: its own device, not attributed to
+    ABUS, and the member zones keep their devices.
+    """
+
+    # named after the device, i.e. the group
+    _attr_name = None
+
+    def __init__(self, coordinator: SecvestCoordinator, group: ZoneGroup) -> None:
+        """Suggest <installation>_<group> as the entity id."""
+        super().__init__(coordinator, f"group_{group.subentry_id}_open")
+        self.zone_group = group
+        entry = coordinator.config_entry
+        self.entity_id = (
+            f"{Platform.BINARY_SENSOR}.{slugify(entry.title)}_{slugify(group.name)}"
+        )
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{entry.entry_id}_group_{group.subentry_id}")},
+            model=zone_model("zone_group", coordinator.hass.config.language),
+            translation_key="zone_group",
+            translation_placeholders={"name": group.name},
+            via_device_id=coordinator.panel_device_id,
+        )
+        if group.device_class in BinarySensorDeviceClass:
+            self._attr_device_class = BinarySensorDeviceClass(group.device_class)
+
+    def _members(self) -> list[Zone]:
+        zones = self.coordinator.data.zones
+        return [
+            zones[zone_id] for zone_id in self.zone_group.zone_ids if zone_id in zones
+        ]
+
+    @property
+    def available(self) -> bool:
+        """Unavailable while none of the member zones is reported."""
+        return super().available and bool(self._members())
+
+    @property
+    def is_on(self) -> bool | None:
+        """On if a member is open; off if all are reported and closed."""
+        members = self._members()
+        if any(zone.state == ZoneState.OPEN for zone in members):
+            return True
+        if len(members) == len(self.zone_group.zone_ids) and all(
+            zone.state == ZoneState.CLOSED for zone in members
+        ):
+            return False
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """List the member zones and the open ones."""
+        return {
+            "zones": list(self.zone_group.zone_ids),
+            "open_zones": [
+                zone.id for zone in self._members() if zone.state == ZoneState.OPEN
+            ],
+        }

@@ -63,6 +63,10 @@ In the integration's options (Settings → Devices & services → ABUS Secvest �
 
 If a selected partition has no zones anymore (for example after the installer moved its detectors to another partition), a repair issue suggests deselecting it in the options; ignore it if the partition is meant to be empty. It goes away by itself once the partition has zones again.
 
+## Zone groups
+
+Zones that belong to one opening, such as the two wings of a window, can be combined into a zone group: on the integration's page choose **Add zone group**, give it a name, select at least two zones and choose how the group is shown (window, door, …). The group gets its own device "Zone group <name>" with a sensor that is on while any of its zones is open, e.g. `binary_sensor.alarmanlage_living_room`. The zones keep their own devices and entities. **Hide grouped zones** hides the zones' entities in Home Assistant; they keep working and can still be used in automations. Each group can be changed or deleted on the integration's page. A zone group is a Home Assistant feature; the panel knows nothing about it.
+
 ## Entities
 
 - **Alarm panel** per selected partition, named after the partition: disarmed, armed home (internally armed), armed away or triggered. An acknowledged alarm is still shown as triggered, with the attribute `acknowledged`; the attribute `panel_state` holds the panel's own state. Arming and disarming follow in a later version.

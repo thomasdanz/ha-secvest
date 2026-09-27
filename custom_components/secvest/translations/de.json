@@ -191,6 +191,61 @@
     },
     "zone": {
       "name": "{name}"
+    },
+    "zone_group": {
+      "name": "Zonengruppe {name}"
+    }
+  },
+  "config_subentries": {
+    "zone_group": {
+      "initiate_flow": {
+        "user": "Zonengruppe hinzufügen",
+        "reconfigure": "Zonengruppe ändern"
+      },
+      "entry_type": "Zonengruppe",
+      "step": {
+        "user": {
+          "title": "Zonengruppe hinzufügen",
+          "description": "Fasse Zonen zusammen, die zu einer Öffnung gehören, z. B. die beiden Flügel eines Fensters. Die Gruppe bekommt ein eigenes Gerät und einen Sensor, der an ist, solange eine ihrer Zonen offen ist. Die Zonen behalten ihre eigenen Geräte.",
+          "data": {
+            "name": "Name",
+            "zones": "Zonen",
+            "device_class": "Anzeigen als",
+            "hide_members": "Gruppierte Zonen verbergen"
+          },
+          "data_description": {
+            "name": "Wird für das Gerät („Zonengruppe <Name>“) und die Entity-ID verwendet.",
+            "zones": "Mindestens zwei Zonen; eine Zone kann nur in einer Gruppe sein.",
+            "device_class": "Wie der Gruppensensor angezeigt wird, z. B. als Fenster oder Tür.",
+            "hide_members": "Verbirgt die Entitäten der gruppierten Zonen in Home Assistant; sie arbeiten weiter und lassen sich in Automationen verwenden."
+          }
+        },
+        "reconfigure": {
+          "title": "Zonengruppe ändern",
+          "description": "Ändere die Zonen oder Einstellungen dieser Gruppe.",
+          "data": {
+            "name": "Name",
+            "zones": "Zonen",
+            "device_class": "Anzeigen als",
+            "hide_members": "Gruppierte Zonen verbergen"
+          },
+          "data_description": {
+            "name": "Wird für das Gerät verwendet („Zonengruppe <Name>“); die Entity-ID bleibt.",
+            "zones": "Mindestens zwei Zonen; eine Zone kann nur in einer Gruppe sein.",
+            "device_class": "Wie der Gruppensensor angezeigt wird, z. B. als Fenster oder Tür.",
+            "hide_members": "Verbirgt die Entitäten der gruppierten Zonen in Home Assistant; sie arbeiten weiter und lassen sich in Automationen verwenden."
+          }
+        }
+      },
+      "error": {
+        "name_required": "Gib einen Namen ein.",
+        "name_exists": "Eine Gruppe mit diesem Namen gibt es schon.",
+        "too_few_zones": "Wähle mindestens zwei Zonen aus."
+      },
+      "abort": {
+        "not_loaded": "Die Integration ist nicht geladen. Behebe zuerst das angezeigte Problem und ändere dann die Zonengruppen.",
+        "reconfigure_successful": "Die Zonengruppe wurde geändert."
+      }
     }
   }
 }

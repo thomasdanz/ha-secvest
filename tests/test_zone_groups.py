@@ -1,0 +1,266 @@
+"""Tests for zone groups, configured as subentries (#67)."""
+
+from typing import Any
+
+from homeassistant.config_entries import (
+    SOURCE_RECONFIGURE,
+    SOURCE_USER,
+    ConfigEntryState,
+)
+from homeassistant.const import (
+    ATTR_DEVICE_CLASS,
+    CONF_DEVICE_CLASS,
+    CONF_NAME,
+    STATE_OFF,
+    STATE_ON,
+)
+from homeassistant.core import HomeAssistant
+from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import device_registry as dr, entity_registry as er
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from custom_components.secvest.const import (
+    CONF_AUTH_FAILED,
+    CONF_HIDE_MEMBERS,
+    CONF_ZONES,
+    SUBENTRY_ZONE_GROUP,
+)
+
+from .common import Setup, coordinator_of
+from .fake_panel import FakePanel
+
+GROUP = "binary_sensor.alarmanlage_room_3"
+MEMBERS = ("binary_sensor.alarmanlage_room_3_l", "binary_sensor.alarmanlage_room_3_r")
+
+
+def _group(**changes: Any) -> dict[str, Any]:
+    data: dict[str, Any] = {
+        CONF_NAME: "Room 3",
+        CONF_ZONES: ["203", "204"],
+        CONF_DEVICE_CLASS: "window",
+        CONF_HIDE_MEMBERS: True,
+    }
+    data.update(changes)
+    return data
+
+
+async def _add(
+    hass: HomeAssistant, entry: MockConfigEntry, data: dict[str, Any]
+) -> Any:
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, SUBENTRY_ZONE_GROUP), context={"source": SOURCE_USER}
+    )
+    assert result["type"] is FlowResultType.FORM
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], data
+    )
+    await hass.async_block_till_done()
+    return result
+
+
+async def _reconfigure(
+    hass: HomeAssistant, entry: MockConfigEntry, subentry_id: str, data: dict[str, Any]
+) -> Any:
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, SUBENTRY_ZONE_GROUP),
+        context={"source": SOURCE_RECONFIGURE, "subentry_id": subentry_id},
+    )
+    assert result["type"] is FlowResultType.FORM
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], data
+    )
+    await hass.async_block_till_done()
+    return result
+
+
+def _subentry_id(entry: MockConfigEntry) -> str:
+    (subentry_id,) = entry.subentries
+    return str(subentry_id)
+
+
+def _hidden(hass: HomeAssistant, entity_id: str) -> er.RegistryEntryHider | None:
+    entity = er.async_get(hass).async_get(entity_id)
+    assert entity is not None
+    return entity.hidden_by
+
+
+def _state(hass: HomeAssistant, entity_id: str) -> str:
+    state = hass.states.get(entity_id)
+    assert state is not None
+    return state.state
+
+
+async def test_add_group(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """A group gets its own device and sensor; the zones keep theirs."""
+    entry = await setup()
+    sent = len(fake_panel.stats.requests)
+    result = await _add(hass, entry, _group())
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert entry.state is ConfigEntryState.LOADED
+    # only the reload's round was sent
+    assert len(fake_panel.stats.requests) == sent + 4
+
+    state = hass.states.get(GROUP)
+    assert state is not None
+    assert state.state == STATE_OFF
+    assert state.attributes["friendly_name"] == "Zone group Room 3"
+    assert state.attributes[ATTR_DEVICE_CLASS] == "window"
+    assert state.attributes["zones"] == ["203", "204"]
+
+    registry = er.async_get(hass)
+    entity = registry.async_get(GROUP)
+    assert entity is not None
+    subentry_id = _subentry_id(entry)
+    assert entity.unique_id == f"{entry.entry_id}_group_{subentry_id}_open"
+    assert entity.config_subentry_id == subentry_id
+    devices = dr.async_get(hass)
+    device = devices.async_get(entity.device_id)  # type: ignore[arg-type]
+    assert isinstance(device, dr.DeviceEntry)
+    assert device.name == "Zone group Room 3"
+    assert device.model == "Zone group"
+    # a Home Assistant concept, not an ABUS device
+    assert device.manufacturer is None
+    panel = coordinator_of(entry).panel_device_id
+    assert device.via_device_id == panel
+
+    # the member zones keep their own devices and entity ids, but are hidden
+    for member in MEMBERS:
+        zone = registry.async_get(member)
+        assert zone is not None
+        assert zone.device_id != entity.device_id
+        assert zone.hidden_by is er.RegistryEntryHider.INTEGRATION
+
+    fake_panel.open_zone("204")
+    await coordinator_of(entry).async_refresh()
+    assert _state(hass, GROUP) == STATE_ON
+    attributes = hass.states.get(GROUP).attributes  # type: ignore[union-attr]
+    assert attributes["open_zones"] == ["204"]
+
+
+async def test_group_states(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """Unknown while a member is in another state and none is open."""
+    entry = await setup()
+    await _add(hass, entry, _group())
+    fake_panel.zones["203"].state = "tamper"
+    await coordinator_of(entry).async_refresh()
+    assert _state(hass, GROUP) == "unknown"
+    fake_panel.open_zone("204")
+    await coordinator_of(entry).async_refresh()
+    assert _state(hass, GROUP) == STATE_ON
+
+
+async def test_invalid_input(hass: HomeAssistant, setup: Setup) -> None:
+    """Name and at least two zones are required; names are unique."""
+    entry = await setup()
+    result = await _add(hass, entry, _group(**{CONF_ZONES: ["203"]}))
+    assert result["errors"] == {CONF_ZONES: "too_few_zones"}
+    result = await _add(hass, entry, _group(**{CONF_NAME: " "}))
+    assert result["errors"] == {CONF_NAME: "name_required"}
+    await _add(hass, entry, _group())
+    result = await _add(
+        hass, entry, _group(**{CONF_NAME: "room 3", CONF_ZONES: ["205", "206"]})
+    )
+    assert result["errors"] == {CONF_NAME: "name_exists"}
+
+
+async def test_zone_in_one_group_only(hass: HomeAssistant, setup: Setup) -> None:
+    """Zones of another group aren't offered."""
+    entry = await setup()
+    await _add(hass, entry, _group())
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, SUBENTRY_ZONE_GROUP), context={"source": SOURCE_USER}
+    )
+    schema = result["data_schema"]
+    assert schema is not None
+    offered = {
+        option["value"]
+        for key, selector in schema.schema.items()
+        if key == CONF_ZONES
+        for option in selector.config["options"]
+    }
+    assert offered
+    assert not offered & {"203", "204"}
+
+
+async def test_reconfigure(hass: HomeAssistant, setup: Setup) -> None:
+    """Changes reload; members leaving or unhidden are shown again."""
+    entry = await setup()
+    await _add(hass, entry, _group())
+    subentry_id = _subentry_id(entry)
+    result = await _reconfigure(
+        hass,
+        entry,
+        subentry_id,
+        _group(**{CONF_NAME: "Room 3 new", CONF_ZONES: ["203", "205"]}),
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    # the entity id stays, the name follows
+    assert _state(hass, GROUP) == STATE_OFF
+    assert (
+        hass.states.get(GROUP).attributes["friendly_name"]  # type: ignore[union-attr]
+        == "Zone group Room 3 new"
+    )
+    assert _hidden(hass, MEMBERS[1]) is None
+    assert _hidden(hass, "binary_sensor.alarmanlage_room_4_r") is not None
+
+    await _reconfigure(
+        hass,
+        entry,
+        subentry_id,
+        _group(**{CONF_ZONES: ["203", "205"]}, hide_members=False),
+    )
+    assert _hidden(hass, MEMBERS[0]) is None
+
+
+async def test_user_hidden_entity_stays_hidden(
+    hass: HomeAssistant, setup: Setup
+) -> None:
+    """Only what the integration hid is shown again."""
+    entry = await setup()
+    registry = er.async_get(hass)
+    registry.async_update_entity(MEMBERS[0], hidden_by=er.RegistryEntryHider.USER)
+    await _add(hass, entry, _group(hide_members=False))
+    assert _hidden(hass, MEMBERS[0]) is er.RegistryEntryHider.USER
+
+
+async def test_delete_group(hass: HomeAssistant, setup: Setup) -> None:
+    """Deleting the group removes its device and sensor, and shows the zones."""
+    entry = await setup()
+    await _add(hass, entry, _group())
+    registry = er.async_get(hass)
+    entity = registry.async_get(GROUP)
+    assert entity is not None
+    device_id = entity.device_id
+    assert hass.config_entries.async_remove_subentry(entry, _subentry_id(entry))
+    await hass.async_block_till_done()
+    assert registry.async_get(GROUP) is None
+    assert hass.states.get(GROUP) is None
+    assert dr.async_get(hass).async_get(device_id) is None  # type: ignore[arg-type]
+    for member in MEMBERS:
+        assert _hidden(hass, member) is None
+
+
+async def test_not_loaded(hass: HomeAssistant, setup: Setup) -> None:
+    """Without a loaded entry there are no zones to choose from."""
+    entry = await setup(data={CONF_AUTH_FAILED: True})
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, SUBENTRY_ZONE_GROUP), context={"source": SOURCE_USER}
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "not_loaded"
+
+
+async def test_group_survives_a_restart(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """A reload keeps the group sensor and its entity id."""
+    entry = await setup()
+    await _add(hass, entry, _group())
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert _state(hass, GROUP) == STATE_OFF

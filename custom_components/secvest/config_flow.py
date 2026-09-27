@@ -11,9 +11,18 @@ from homeassistant.config_entries import (
     ConfigEntryState,
     ConfigFlow,
     ConfigFlowResult,
-    OptionsFlowWithReload,
+    ConfigSubentry,
+    ConfigSubentryFlow,
+    OptionsFlow,
+    SubentryFlowResult,
 )
-from homeassistant.const import CONF_PASSWORD, CONF_URL, CONF_VERIFY_SSL
+from homeassistant.const import (
+    CONF_DEVICE_CLASS,
+    CONF_NAME,
+    CONF_PASSWORD,
+    CONF_URL,
+    CONF_VERIFY_SSL,
+)
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers.selector import (
@@ -44,20 +53,24 @@ from .const import (
     CONF_ADVANCED,
     CONF_AUTH_FAILED,
     CONF_EXCLUDED_ZONES,
+    CONF_HIDE_MEMBERS,
     CONF_PARTITIONS,
     CONF_SCAN_INTERVAL,
     CONF_USER_AGENT,
     CONF_USER_CODE,
     CONF_ZONE_DEVICE_CLASSES,
+    CONF_ZONES,
     DEFAULT_PORT,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
+    SUBENTRY_ZONE_GROUP,
     TESTED_FIRMWARE,
     TESTED_MODEL,
     ZONE_DEVICE_CLASSES,
 )
+from .groups import zone_groups
 
 STEP_REAUTH_SCHEMA = vol.Schema(
     {
@@ -224,6 +237,14 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(config_entry: ConfigEntry) -> SecvestOptionsFlow:
         """Change the selection and the settings of a panel."""
         return SecvestOptionsFlow()
+
+    @classmethod
+    @callback
+    def async_get_supported_subentry_types(
+        cls, config_entry: ConfigEntry
+    ) -> dict[str, type[ConfigSubentryFlow]]:
+        """Zone groups are subentries of the panel's entry."""
+        return {SUBENTRY_ZONE_GROUP: ZoneGroupFlow}
 
     def __init__(self) -> None:
         """Start without a checked connection."""
@@ -399,7 +420,7 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
         return None
 
 
-class SecvestOptionsFlow(OptionsFlowWithReload):
+class SecvestOptionsFlow(OptionsFlow):
     """Change partitions, zones and settings; the entry reloads afterwards.
 
     Nothing is sent to the panel: the choices come from the last polling
@@ -481,17 +502,19 @@ class SecvestOptionsFlow(OptionsFlowWithReload):
             excluded, classes = zone_options(
                 zones, user_input or {}, entry.options.get(CONF_ZONE_DEVICE_CLASSES, {})
             )
+            options = {
+                **self._options,
+                CONF_EXCLUDED_ZONES: excluded,
+                CONF_ZONE_DEVICE_CLASSES: classes,
+            }
+            # data and options in one update, so the entry reloads once
+            data = dict(entry.data)
             if self._user_agent is not None:
-                self.hass.config_entries.async_update_entry(
-                    entry, data={**entry.data, CONF_USER_AGENT: self._user_agent}
-                )
-            return self.async_create_entry(
-                data={
-                    **self._options,
-                    CONF_EXCLUDED_ZONES: excluded,
-                    CONF_ZONE_DEVICE_CLASSES: classes,
-                }
+                data = {**data, CONF_USER_AGENT: self._user_agent}
+            self.hass.config_entries.async_update_entry(
+                entry, data=data, options=options
             )
+            return self.async_create_entry(data=options)
         return self.async_show_form(
             step_id="zones",
             data_schema=zone_schema(
@@ -499,4 +522,102 @@ class SecvestOptionsFlow(OptionsFlowWithReload):
                 entry.options.get(CONF_ZONE_DEVICE_CLASSES, {}),
                 entry.options.get(CONF_EXCLUDED_ZONES, []),
             ),
+        )
+
+
+class ZoneGroupFlow(ConfigSubentryFlow):
+    """Add or change a zone group; nothing is sent to the panel.
+
+    The zones come from the last polling round.
+    """
+
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Add a zone group."""
+        return self._form("user", user_input, None)
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Change a zone group."""
+        return self._form("reconfigure", user_input, self._get_reconfigure_subentry())
+
+    def _form(
+        self,
+        step_id: str,
+        user_input: dict[str, Any] | None,
+        subentry: ConfigSubentry | None,
+    ) -> SubentryFlowResult:
+        entry = self._get_entry()
+        if entry.state is not ConfigEntryState.LOADED:
+            return self.async_abort(reason="not_loaded")
+        coordinator = entry.runtime_data
+        state = coordinator.data
+        own = subentry.subentry_id if subentry is not None else None
+        others = [g for g in zone_groups(entry) if g.subentry_id != own]
+        # a zone belongs to at most one group
+        taken = {zone_id for group in others for zone_id in group.zone_ids}
+        zones = [
+            (zone_id, label)
+            for zone_id, label in zone_labels(
+                state.partitions, state.zones, coordinator.selected_partitions
+            )
+            if zone_id not in taken
+        ]
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            name = user_input[CONF_NAME].strip()
+            chosen = [z for z, _ in zones if z in user_input.get(CONF_ZONES, [])]
+            if not name:
+                errors[CONF_NAME] = "name_required"
+            elif name.casefold() in {g.name.casefold() for g in others}:
+                errors[CONF_NAME] = "name_exists"
+            elif len(chosen) < 2:
+                errors[CONF_ZONES] = "too_few_zones"
+            else:
+                data = {
+                    CONF_NAME: name,
+                    CONF_ZONES: chosen,
+                    CONF_DEVICE_CLASS: user_input[CONF_DEVICE_CLASS],
+                    CONF_HIDE_MEMBERS: user_input[CONF_HIDE_MEMBERS],
+                }
+                if subentry is None:
+                    return self.async_create_entry(title=name, data=data)
+                # the entry reloads, since its subentries changed
+                return self.async_update_and_abort(
+                    entry, subentry, title=name, data=data
+                )
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_NAME): TextSelector(),
+                vol.Required(CONF_ZONES): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[
+                            SelectOptionDict(value=zone_id, label=label)
+                            for zone_id, label in zones
+                        ],
+                        multiple=True,
+                        mode=SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Required(CONF_DEVICE_CLASS): SelectSelector(
+                    SelectSelectorConfig(
+                        options=list(ZONE_DEVICE_CLASSES),
+                        translation_key="device_class",
+                        mode=SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Required(CONF_HIDE_MEMBERS): bool,
+            }
+        )
+        suggested: Mapping[str, Any] = user_input or (
+            subentry.data
+            if subentry is not None
+            else {CONF_DEVICE_CLASS: "window", CONF_HIDE_MEMBERS: False}
+        )
+        return self.async_show_form(
+            step_id=step_id,
+            data_schema=self.add_suggested_values_to_schema(schema, suggested),
+            errors=errors,
         )

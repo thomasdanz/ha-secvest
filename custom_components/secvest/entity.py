@@ -52,11 +52,13 @@ _ZONE_MODELS = {
         "ip_zone": "IP-Zone",
         "wireless_zone": "Funkzone",
         "wired_zone": "Drahtzone",
+        "zone_group": "Zonengruppe",
     },
     "en": {
         "ip_zone": "IP zone",
         "wireless_zone": "Wireless zone",
         "wired_zone": "Wired zone",
+        "zone_group": "Zone group",
     },
 }
 
