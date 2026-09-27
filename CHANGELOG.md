@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- README: step-by-step manual installation from a clone via SSH or a mounted configuration folder.
+
 ## [0.1.1] - 2026-09-27
 
 ### Changed

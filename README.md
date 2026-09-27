@@ -26,6 +26,20 @@ A Home Assistant custom integration for the ABUS Secvest alarm panel. It talks t
 
 **Manually:** copy the folder `custom_components/secvest` of a release into the `custom_components` folder of your Home Assistant configuration and restart Home Assistant. To update, replace the folder and restart again.
 
+From a clone of this repository, with SSH access to Home Assistant (e.g. the "Advanced SSH & Web Terminal" add-on), this installs exactly the tagged version, without local changes or `__pycache__`:
+
+```bash
+git fetch --tags
+ssh <user>@<home-assistant-host> 'ls /config'   # check host and folder first
+ssh <user>@<home-assistant-host> 'rm -rf /config/custom_components/secvest'
+git archive <tag> custom_components/secvest | ssh <user>@<home-assistant-host> 'tar -x -C /config'
+ssh <user>@<home-assistant-host> 'grep version /config/custom_components/secvest/manifest.json'
+```
+
+Replace `<tag>` with a version such as `v0.1.1`. Removing the folder first makes sure files deleted in the new version don't stay behind. With the configuration folder mounted instead (e.g. the Samba add-on), `rsync -av --delete --exclude __pycache__ custom_components/secvest/ <mounted-config>/custom_components/secvest/` from a checkout of the tag does the same.
+
+Replacing the files while Home Assistant runs is fine: the running code stays in memory until the restart. Restart right away, though, without setting up or reloading the integration in between, since Home Assistant loads some parts only when needed and could mix old and new files. If your configuration folder is a Git repository, add `custom_components/secvest/` to its `.gitignore`.
+
 **Connection:** the integration works directly against the panel (its own HTTPS port 4433 with a self-signed certificate) and through a reverse proxy in front of it. The proxy may hold its own TLS session to the panel; the polling limits apply either way, since every request still reaches the panel.
 
 ## Setup
