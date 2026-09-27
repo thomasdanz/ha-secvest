@@ -331,6 +331,13 @@ def test_panel_time_when_the_clock_goes_back() -> None:
         (parse_faults, [{"type": "5000"}]),
         (parse_log, [{"id": "1", "type": "normal", "desc": "x", "events": [{}]}]),
         (parse_zone, []),
+        # wrong types in required and optional fields
+        (parse_partition, {"id": "1", "name": 1, "state": "set", "zones": []}),
+        (parse_partition, {"id": "1", "name": "P", "state": "set", "zones": "201"}),
+        (parse_partition, {"id": True, "name": "P", "state": "set", "zones": []}),
+        (parse_partition, {"id": "1", "name": "P", "state": "set", "zones": [1.5]}),
+        (parse_faults, [{"type": "5000", "id": "1", "affects-zone": 1.5}]),
+        (parse_faults, [{"type": "5000", "id": "1", "ui-string": 7}]),
         (
             parse_zone,
             {
