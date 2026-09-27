@@ -101,11 +101,12 @@ class Injection:
     - drop_before: close the connection without handling the request
     - drop_after: handle the request (a command takes effect), then close
       the connection without an answer
+    - slow: answer normally after `delay` seconds
     """
 
     method: str
     path: str
-    action: Literal["status", "timeout", "drop_before", "drop_after"]
+    action: Literal["status", "timeout", "drop_before", "drop_after", "slow"]
     status: int = 500
     body: bytes = b""
     content_type: str | None = None
@@ -603,6 +604,9 @@ class _Handler(BaseHTTPRequestHandler):
             if self.headers.get("Connection", "").lower() == "close":
                 panel.violations.append(f"Connection: close on {method} {self.path}")
             injection = self._take_injection(method)
+        if injection is not None and injection.action == "slow":
+            time.sleep(injection.delay)
+            injection = None
         if injection is not None and injection.action != "drop_after":
             self._inject(injection)
             return

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterable, Mapping
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import timedelta
 import logging
@@ -17,7 +17,12 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api.client import Client
-from .api.errors import AuthenticationError, InstallerLockedError, SecvestError
+from .api.errors import (
+    AuthenticationError,
+    ConnectionLostError,
+    InstallerLockedError,
+    SecvestError,
+)
 from .api.models import FaultType, PanelEvent, Partition, Zone, ZoneState
 from .const import (
     BACKOFF_MAX,
@@ -36,6 +41,18 @@ if TYPE_CHECKING:
     from . import SecvestConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class CommandOutcome:
+    """What a command achieved, judged by the state read after it."""
+
+    reached: bool
+    # the panel's answer to the (last) command, if it was an error
+    error: SecvestError | None
+    state: PanelState
+    # sent a second time after the connection broke
+    resent: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,6 +218,8 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         )
         # selected partitions that are empty or missing, with the issue raised
         self._partition_problems: dict[int, str] = {}
+        # counts commands, so that a round that read before one is discarded
+        self._generation = 0
         # zone groups with zones the partitions no longer list
         self._group_problems: dict[str, tuple[str, ...]] = {}
         self.backoff = Backoff()
@@ -237,24 +256,18 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
                 _LOGGER.debug("Delaying the round by %.1f s", wait)
                 await asyncio.sleep(wait)
         starts[entry_id] = time.monotonic()
+        generation = self._generation
         try:
             state = await self._round()
         except AuthenticationError as err:
-            # never retried: the transport already blocks further requests,
-            # and the flag keeps setup from sending the credentials again
-            self.hass.config_entries.async_update_entry(
-                self.config_entry,
-                data={**self.config_entry.data, CONF_AUTH_FAILED: True},
-            )
+            self._remember_auth_failed()
             raise ConfigEntryAuthFailed(
                 translation_domain=DOMAIN, translation_key="auth_failed"
             ) from err
         except InstallerLockedError as err:
             # the panel answers, so no backoff and the interval stays; the
             # round stopped at its first request, and the last state is kept
-            if not self.installer_locked:
-                _LOGGER.info("The installer is logged in; the panel is locked")
-                self.installer_locked = True
+            self._set_installer_locked()
             raise UpdateFailed(str(err)) from err
         except SecvestError as err:
             # timeouts, lost connections, server errors and answers that
@@ -269,12 +282,97 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
                     err,
                 )
             raise UpdateFailed(str(err), retry_after=delay) from err
+        if generation != self._generation and self.data is not None:
+            # a command ran meanwhile and its verification is newer than what
+            # this round read before it
+            _LOGGER.debug("Discarding a round that a command overtook")
+            return self.data
+        self._accept(state)
+        return state
+
+    def _accept(self, state: PanelState) -> None:
+        """Take a successful round's result into account."""
         self.backoff.succeeded()
+        entry_id = self.config_entry.entry_id
         _last_rounds(self.hass)[entry_id] = (self.selected_partitions, state)
         self._check_groups(state)
         if self.installer_locked:
             _LOGGER.info("The installer logged out; the panel is unlocked")
             self.installer_locked = False
+
+    def _remember_auth_failed(self) -> None:
+        # never retried: the transport already blocks further requests, and
+        # the flag keeps setup from sending the credentials again
+        self.hass.config_entries.async_update_entry(
+            self.config_entry,
+            data={**self.config_entry.data, CONF_AUTH_FAILED: True},
+        )
+
+    def _set_installer_locked(self) -> None:
+        if not self.installer_locked:
+            _LOGGER.info("The installer is logged in; the panel is locked")
+            self.installer_locked = True
+
+    async def async_command(
+        self,
+        send: Callable[[], Awaitable[object]],
+        reached: Callable[[PanelState], bool],
+    ) -> CommandOutcome:
+        """Send a command, then read the real state and judge by it.
+
+        The caller holds the request queue (with priority) for the whole
+        sequence. The verification runs after any answer, also an error;
+        only a 401 and the installer lock end the command without it, since
+        every request fails then. If the connection broke after sending
+        (ConnectionLostError), the command is sent once more, but only if the
+        verification shows the target wasn't reached: the single automatic
+        retry of a command (see the architecture).
+        """
+        error: SecvestError | None = None
+        resent = False
+        for attempt in (1, 2):
+            try:
+                await send()
+                error = None
+            except AuthenticationError:
+                self._remember_auth_failed()
+                self.config_entry.async_start_reauth(self.hass)
+                raise
+            except InstallerLockedError:
+                self._set_installer_locked()
+                self.async_update_listeners()
+                raise
+            except SecvestError as err:
+                error = err
+            state = await self._verify()
+            if reached(state) or not isinstance(error, ConnectionLostError):
+                break
+            if attempt == 1:
+                _LOGGER.info("The connection broke after a command; sending it again")
+                resent = True
+        return CommandOutcome(reached(state), error, state, resent)
+
+    async def _verify(self) -> PanelState:
+        """Read the real state right after a command.
+
+        It replaces the next regular round: the schedule starts again, and
+        the minimum spacing counts from here. A round that read before the
+        command discards its result.
+        """
+        self._generation += 1
+        _round_starts(self.hass)[self.config_entry.entry_id] = time.monotonic()
+        try:
+            state = await self._round()
+        except AuthenticationError:
+            self._remember_auth_failed()
+            self.config_entry.async_start_reauth(self.hass)
+            raise
+        except InstallerLockedError:
+            self._set_installer_locked()
+            self.async_update_listeners()
+            raise
+        self._accept(state)
+        self.async_set_updated_data(state)
         return state
 
     def reuse_recent_round(self) -> bool:
