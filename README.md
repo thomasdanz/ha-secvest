@@ -69,7 +69,7 @@ Zones that belong to one opening, such as the two wings of a window, can be comb
 
 ## Entities
 
-- **Alarm panel** per selected partition, named after the partition: disarmed, armed home (internally armed), armed away or triggered. An acknowledged alarm is still shown as triggered, with the attribute `acknowledged`; the attribute `panel_state` holds the panel's own state. Arming and disarming follow in a later version.
+- **Alarm panel** per selected partition, named after the partition: disarmed, armed home (internally armed), armed away or triggered. An acknowledged alarm is still shown as triggered, with the attribute `acknowledged`; the attribute `panel_state` holds the panel's own state. You can arm (away or home, i.e. internally) and disarm it; see "Arming and disarming".
 - **Zones:** each zone of the selected partitions is its own device below the panel device, named with its kind (e.g. "Wireless zone Cellar", in German "Funkzone Keller"; the kind is also shown as the model), so you can assign it to an area. Its binary sensor is on while the zone is open; other zone states (such as tamper) show as unknown, with the panel's value in the attribute `zone_state`. The API doesn't tell detector types apart, so the sensors have no device class until you choose one per zone in the options. A diagnostic **Problem** sensor per zone is on for such other states or while a fault (other than "zone open") affects the zone.
 - **Faults** on the panel device: the number of current faults, all of them in the attribute `faults` and a readable list in `summary` (one line per fault). This includes faults of components the API doesn't list otherwise, such as a repeater's low battery. Open zones, which the panel also reports as faults (even when disarmed), are left out here and counted by **Open zones**.
 - **Problem** on the panel device: on while **Faults** is above 0.
@@ -90,6 +90,36 @@ content: >
 
 Replace `sensor.alarmanlage_faults` with the entity id of your faults sensor (in German, for example, `sensor.alarmanlage_storungen`).
 
+## Arming and disarming
+
+The alarm panel arms away (full set), arms home (part set, "intern aktivieren") and disarms. No code is asked for: the panel user's credentials are the authorization. Every command is checked by reading the partition again afterwards, whatever the panel answered: it counts as done only if the partition really is in the requested state.
+
+If arming or disarming fails, the action fails with one message of the form "Partition <name> was not armed: <reason>", shown in the UI and in automation traces, and the event `secvest_arming_failed` is fired with `entry_id`, `partition`, `partition_name`, `requested` (`set`, `partset` or `unset`), `reason`, `zones` and `faults`. The reasons:
+
+| `reason` | Meaning |
+|---|---|
+| `blocked` | The panel refused and named the blocking zones or faults (certain) |
+| `refused` | The panel refused without naming a reason (e.g. a partition without zones) |
+| `no_permission` | The panel user has no rights for this partition (certain) |
+| `likely_open_zones` | The panel answered but didn't arm; open zones that aren't omitted are the likely reason (e.g. an open entry door, depending on the panel's configuration) |
+| `likely_faults` | As above, with faults that prevent arming as the likely reason |
+| `error` | The panel answered with another error |
+| `unknown` | The panel didn't change the state and gave no hint why |
+
+An automation can react to failed arming, for example with a notification:
+
+```yaml
+triggers:
+  - trigger: event
+    event_type: secvest_arming_failed
+actions:
+  - action: notify.notify
+    data:
+      message: "Alarm not armed ({{ trigger.event.data.reason }}): {{ trigger.event.data.zones | join(', ') }}"
+```
+
+While the installer is logged in, commands fail with a message saying so. If the result of a command can't be read back, the message says that too; check the state at the panel then.
+
 ## How it works
 
 After setup the integration polls the panel every 30 seconds, never more often than every 24 seconds (the official app's own cycle). To poll on demand, use the action `homeassistant.update_entity` with any of the integration's entities; the same limit applies. If the panel doesn't answer, the integration waits longer after each failed attempt (up to 5 minutes) and pauses for 15 minutes after 5 failures in a row; entities keep their last state until the pause starts.
@@ -100,7 +130,6 @@ If the panel later rejects the credentials (for example after the password was c
 
 ## Limitations
 
-- **Read-only for now:** v0.1 doesn't arm, disarm, omit zones or acknowledge alarms.
 - **Delay:** changes show up with the next polling round, by default within 30 seconds.
 - **No exit or entry delay states:** the API reports no transitional state; arming takes effect immediately, and during an entry delay the partition keeps reporting its armed state.
 - **Arming blocked** covers open zones and the faults the panel reports as preventing arming; the panel may still refuse arming for reasons it reports only when arming is requested.
