@@ -161,6 +161,19 @@ def raise_failure(
     )
 
 
+def _refuse_while_locked(coordinator: SecvestCoordinator) -> None:
+    """Refuse a command before sending anything if the lock is known.
+
+    The panel refuses commands while the installer is logged in anyway; a
+    lock the last round saw needs no request to find out. A lock that
+    started since then is reported by the panel's answer the same way.
+    """
+    if coordinator.installer_locked:
+        raise CommandError(
+            translation_domain=DOMAIN, translation_key="installer_locked"
+        )
+
+
 def _panel_error(err: SecvestError) -> CommandError:
     """Map the errors after which no verification is possible."""
     if isinstance(err, InstallerLockedError):
@@ -238,6 +251,7 @@ async def async_set_partition_state(
     partition isn't in the target state afterwards, whatever the panel
     answered; a failed intermediate step stops the sequence and is named.
     """
+    _refuse_while_locked(coordinator)
     async with coordinator.client.hold(priority=True):
         current = await _read_current(coordinator, number)
         if target in ARMED and (
@@ -305,6 +319,7 @@ async def async_set_omitted(
     """
     client = coordinator.client
     action = "omit" if omitted else "include"
+    _refuse_while_locked(coordinator)
     async with client.hold(priority=True):
         state = coordinator.data
         # the zone is omitted through one of the selected partitions it is in

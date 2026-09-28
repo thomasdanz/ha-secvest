@@ -171,3 +171,20 @@ async def test_switch_off_right_after_disarming(
     # no polling round in between: the command's own verification did it
     assert not fake_panel.zones["209"].omitted
     assert _state(hass) == STATE_OFF
+
+
+@pytest.mark.parametrize("service", ["turn_on", "turn_off"])
+async def test_known_installer_lock_sends_nothing(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup, service: str
+) -> None:
+    """With the lock seen by the last round, nothing is sent."""
+    entry = await setup()
+    fake_panel.installer_locked = True
+    await coordinator_of(entry).async_refresh()
+    sent = len(fake_panel.stats.requests)
+    with pytest.raises(CommandError) as err:
+        await _switch(hass, service)
+    assert err.value.translation_key == "installer_locked"
+    assert len(fake_panel.stats.requests) == sent
+    # the switch keeps its last state
+    assert _state(hass) == STATE_OFF

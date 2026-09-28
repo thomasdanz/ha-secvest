@@ -209,6 +209,24 @@ async def test_installer_lock(
     assert err.value.translation_key == "installer_locked"
 
 
+@pytest.mark.parametrize(
+    "service", ["alarm_arm_away", "alarm_arm_home", "alarm_disarm"]
+)
+async def test_known_installer_lock_sends_nothing(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup, service: str
+) -> None:
+    """With the lock seen by the last round, nothing is sent, not even a read."""
+    entry = await setup(code=CODE)
+    fake_panel.installer_locked = True
+    await coordinator_of(entry).async_refresh()
+    sent = len(fake_panel.stats.requests)
+    with pytest.raises(CommandError) as err:
+        await _call(hass, service)
+    assert err.value.translation_key == "installer_locked"
+    assert len(fake_panel.stats.requests) == sent
+    assert _state(hass) == AlarmControlPanelState.DISARMED
+
+
 async def test_not_verified(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
