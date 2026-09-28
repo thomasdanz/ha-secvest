@@ -9,11 +9,12 @@ never from panel texts.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import partial
 import logging
 from typing import TYPE_CHECKING
 
+from homeassistant.core import Context
 from homeassistant.exceptions import HomeAssistantError
 
 from .api.errors import (
@@ -99,12 +100,17 @@ class Request:
 
     action is arm or disarm, or for a failed step before the requested one:
     switch (disarming first when switching between the armed modes) or
-    acknowledge_first (acknowledging before disarming an alarm).
+    acknowledge_first (acknowledging before disarming an alarm). user is
+    the name of the code that was entered; context is the calling action's,
+    so automations can tell where it came from (a user, an automation, or
+    neither, e.g. HomeKit).
     """
 
     number: int
     target: PartitionState
     action: str
+    user: str | None = None
+    context: Context | None = None
 
 
 def raise_failure(
@@ -128,8 +134,14 @@ def raise_failure(
             # the step that failed: disarm first when switching modes
             "step": _STEPS.get(action, "command"),
             "zones": list(failure.zones),
+            "zone_names": [
+                state.zones[zone].name if zone in state.zones else zone
+                for zone in failure.zones
+            ],
             "faults": list(failure.faults),
+            "user": request.user,
         },
+        context=request.context,
     )
     _LOGGER.info(
         "Partition %s: %s to %s failed (%s)", number, action, target, failure.reason
@@ -209,7 +221,12 @@ async def _read_current(
 
 
 async def async_set_partition_state(
-    coordinator: SecvestCoordinator, number: int, target: PartitionState
+    coordinator: SecvestCoordinator,
+    number: int,
+    target: PartitionState,
+    *,
+    user: str | None = None,
+    context: Context | None = None,
 ) -> None:
     """Arm, arm internally or disarm a partition, verified.
 
@@ -236,17 +253,16 @@ async def async_set_partition_state(
             steps.insert(0, (PartitionState.ACKNOWLEDGED, "acknowledge_first"))
         elif current in ARMED and target in ARMED and current != target:
             steps.insert(0, (PartitionState.UNSET, "switch"))
-        await _run(coordinator, number, target, steps)
+        await _run(coordinator, Request(number, target, "", user, context), steps)
 
 
 async def _run(
     coordinator: SecvestCoordinator,
-    number: int,
-    target: PartitionState,
+    request: Request,
     steps: list[tuple[PartitionState, str]],
 ) -> None:
     """Send the steps one after another, each verified; stop at a failure."""
-    client = coordinator.client
+    client, number = coordinator.client, request.number
     for index, (step, action) in enumerate(steps):
         last = index == len(steps) - 1
         try:
@@ -263,7 +279,7 @@ async def _run(
                 coordinator.async_set_updated_data(outcome.state)
             raise_failure(
                 coordinator,
-                Request(number, target, action),
+                replace(request, action=action),
                 explain(outcome, number, step),
                 outcome.state,
             )
