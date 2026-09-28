@@ -278,3 +278,66 @@ def _name(coordinator: SecvestCoordinator, number: int) -> str:
 
 def _action(target: PartitionState) -> str:
     return "disarm" if target == PartitionState.UNSET else "arm"
+
+
+async def async_set_omitted(
+    coordinator: SecvestCoordinator, zone_id: str, omitted: bool
+) -> None:
+    """Omit a zone or include it again, verified by the zone read afterwards.
+
+    The panel answers an empty 403 both for a zone that can't be omitted and
+    for a partition the user may not operate; the fresh omittable tells them
+    apart.
+    """
+    client = coordinator.client
+    action = "omit" if omitted else "include"
+    async with client.hold(priority=True):
+        state = coordinator.data
+        # the zone is omitted through one of the selected partitions it is in
+        number = next(
+            (
+                n
+                for n in coordinator.selected_partitions
+                if (p := state.partitions.get(n)) is not None and zone_id in p.zone_ids
+            ),
+            None,
+        )
+        name = state.zones[zone_id].name if zone_id in state.zones else zone_id
+        if number is None:
+            raise CommandError(
+                translation_domain=DOMAIN,
+                translation_key=f"{action}_failed_unknown",
+                translation_placeholders={"zone": name},
+            )
+
+        def reached(fresh: PanelState) -> bool:
+            zone = fresh.zones.get(zone_id)
+            return zone is not None and zone.omitted == omitted
+
+        try:
+            outcome = await coordinator.async_command(
+                partial(client.set_zone_omitted, number, zone_id, omitted), reached
+            )
+        except SecvestError as err:
+            raise _panel_error(err) from err
+    if outcome.reached:
+        return
+    zone = outcome.state.zones.get(zone_id)
+    if isinstance(outcome.error, NotAllowedError):
+        reason = (
+            "not_omittable"
+            if zone is not None and not zone.omittable
+            else "no_permission"
+        )
+    elif outcome.error is not None and not isinstance(
+        outcome.error, ConnectionLostError
+    ):
+        reason = "error"
+    else:
+        reason = "unknown"
+    _LOGGER.info("Zone %s: %s failed (%s)", zone_id, action, reason)
+    raise CommandError(
+        translation_domain=DOMAIN,
+        translation_key=f"{action}_failed_{reason}",
+        translation_placeholders={"zone": name},
+    )

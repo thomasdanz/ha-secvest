@@ -136,6 +136,11 @@
       "acknowledge": {
         "name": "{partition} acknowledge alarm"
       }
+    },
+    "switch": {
+      "omit": {
+        "name": "Omit"
+      }
     }
   },
   "exceptions": {
@@ -258,6 +263,30 @@
     },
     "no_alarm": {
       "message": "Partition {partition} has no alarm to acknowledge"
+    },
+    "omit_failed_not_omittable": {
+      "message": "Zone {zone} was not omitted: it can't be omitted"
+    },
+    "omit_failed_no_permission": {
+      "message": "Zone {zone} was not omitted: no permission to omit zones of this partition"
+    },
+    "omit_failed_error": {
+      "message": "Zone {zone} was not omitted: the panel answered with an error"
+    },
+    "omit_failed_unknown": {
+      "message": "Zone {zone} was not omitted: the panel didn't change it; reason unknown"
+    },
+    "include_failed_not_omittable": {
+      "message": "Zone {zone} was not included again: it can't be omitted"
+    },
+    "include_failed_no_permission": {
+      "message": "Zone {zone} was not included again: no permission for zones of this partition"
+    },
+    "include_failed_error": {
+      "message": "Zone {zone} was not included again: the panel answered with an error"
+    },
+    "include_failed_unknown": {
+      "message": "Zone {zone} was not included again: the panel didn't change it; reason unknown"
     }
   },
   "options": {

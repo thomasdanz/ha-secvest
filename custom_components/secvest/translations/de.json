@@ -136,6 +136,11 @@
       "acknowledge": {
         "name": "{partition} Alarm quittieren"
       }
+    },
+    "switch": {
+      "omit": {
+        "name": "Ausblenden"
+      }
     }
   },
   "exceptions": {
@@ -258,6 +263,30 @@
     },
     "no_alarm": {
       "message": "Teilbereich {partition} hat keinen Alarm zum Quittieren"
+    },
+    "omit_failed_not_omittable": {
+      "message": "Zone {zone} wurde nicht ausgeblendet. Sie ist nicht ausblendbar"
+    },
+    "omit_failed_no_permission": {
+      "message": "Zone {zone} wurde nicht ausgeblendet. Keine Berechtigung, Zonen dieses Teilbereichs auszublenden"
+    },
+    "omit_failed_error": {
+      "message": "Zone {zone} wurde nicht ausgeblendet. Die Zentrale hat mit einem Fehler geantwortet"
+    },
+    "omit_failed_unknown": {
+      "message": "Zone {zone} wurde nicht ausgeblendet. Die Zentrale hat sie nicht geändert; Grund unbekannt"
+    },
+    "include_failed_not_omittable": {
+      "message": "Zone {zone} wurde nicht wieder eingeblendet. Sie ist nicht ausblendbar"
+    },
+    "include_failed_no_permission": {
+      "message": "Zone {zone} wurde nicht wieder eingeblendet. Keine Berechtigung für Zonen dieses Teilbereichs"
+    },
+    "include_failed_error": {
+      "message": "Zone {zone} wurde nicht wieder eingeblendet. Die Zentrale hat mit einem Fehler geantwortet"
+    },
+    "include_failed_unknown": {
+      "message": "Zone {zone} wurde nicht wieder eingeblendet. Die Zentrale hat sie nicht geändert; Grund unbekannt"
     }
   },
   "options": {

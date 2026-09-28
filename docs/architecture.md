@@ -218,7 +218,7 @@ The panel's partitions are independent of each other, so everything that belongs
 |---|---|---|
 | Zone | binary_sensor | Open / closed, unknown for any other zone state; the device's main entity (named after the zone); device class from the options (`zone_device_classes`: door, window, garage door, motion, smoke, …), none by default since the API has no detector type; attributes: zone id, raw zone state, all partitions the zone belongs to, `omittable`, `omitted`, `inner` |
 | Zone problem | binary_sensor (problem, diagnostic) | On for any zone state other than open/closed (tamper, fault, …) or a fault affecting the zone; "zone open" faults (type 5000) are ignored, since they appear for every open omittable zone and the zone sensor already shows them |
-| Omit zone | switch | Only for omittable zones; turns off by itself when the panel includes the zone again at disarm |
+| Omit zone | switch | Only for omittable zones (and not excluded ones); on = omitted; turns off by itself when the panel includes the zone again at disarm. Sent through the first selected partition that lists the zone; verified by the zone read afterwards; after an empty 403 the fresh `omittable` decides between "can't be omitted" and "no permission". Hidden with the other entities of grouped zones |
 
 **Zone groups** (optional, configured manually as config subentries, #67): several zones that belong to one opening, e.g. the two wings of a window. A zone group is a Home Assistant concept, not one of the panel, so it stays separate: the group gets its own device "Zone group <name>" / "Zonengruppe <name>" (model "Zone group" in Home Assistant's language, no manufacturer, linked to the panel device), and the member zones keep their devices, entities and names.
 

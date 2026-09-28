@@ -32,6 +32,7 @@ PLATFORMS = [
     Platform.BINARY_SENSOR,
     Platform.BUTTON,
     Platform.SENSOR,
+    Platform.SWITCH,
 ]
 
 type SecvestConfigEntry = ConfigEntry[SecvestCoordinator]
@@ -89,7 +90,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> b
     return True
 
 
-_ZONE_ENTITY = re.compile(r"zone_([^_]+)_(open|problem)")
+_ZONE_ENTITY = re.compile(r"zone_([^_]+)_(open|problem|omit)")
 
 
 def _hide_grouped_zones(hass: HomeAssistant, entry: SecvestConfigEntry) -> None:
@@ -146,7 +147,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: SecvestConfigEntry) ->
 _ENTITY_KINDS = re.compile(
     r"(installer_lock|problem|faults"
     r"|partition_\d+_(alarm|arming_blocked|open_zones|acknowledge)"
-    r"|zone_[^_]+_(open|problem)"
+    r"|zone_[^_]+_(open|problem|omit)"
     r"|group_[^_]+_open)"
 )
 
