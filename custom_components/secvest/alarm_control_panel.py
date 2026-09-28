@@ -16,7 +16,12 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from . import SecvestConfigEntry
 from .api.models import AlarmType, PanelEvent, Partition, PartitionState
 from .codes import codes, find
-from .commands import async_set_partition_state
+from .commands import (
+    Failure,
+    Request,
+    async_set_partition_state,
+    fire_arming_failed,
+)
 from .const import DOMAIN
 from .coordinator import SecvestCoordinator
 from .entity import SecvestEntity
@@ -150,15 +155,17 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
     async def _command(self, code: str | None, target: PartitionState) -> None:
         """Check the code, then send the command; nothing is sent otherwise."""
         entry = self.coordinator.config_entry
-        if not codes(entry):
-            raise ServiceValidationError(
-                translation_domain=DOMAIN, translation_key="no_codes"
-            )
         user = find(entry, code)
         if user is None:
-            _LOGGER.warning("Wrong code for partition %s", self.number)
+            reason = "invalid_code" if codes(entry) else "no_codes"
+            if reason == "invalid_code":
+                _LOGGER.warning("Wrong code for partition %s", self.number)
+            # the event too, so a notification reaches e.g. HomeKit users
+            action = "disarm" if target == PartitionState.UNSET else "arm"
+            request = Request(self.number, target, action, context=self._context)
+            fire_arming_failed(self.coordinator, request, Failure(reason))
             raise ServiceValidationError(
-                translation_domain=DOMAIN, translation_key="invalid_code"
+                translation_domain=DOMAIN, translation_key=reason
             )
         await async_set_partition_state(
             self.coordinator,

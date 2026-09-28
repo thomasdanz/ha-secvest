@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-09-28
+
+### Changed
+
+- The event `secvest_arming_failed` is fired for every failed arming or disarming, not only when the panel's state explains it: new reasons `not_verified` (the result couldn't be read back; check the panel), `installer_locked`, `arm_during_alarm`, `auth_failed`, `invalid_code` and `no_codes`. A notification from it now also covers these cases, e.g. for the Apple Home app via HomeKit Bridge, which shows no message (#126).
+
+### Upgrade notes
+
+- Automations on `secvest_arming_failed` receive the new reasons; map them if they translate reasons into texts.
+
 ## [0.2.2] - 2026-09-28
 
 ### Changed
@@ -146,7 +156,8 @@ First version, read-only: the state of partitions, zones and faults.
 - README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
 - Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
 
-[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.10...v0.2.0
