@@ -52,6 +52,11 @@ def _unique_ids(stored: dict[str, Any], panel: FakePanel) -> list[str]:
     for zone_id in panel.partitions[1].zone_ids:
         if zone_id not in excluded:
             ids.extend(f"zone_{zone_id}_{key}" for key in stored["unique_ids"]["zones"])
+            if panel.zones[zone_id].omittable:
+                ids.extend(
+                    f"zone_{zone_id}_{key}"
+                    for key in stored["unique_ids"].get("omittable_zones", [])
+                )
     return ids
 
 
@@ -59,6 +64,10 @@ def _domain(unique_id: str) -> str:
     """Return the platform of an entity kind, by the end of its unique id."""
     if unique_id.endswith("_alarm"):
         return "alarm_control_panel"
+    if unique_id.endswith("_acknowledge"):
+        return "button"
+    if unique_id.endswith("_omit"):
+        return "switch"
     if unique_id == "faults" or unique_id.endswith("_open_zones"):
         return "sensor"
     return "binary_sensor"

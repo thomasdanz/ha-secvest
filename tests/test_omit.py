@@ -1,5 +1,7 @@
 """Tests for omitting and including zones (#27)."""
 
+import json
+
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
@@ -8,7 +10,7 @@ import pytest
 from custom_components.secvest.commands import CommandError
 
 from .common import ROUND, Setup, coordinator_of
-from .fake_panel import FakePanel
+from .fake_panel import FakePanel, Injection
 
 SWITCH = "switch.alarmanlage_room_6_l_omit"
 PUT = ("PUT", "/system/partitions-1/zones-209/")
@@ -90,3 +92,37 @@ async def test_not_omittable_anymore(
     with pytest.raises(CommandError) as err:
         await _switch(hass, "turn_on")
     assert err.value.translation_key == "omit_failed_not_omittable"
+
+
+async def test_error_answer(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """Another error answer is reported as such after the verification."""
+    await setup()
+    fake_panel.inject(
+        Injection("PUT", "/system/partitions-1/zones-209/", "status", status=500)
+    )
+    with pytest.raises(CommandError) as err:
+        await _switch(hass, "turn_on")
+    assert err.value.translation_key == "omit_failed_error"
+
+
+async def test_ignored(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """A 200 without effect has no known reason."""
+    await setup()
+    fake_panel.inject(
+        Injection(
+            "PUT",
+            "/system/partitions-1/zones-209/",
+            "status",
+            status=200,
+            # the zone unchanged, as a panel that ignores the command answers
+            body=json.dumps(fake_panel.zones["209"].to_json()).encode(),
+            content_type="application/json",
+        )
+    )
+    with pytest.raises(CommandError) as err:
+        await _switch(hass, "turn_on")
+    assert err.value.translation_key == "omit_failed_unknown"
