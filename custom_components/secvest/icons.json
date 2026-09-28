@@ -22,11 +22,6 @@
         "default": "mdi:window-open-variant"
       }
     },
-    "button": {
-      "acknowledge": {
-        "default": "mdi:bell-check-outline"
-      }
-    },
     "switch": {
       "omit": {
         "default": "mdi:eye-outline",

@@ -325,8 +325,7 @@
         "partition_1": [
           "alarm",
           "arming_blocked",
-          "open_zones",
-          "acknowledge"
+          "open_zones"
         ],
         "zones": [
           "open",

@@ -110,14 +110,14 @@
             "name": "Alarm type",
             "state": {
               "undefined": "Undefined",
-              "fault": "Fault",
-              "technical": "Technical",
-              "fire": "Fire",
-              "burglary": "Burglary",
-              "medical": "Medical",
-              "panic": "Panic",
-              "social": "Social",
-              "inactivity": "Inactivity"
+              "fault": "Trouble",
+              "technical": "Technical alarm",
+              "fire": "Fire alarm",
+              "burglary": "Burglar alarm",
+              "medical": "Medical alarm",
+              "panic": "Hold-up alarm",
+              "social": "Social care alarm",
+              "inactivity": "Social inactivity"
             }
           },
           "panel_state": {
@@ -130,11 +130,6 @@
             "name": "Alarm zones"
           }
         }
-      }
-    },
-    "button": {
-      "acknowledge": {
-        "name": "{partition} acknowledge alarm"
       }
     },
     "switch": {
@@ -216,53 +211,29 @@
     "switch_failed_unknown": {
       "message": "Partition {partition} was not switched: disarming first failed: the panel didn't change the state; reason unknown"
     },
-    "acknowledge_failed_blocked": {
-      "message": "The alarm of partition {partition} was not acknowledged: blocked by {items}"
-    },
     "acknowledge_first_failed_blocked": {
       "message": "Partition {partition} was not disarmed: acknowledging the alarm first failed: blocked by {items}"
-    },
-    "acknowledge_failed_refused": {
-      "message": "The alarm of partition {partition} was not acknowledged: the panel refused without naming a reason"
     },
     "acknowledge_first_failed_refused": {
       "message": "Partition {partition} was not disarmed: acknowledging the alarm first failed: the panel refused without naming a reason"
     },
-    "acknowledge_failed_no_permission": {
-      "message": "The alarm of partition {partition} was not acknowledged: no permission for this partition"
-    },
     "acknowledge_first_failed_no_permission": {
       "message": "Partition {partition} was not disarmed: acknowledging the alarm first failed: no permission for this partition"
-    },
-    "acknowledge_failed_likely_open_zones": {
-      "message": "The alarm of partition {partition} was not acknowledged: probably because of open zones: {items}"
     },
     "acknowledge_first_failed_likely_open_zones": {
       "message": "Partition {partition} was not disarmed: acknowledging the alarm first failed: probably because of open zones: {items}"
     },
-    "acknowledge_failed_likely_faults": {
-      "message": "The alarm of partition {partition} was not acknowledged: probably because of faults: {items}"
-    },
     "acknowledge_first_failed_likely_faults": {
       "message": "Partition {partition} was not disarmed: acknowledging the alarm first failed: probably because of faults: {items}"
     },
-    "acknowledge_failed_error": {
-      "message": "The alarm of partition {partition} was not acknowledged: the panel answered with an error"
-    },
     "acknowledge_first_failed_error": {
       "message": "Partition {partition} was not disarmed: acknowledging the alarm first failed: the panel answered with an error"
-    },
-    "acknowledge_failed_unknown": {
-      "message": "The alarm of partition {partition} was not acknowledged: the panel didn't change the state; reason unknown"
     },
     "acknowledge_first_failed_unknown": {
       "message": "Partition {partition} was not disarmed: acknowledging the alarm first failed: the panel didn't change the state; reason unknown"
     },
     "arm_during_alarm": {
       "message": "Partition {partition} is in an alarm; disarm it first (the alarm is acknowledged along the way)"
-    },
-    "no_alarm": {
-      "message": "Partition {partition} has no alarm to acknowledge"
     },
     "omit_failed_not_omittable": {
       "message": "Zone {zone} was not omitted: it can't be omitted"

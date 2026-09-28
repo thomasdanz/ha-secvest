@@ -67,6 +67,7 @@ async def test_arm(
     assert fake_panel.partitions[1].state == sent
     assert fake_panel.stats.requests == [
         *ROUND,
+        ("GET", "/system/partitions/"),
         ("PUT", "/system/partitions-1/"),
         *ROUND,
     ]
@@ -233,6 +234,8 @@ async def test_explain_likely_faults(fake_panel: FakePanel, setup: Setup) -> Non
 
 
 PUT = ("PUT", "/system/partitions-1/")
+# the fresh read before deciding what to send
+READ = ("GET", "/system/partitions/")
 
 
 async def test_switch_modes(
@@ -254,7 +257,7 @@ async def test_switch_modes(
     await _call(hass, "alarm_arm_home")
     await hass.async_block_till_done()
     assert _state(hass) == AlarmControlPanelState.ARMED_HOME
-    assert fake_panel.stats.requests[sent:] == [PUT, *ROUND, PUT, *ROUND]
+    assert fake_panel.stats.requests[sent:] == [READ, PUT, *ROUND, PUT, *ROUND]
     assert AlarmControlPanelState.DISARMED not in shown
 
 
@@ -266,7 +269,7 @@ async def test_same_mode_sends_it_once(
     await _call(hass, "alarm_arm_away")
     sent = len(fake_panel.stats.requests)
     await _call(hass, "alarm_arm_away")
-    assert fake_panel.stats.requests[sent:] == [PUT, *ROUND]
+    assert fake_panel.stats.requests[sent:] == [READ, PUT, *ROUND]
 
 
 async def test_switch_fails_at_disarming(
@@ -282,7 +285,7 @@ async def test_switch_fails_at_disarming(
         await _call(hass, "alarm_arm_home")
     assert err.value.translation_key == "switch_failed_no_permission"
     assert "disarming first failed" in str(err.value)
-    assert fake_panel.stats.requests[sent:] == [PUT, *ROUND]
+    assert fake_panel.stats.requests[sent:] == [READ, PUT, *ROUND]
     assert _state(hass) == AlarmControlPanelState.ARMED_AWAY
     await hass.async_block_till_done()
     assert events[-1].data["step"] == "disarm_first"
@@ -312,13 +315,17 @@ async def test_rejected_credentials(
     with pytest.raises(CommandError) as err:
         await _call(hass, "alarm_arm_away")
     assert err.value.translation_key == "auth_failed"
-    assert fake_panel.stats.requests == [*ROUND, ("PUT", "/system/partitions-1/")]
+    # the fresh read got the 401; nothing else was sent
+    assert fake_panel.stats.requests == [*ROUND, ("GET", "/system/partitions/")]
+    await hass.async_block_till_done()
+    flows = hass.config_entries.flow.async_progress_by_handler("secvest")
+    assert [flow["context"]["source"] for flow in flows] == ["reauth"]
 
 
-async def test_installer_logs_in_during_the_command(
+async def test_installer_lock_at_the_read(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
-    """The lock at the verification is reported as the lock."""
+    """The lock at the read before the command is reported as the lock."""
     entry = await setup()
     lock = (FIXTURES / "GET_system.403.json").read_bytes()
     fake_panel.inject(
@@ -335,3 +342,27 @@ async def test_installer_logs_in_during_the_command(
         await _call(hass, "alarm_arm_away")
     assert err.value.translation_key == "installer_locked"
     assert coordinator_of(entry).installer_locked
+
+
+async def test_installer_logs_in_during_the_command(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """The lock at the verification is reported as the lock."""
+    entry = await setup()
+    lock = (FIXTURES / "GET_system.403.json").read_bytes()
+    # /alarms/ is first read in the verification, after the command
+    fake_panel.inject(
+        Injection(
+            "GET",
+            "/alarms/",
+            "status",
+            status=403,
+            body=lock,
+            content_type="application/json",
+        )
+    )
+    with pytest.raises(CommandError) as err:
+        await _call(hass, "alarm_arm_away")
+    assert err.value.translation_key == "installer_locked"
+    assert coordinator_of(entry).installer_locked
+    assert ("PUT", "/system/partitions-1/") in fake_panel.stats.requests
