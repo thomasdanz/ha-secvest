@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Added
 
 - Arming (away and home) and disarming from the alarm panel, each checked by reading the partition again; failures raise one message with the reason and fire the event `secvest_arming_failed` (#16, #17).
+- Switching between armed away and armed home disarms first and then arms again, each step checked; the alarm panel shows the previous mode until the switch is done (#18).
 
 ## [0.1.10] - 2026-09-28
 

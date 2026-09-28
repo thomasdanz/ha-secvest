@@ -317,6 +317,8 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         self,
         send: Callable[[], Awaitable[object]],
         reached: Callable[[PanelState], bool],
+        *,
+        publish: bool = True,
     ) -> CommandOutcome:
         """Send a command, then read the real state and judge by it.
 
@@ -327,6 +329,9 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         (ConnectionLostError), the command is sent once more, but only if the
         verification shows the target wasn't reached: the single automatic
         retry of a command (see the architecture).
+
+        Within a sequence of commands, publish=False keeps the entities on
+        their previous state until the caller publishes the final one.
         """
         error: SecvestError | None = None
         resent = False
@@ -344,7 +349,7 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
                 raise
             except SecvestError as err:
                 error = err
-            state = await self._verify()
+            state = await self._verify(publish=publish)
             if reached(state) or not isinstance(error, ConnectionLostError):
                 break
             if attempt == 1:
@@ -352,7 +357,7 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
                 resent = True
         return CommandOutcome(reached(state), error, state, resent)
 
-    async def _verify(self) -> PanelState:
+    async def _verify(self, *, publish: bool = True) -> PanelState:
         """Read the real state right after a command.
 
         It replaces the next regular round: the schedule starts again, and
@@ -372,7 +377,8 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
             self.async_update_listeners()
             raise
         self._accept(state)
-        self.async_set_updated_data(state)
+        if publish:
+            self.async_set_updated_data(state)
         return state
 
     def reuse_recent_round(self) -> bool:

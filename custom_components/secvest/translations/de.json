@@ -155,6 +155,27 @@
     },
     "not_verified": {
       "message": "Der Befehl wurde gesendet, aber sein Ergebnis ließ sich nicht zurücklesen ({error}). Prüfe den Zustand an der Zentrale"
+    },
+    "switch_failed_blocked": {
+      "message": "Teilbereich {partition} wurde nicht umgeschaltet: Das vorherige Deaktivieren ist gescheitert. Blockiert durch {items}"
+    },
+    "switch_failed_refused": {
+      "message": "Teilbereich {partition} wurde nicht umgeschaltet: Das vorherige Deaktivieren ist gescheitert. Die Zentrale hat ohne Angabe eines Grundes abgelehnt"
+    },
+    "switch_failed_no_permission": {
+      "message": "Teilbereich {partition} wurde nicht umgeschaltet: Das vorherige Deaktivieren ist gescheitert. Keine Berechtigung für diesen Teilbereich"
+    },
+    "switch_failed_likely_open_zones": {
+      "message": "Teilbereich {partition} wurde nicht umgeschaltet: Das vorherige Deaktivieren ist gescheitert. Vermutlich wegen offener Zonen: {items}"
+    },
+    "switch_failed_likely_faults": {
+      "message": "Teilbereich {partition} wurde nicht umgeschaltet: Das vorherige Deaktivieren ist gescheitert. Vermutlich wegen Störungen: {items}"
+    },
+    "switch_failed_error": {
+      "message": "Teilbereich {partition} wurde nicht umgeschaltet: Das vorherige Deaktivieren ist gescheitert. Die Zentrale hat mit einem Fehler geantwortet"
+    },
+    "switch_failed_unknown": {
+      "message": "Teilbereich {partition} wurde nicht umgeschaltet: Das vorherige Deaktivieren ist gescheitert. Die Zentrale hat den Zustand nicht geändert; Grund unbekannt"
     }
   },
   "options": {
