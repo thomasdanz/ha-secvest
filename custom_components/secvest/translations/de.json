@@ -106,7 +106,55 @@
   },
   "exceptions": {
     "auth_failed": {
-      "message": "Die Zentrale hat Benutzercode oder Passwort abgelehnt. Damit wird nichts mehr gesendet; melde dich erneut an, um fortzufahren."
+      "message": "Die Zentrale hat Benutzercode oder Passwort abgelehnt. Damit wird nichts mehr gesendet; melde dich erneut an, um fortzufahren"
+    },
+    "arm_failed_blocked": {
+      "message": "Teilbereich {partition} wurde nicht aktiviert. Blockiert durch {items}"
+    },
+    "disarm_failed_blocked": {
+      "message": "Teilbereich {partition} wurde nicht deaktiviert. Blockiert durch {items}"
+    },
+    "arm_failed_refused": {
+      "message": "Teilbereich {partition} wurde nicht aktiviert. Die Zentrale hat ohne Angabe eines Grundes abgelehnt"
+    },
+    "disarm_failed_refused": {
+      "message": "Teilbereich {partition} wurde nicht deaktiviert. Die Zentrale hat ohne Angabe eines Grundes abgelehnt"
+    },
+    "arm_failed_no_permission": {
+      "message": "Teilbereich {partition} wurde nicht aktiviert. Keine Berechtigung für diesen Teilbereich"
+    },
+    "disarm_failed_no_permission": {
+      "message": "Teilbereich {partition} wurde nicht deaktiviert. Keine Berechtigung für diesen Teilbereich"
+    },
+    "arm_failed_likely_open_zones": {
+      "message": "Teilbereich {partition} wurde nicht aktiviert. Vermutlich wegen offener Zonen: {items}"
+    },
+    "disarm_failed_likely_open_zones": {
+      "message": "Teilbereich {partition} wurde nicht deaktiviert. Vermutlich wegen offener Zonen: {items}"
+    },
+    "arm_failed_likely_faults": {
+      "message": "Teilbereich {partition} wurde nicht aktiviert. Vermutlich wegen Störungen: {items}"
+    },
+    "disarm_failed_likely_faults": {
+      "message": "Teilbereich {partition} wurde nicht deaktiviert. Vermutlich wegen Störungen: {items}"
+    },
+    "arm_failed_error": {
+      "message": "Teilbereich {partition} wurde nicht aktiviert. Die Zentrale hat mit einem Fehler geantwortet"
+    },
+    "disarm_failed_error": {
+      "message": "Teilbereich {partition} wurde nicht deaktiviert. Die Zentrale hat mit einem Fehler geantwortet"
+    },
+    "arm_failed_unknown": {
+      "message": "Teilbereich {partition} wurde nicht aktiviert. Die Zentrale hat den Zustand nicht geändert; Grund unbekannt"
+    },
+    "disarm_failed_unknown": {
+      "message": "Teilbereich {partition} wurde nicht deaktiviert. Die Zentrale hat den Zustand nicht geändert; Grund unbekannt"
+    },
+    "installer_locked": {
+      "message": "Der Errichter ist an der Zentrale angemeldet, das sperrt sie; Befehle gehen wieder, sobald er sich abgemeldet hat"
+    },
+    "not_verified": {
+      "message": "Der Befehl wurde gesendet, aber sein Ergebnis ließ sich nicht zurücklesen ({error}). Prüfe den Zustand an der Zentrale"
     }
   },
   "options": {

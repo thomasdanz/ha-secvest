@@ -1,6 +1,7 @@
 """Tests for the alarm panel per partition (#15)."""
 
 from homeassistant.components.alarm_control_panel.const import (
+    AlarmControlPanelEntityFeature,
     AlarmControlPanelState,
 )
 from homeassistant.const import ATTR_SUPPORTED_FEATURES, STATE_UNKNOWN
@@ -34,7 +35,10 @@ async def test_one_panel_per_selected_partition(
     state = hass.states.get(PANEL)
     assert state is not None
     assert state.state == AlarmControlPanelState.DISARMED
-    assert state.attributes[ATTR_SUPPORTED_FEATURES] == 0
+    assert state.attributes[ATTR_SUPPORTED_FEATURES] == (
+        AlarmControlPanelEntityFeature.ARM_HOME
+        | AlarmControlPanelEntityFeature.ARM_AWAY
+    )
     assert state.attributes["code_arm_required"] is False
     assert state.attributes["friendly_name"] == "Alarmanlage Teilber. 1"
     assert hass.states.get("alarm_control_panel.alarmanlage_teilber_3") is not None

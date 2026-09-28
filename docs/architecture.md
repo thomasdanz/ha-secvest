@@ -67,7 +67,8 @@ The API client is a self-contained Python package without any Home Assistant dep
 | `__init__.py` | Sets up the client and coordinator per config entry, forwards platforms, unloads cleanly. |
 | `coordinator.py` | The only user of the client. Schedules polling rounds and log polling, executes commands and verifies them, applies backoff and pause, tracks the installer lock and the authentication state. Holds the latest `PanelState`. |
 | `entity.py` | Base entity classes: device info for the panel and per zone, availability rules, common attributes. |
-| `alarm_control_panel.py` | One panel per selected partition. Maps the partition state to Home Assistant states; an alarm is detected from the partition state itself (`*-alarm`, `acknowledged`), `/alarms/` only adds details. Arm/disarm call the coordinator. |
+| `alarm_control_panel.py` | One panel per selected partition. Maps the partition state to Home Assistant states; an alarm is detected from the partition state itself (`*-alarm`, `acknowledged`), `/alarms/` only adds details. Arm/disarm call `commands.py`. |
+| `commands.py` | The command sequences (arm, disarm; later switching modes, acknowledging, omitting): hold the queue, send through `SecvestCoordinator.async_command`, judge by the verified state, and turn failures into one translated error plus the `secvest_arming_failed` event. |
 | `binary_sensor.py` | Zone open/closed, zone problem, arming blocked per partition, installer lock. |
 | `switch.py` | Omit switch per omittable zone. |
 | `button.py` | Acknowledge alarm per partition. |

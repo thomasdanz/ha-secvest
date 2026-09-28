@@ -12,6 +12,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import SecvestConfigEntry
 from .api.models import Partition, PartitionState
+from .commands import async_set_partition_state
 from .coordinator import SecvestCoordinator
 from .entity import SecvestEntity
 
@@ -47,9 +48,16 @@ async def async_setup_entry(
 
 
 class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
-    """Shows a partition's state; commands follow with v0.2."""
+    """A partition: its state, arming and disarming.
 
-    _attr_supported_features = AlarmControlPanelEntityFeature(0)
+    Every command is verified by the state read afterwards; a failure
+    raises one error type and fires the arming_failed event.
+    """
+
+    _attr_supported_features = (
+        AlarmControlPanelEntityFeature.ARM_HOME
+        | AlarmControlPanelEntityFeature.ARM_AWAY
+    )
     # the panel's credentials are the authorization
     _attr_code_arm_required = False
 
@@ -84,3 +92,21 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
             "panel_state": str(partition.state),
             "acknowledged": partition.state == PartitionState.ACKNOWLEDGED,
         }
+
+    async def async_alarm_disarm(self, code: str | None = None) -> None:
+        """Disarm the partition."""
+        await async_set_partition_state(
+            self.coordinator, self.number, PartitionState.UNSET
+        )
+
+    async def async_alarm_arm_home(self, code: str | None = None) -> None:
+        """Arm the partition internally."""
+        await async_set_partition_state(
+            self.coordinator, self.number, PartitionState.PARTSET
+        )
+
+    async def async_alarm_arm_away(self, code: str | None = None) -> None:
+        """Arm the partition completely."""
+        await async_set_partition_state(
+            self.coordinator, self.number, PartitionState.SET
+        )
