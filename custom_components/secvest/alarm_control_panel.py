@@ -7,13 +7,17 @@ from homeassistant.components.alarm_control_panel import AlarmControlPanelEntity
 from homeassistant.components.alarm_control_panel.const import (
     AlarmControlPanelEntityFeature,
     AlarmControlPanelState,
+    CodeFormat,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import SecvestConfigEntry
 from .api.models import AlarmType, PanelEvent, Partition, PartitionState
+from .codes import codes, find
 from .commands import async_set_partition_state
+from .const import DOMAIN
 from .coordinator import SecvestCoordinator
 from .entity import SecvestEntity
 
@@ -69,8 +73,9 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
         AlarmControlPanelEntityFeature.ARM_HOME
         | AlarmControlPanelEntityFeature.ARM_AWAY
     )
-    # the panel's credentials are the authorization
-    _attr_code_arm_required = False
+    # four-digit codes like at the keypad, for arming and disarming (#116)
+    _attr_code_format = CodeFormat.NUMBER
+    _attr_code_arm_required = True
 
     def __init__(self, coordinator: SecvestCoordinator, partition: Partition) -> None:
         """Name the entity after the partition."""
@@ -132,18 +137,29 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
 
     async def async_alarm_disarm(self, code: str | None = None) -> None:
         """Disarm the partition."""
-        await async_set_partition_state(
-            self.coordinator, self.number, PartitionState.UNSET
-        )
+        await self._command(code, PartitionState.UNSET)
 
     async def async_alarm_arm_home(self, code: str | None = None) -> None:
         """Arm the partition internally."""
-        await async_set_partition_state(
-            self.coordinator, self.number, PartitionState.PARTSET
-        )
+        await self._command(code, PartitionState.PARTSET)
 
     async def async_alarm_arm_away(self, code: str | None = None) -> None:
         """Arm the partition completely."""
-        await async_set_partition_state(
-            self.coordinator, self.number, PartitionState.SET
-        )
+        await self._command(code, PartitionState.SET)
+
+    async def _command(self, code: str | None, target: PartitionState) -> None:
+        """Check the code, then send the command; nothing is sent otherwise."""
+        entry = self.coordinator.config_entry
+        if not codes(entry):
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="no_codes"
+            )
+        user = find(entry, code)
+        if user is None:
+            _LOGGER.warning("Wrong code for partition %s", self.number)
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="invalid_code"
+            )
+        await async_set_partition_state(self.coordinator, self.number, target)
+        self._attr_changed_by = user.name
+        self.async_write_ha_state()

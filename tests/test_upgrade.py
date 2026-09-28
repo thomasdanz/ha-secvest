@@ -108,6 +108,8 @@ async def test_update_keeps_the_entry_and_its_entities(
     }
     # the group sensors belong to their subentries
     for subentry in stored.get("subentries", []):
+        if subentry["subentry_type"] != "zone_group":
+            continue
         for key in stored["unique_ids"].get("groups", []):
             unique_id = f"group_{subentry['subentry_id']}_{key}"
             entity_ids[unique_id] = registry.async_get_or_create(

@@ -49,7 +49,7 @@
       },
       "zones": {
         "title": "Zonen",
-        "description": "Wähle, was für ein Melder jede Zone ist; die Zentrale verrät es nicht. Ausgeschlossene Zonen bekommen keine Entitäten. Das lässt sich später in den Optionen der Integration ändern. Zonen, die zu einer Öffnung gehören, etwa die beiden Flügel eines Fensters, fasst du danach auf der Seite der Integration mit „Zonengruppe hinzufügen“ zusammen.",
+        "description": "Wähle, was für ein Melder jede Zone ist; die Zentrale verrät es nicht. Ausgeschlossene Zonen bekommen keine Entitäten. Das lässt sich später in den Optionen der Integration ändern. Zonen, die zu einer Öffnung gehören, etwa die beiden Flügel eines Fensters, fasst du danach auf der Seite der Integration mit „Zonengruppe hinzufügen“ zusammen. Lege dort auch Codes zum Aktivieren und Deaktivieren an („Code hinzufügen“); ohne Code kann das Alarm-Panel nicht aktivieren oder deaktivieren.",
         "data": {
           "excluded_zones": "Ausgeschlossene Zonen"
         },
@@ -258,6 +258,12 @@
     },
     "include_failed_unknown": {
       "message": "Zone {zone} wurde nicht wieder eingeblendet. Die Zentrale hat sie nicht geändert; Grund unbekannt"
+    },
+    "no_codes": {
+      "message": "Es ist kein Code hinterlegt, deshalb ist Aktivieren und Deaktivieren nicht möglich. Lege einen Code auf der Seite der Integration an"
+    },
+    "invalid_code": {
+      "message": "Falscher Code"
     }
   },
   "options": {
@@ -406,6 +412,48 @@
       "abort": {
         "not_loaded": "Die Integration ist nicht geladen. Behebe zuerst das angezeigte Problem und ändere dann die Zonengruppen.",
         "reconfigure_successful": "Die Zonengruppe wurde geändert."
+      }
+    },
+    "code": {
+      "initiate_flow": {
+        "user": "Code hinzufügen",
+        "reconfigure": "Code ändern"
+      },
+      "entry_type": "Code",
+      "step": {
+        "user": {
+          "title": "Code hinzufügen",
+          "description": "Ein Code zum Aktivieren und Deaktivieren aus Home Assistant. Du kannst dieselben vierstelligen Codes wie am Bedienteil verwenden; Home Assistant kann sie nicht an der Zentrale prüfen, ein am Bedienteil geänderter Code muss also auch hier geändert werden.",
+          "data": {
+            "name": "Benutzer",
+            "code": "Code"
+          },
+          "data_description": {
+            "name": "Wird als derjenige angezeigt, der aktiviert oder deaktiviert hat.",
+            "code": "Vier Ziffern."
+          }
+        },
+        "reconfigure": {
+          "title": "Code ändern",
+          "description": "Ändere Namen oder Code des Benutzers. Lass den Code leer, um ihn zu behalten.",
+          "data": {
+            "name": "Benutzer",
+            "code": "Neuer Code"
+          },
+          "data_description": {
+            "name": "Wird als derjenige angezeigt, der aktiviert oder deaktiviert hat.",
+            "code": "Vier Ziffern; leer behält den bisherigen Code."
+          }
+        }
+      },
+      "error": {
+        "name_required": "Gib einen Namen ein.",
+        "name_exists": "Für diesen Benutzer gibt es schon einen Code.",
+        "invalid_code": "Gib einen Code aus vier Ziffern ein.",
+        "code_exists": "Ein anderer Benutzer hat diesen Code schon."
+      },
+      "abort": {
+        "reconfigure_successful": "Der Code wurde geändert."
       }
     }
   }

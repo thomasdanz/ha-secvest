@@ -6,10 +6,11 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [0.2.0] - 2026-09-28
 
-Control: arming, disarming, acknowledging alarms and omitting zones, each checked by reading the panel again.
+Control: arming and disarming with a code, acknowledging alarms on the way and omitting zones, each checked by reading the panel again.
 
 ### Added
 
+- Codes for arming and disarming: a user name and a four-digit code each, added on the integration's page and stored only as a salted hash; the alarm panel shows who armed or disarmed. Omitting zones needs no code (#116).
 - Arming (away and home) and disarming from the alarm panel, each checked by reading the partition again; failures raise one message with the reason and fire the event `secvest_arming_failed` (#16, #17).
 - Switching between armed away and armed home disarms first and then arms again, each step checked; the alarm panel shows the previous mode until the switch is done (#18).
 - Alarm details on the alarm panel: the alarm type (in the panel's own terms, e.g. "Burglar alarm" / "Einbruchalarm") and the zones that raised it; a failing alarm list no longer fails the whole polling round (#19).
@@ -20,7 +21,8 @@ Control: arming, disarming, acknowledging alarms and omitting zones, each checke
 
 ### Upgrade notes
 
-- Nothing to do. New entities appear by themselves: an omit switch per omittable zone (hidden for grouped zones if the group hides its zones).
+- Arming and disarming need a code now: add one on the integration's page ("Add code"), otherwise the alarm panel can't arm or disarm.
+- New entities appear by themselves: an omit switch per omittable zone (hidden for grouped zones if the group hides its zones).
 
 ## [0.1.10] - 2026-09-28
 
