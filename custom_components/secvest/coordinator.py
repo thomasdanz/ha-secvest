@@ -218,6 +218,7 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         )
         # selected partitions that are empty or missing, with the issue raised
         self._partition_problems: dict[int, str] = {}
+        self._alarms_failed = False
         # counts commands, so that a round that read before one is discarded
         self._generation = 0
         # zone groups with zones the partitions no longer list
@@ -501,13 +502,29 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
             },
         )
 
+    async def _alarms(self) -> list[PanelEvent]:
+        """Read /alarms/; the partition state detects an alarm without it.
+
+        So a failing /alarms/ doesn't fail the round: it only adds details.
+        A 401 and the installer lock still end the round, like any request.
+        """
+        try:
+            return await self.client.get_alarms()
+        except AuthenticationError, InstallerLockedError:
+            raise
+        except SecvestError as err:
+            if not self._alarms_failed:
+                self._alarms_failed = True
+                _LOGGER.warning("Reading the alarms failed, going on without: %s", err)
+            return []
+
     async def _round(self) -> PanelState:
         """Fetch everything one after another, with the client's operations.
 
         The queue isn't held, so a command can go ahead between two reads.
         """
         partitions = {p.number: p for p in await self.client.get_partitions()}
-        alarms = await self.client.get_alarms()
+        alarms = await self._alarms()
         faults = await self.client.get_faults()
         zones: dict[str, Zone] = {}
         for number in self.selected_partitions:

@@ -1,5 +1,6 @@
 """One alarm panel per selected partition."""
 
+import logging
 from typing import Any
 
 from homeassistant.components.alarm_control_panel import AlarmControlPanelEntity
@@ -11,10 +12,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import SecvestConfigEntry
-from .api.models import Partition, PartitionState
+from .api.models import AlarmType, PanelEvent, Partition, PartitionState
 from .commands import async_set_partition_state
 from .coordinator import SecvestCoordinator
 from .entity import SecvestEntity
+
+_LOGGER = logging.getLogger(__name__)
 
 PARALLEL_UPDATES = 0
 
@@ -30,6 +33,13 @@ STATES: dict[PartitionState | str, AlarmControlPanelState] = {
     # in the official app's enum; the firmware isn't known to send it
     "alarm": AlarmControlPanelState.TRIGGERED,
 }
+
+
+def _alarm_type(alarm: PanelEvent) -> str:
+    """Return the translation key of an alarm type, or the raw code."""
+    if isinstance(alarm.type, AlarmType):
+        return alarm.type.name.lower()
+    return str(alarm.type)
 
 
 async def async_setup_entry(
@@ -54,6 +64,7 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
     raises one error type and fires the arming_failed event.
     """
 
+    _attr_translation_key = "partition"
     _attr_supported_features = (
         AlarmControlPanelEntityFeature.ARM_HOME
         | AlarmControlPanelEntityFeature.ARM_AWAY
@@ -66,6 +77,7 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
         super().__init__(coordinator, f"partition_{partition.number}_alarm")
         self.number = partition.number
         self._attr_name = partition.name
+        self._alarm_warned = False
 
     @property
     def _partition(self) -> Partition | None:
@@ -80,7 +92,21 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
     def alarm_state(self) -> AlarmControlPanelState | None:
         """Map the partition state; unknown values give an unknown state."""
         partition = self._partition
-        return None if partition is None else STATES.get(partition.state)
+        if partition is None:
+            return None
+        state = STATES.get(partition.state)
+        if state is not AlarmControlPanelState.TRIGGERED and self._alarms():
+            # /alarms/ reports an alarm the partition state doesn't show;
+            # not observed, so it is shown as triggered and noted once
+            if not self._alarm_warned:
+                self._alarm_warned = True
+                _LOGGER.warning(
+                    "The panel reports an alarm for partition %s in state %s",
+                    self.number,
+                    partition.state,
+                )
+            return AlarmControlPanelState.TRIGGERED
+        return state
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -88,10 +114,21 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
         partition = self._partition
         if partition is None:
             return {}
+        alarms = self._alarms()
         return {
             "panel_state": str(partition.state),
             "acknowledged": partition.state == PartitionState.ACKNOWLEDGED,
+            # the first alarm's type, translated; unknown codes stay raw
+            "alarm_type": _alarm_type(alarms[0]) if alarms else None,
+            "alarm_zones": [alarm.zone_id for alarm in alarms if alarm.zone_id],
         }
+
+    def _alarms(self) -> list[PanelEvent]:
+        return [
+            alarm
+            for alarm in self.coordinator.data.alarms
+            if self.number in alarm.partitions
+        ]
 
     async def async_alarm_disarm(self, code: str | None = None) -> None:
         """Disarm the partition."""

@@ -174,7 +174,7 @@ async def test_failed_round(fake_panel: FakePanel, setup: Setup) -> None:
     entry = await setup()
     coordinator = coordinator_of(entry)
     state = coordinator.data
-    fake_panel.inject(Injection("GET", "/alarms/", "drop_before", times=2))
+    fake_panel.inject(Injection("GET", "/faults/", "drop_before", times=2))
     await coordinator.async_refresh()
     assert not coordinator.last_update_success
     assert coordinator.data is state
@@ -240,7 +240,7 @@ async def test_backoff_and_pause(
     monkeypatch.setattr(coordinator_module, "PAUSE_AFTER", 2)
     entry = await setup()
     coordinator = coordinator_of(entry)
-    fake_panel.inject(Injection("GET", "/alarms/", "drop_before", times=4))
+    fake_panel.inject(Injection("GET", "/faults/", "drop_before", times=4))
 
     await coordinator.async_refresh()
     assert coordinator.backoff.failures == 1
@@ -269,7 +269,7 @@ async def test_retry_after_is_the_backoff(fake_panel: FakePanel, setup: Setup) -
     """The next round is scheduled after the backoff delay."""
     entry = await setup()
     coordinator = coordinator_of(entry)
-    fake_panel.inject(Injection("GET", "/alarms/", "drop_before", times=2))
+    fake_panel.inject(Injection("GET", "/faults/", "drop_before", times=2))
     await coordinator.async_refresh()
     assert isinstance(coordinator.last_exception, UpdateFailed)
     assert coordinator.last_exception.retry_after == 60

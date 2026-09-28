@@ -102,6 +102,35 @@
       "open_zones": {
         "name": "{partition} offene Zonen"
       }
+    },
+    "alarm_control_panel": {
+      "partition": {
+        "state_attributes": {
+          "alarm_type": {
+            "name": "Alarmart",
+            "state": {
+              "undefined": "Unbestimmt",
+              "fault": "Störung",
+              "technical": "Technik",
+              "fire": "Feuer",
+              "burglary": "Einbruch",
+              "medical": "Medizinisch",
+              "panic": "Überfall",
+              "social": "Sozial",
+              "inactivity": "Inaktivität"
+            }
+          },
+          "panel_state": {
+            "name": "Zustand der Zentrale"
+          },
+          "acknowledged": {
+            "name": "Quittiert"
+          },
+          "alarm_zones": {
+            "name": "Alarmzonen"
+          }
+        }
+      }
     }
   },
   "exceptions": {
