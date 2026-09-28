@@ -1,5 +1,6 @@
 """Tests for arming and disarming with verified success (#16, #17)."""
 
+from pathlib import Path
 from typing import Any
 
 from homeassistant.components.alarm_control_panel.const import (
@@ -23,6 +24,7 @@ from .common import ROUND, Setup, coordinator_of
 from .fake_panel import FakePanel, Injection
 
 PANEL = "alarm_control_panel.alarmanlage_teilber_1"
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
 async def _call(hass: HomeAssistant, service: str, entity_id: str = PANEL) -> None:
@@ -299,3 +301,37 @@ async def test_switch_fails_at_arming(
         await _call(hass, "alarm_arm_home")
     assert err.value.translation_key == "arm_failed_refused"
     assert _state(hass) == AlarmControlPanelState.DISARMED
+
+
+async def test_rejected_credentials(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """A 401 during a command has its own message; nothing is verified."""
+    await setup()
+    fake_panel.password = "changed"
+    with pytest.raises(CommandError) as err:
+        await _call(hass, "alarm_arm_away")
+    assert err.value.translation_key == "auth_failed"
+    assert fake_panel.stats.requests == [*ROUND, ("PUT", "/system/partitions-1/")]
+
+
+async def test_installer_logs_in_during_the_command(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """The lock at the verification is reported as the lock."""
+    entry = await setup()
+    lock = (FIXTURES / "GET_system.403.json").read_bytes()
+    fake_panel.inject(
+        Injection(
+            "GET",
+            "/system/partitions/",
+            "status",
+            status=403,
+            body=lock,
+            content_type="application/json",
+        )
+    )
+    with pytest.raises(CommandError) as err:
+        await _call(hass, "alarm_arm_away")
+    assert err.value.translation_key == "installer_locked"
+    assert coordinator_of(entry).installer_locked
