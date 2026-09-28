@@ -128,7 +128,7 @@ actions:
 
 **Alarms:** disarming during an alarm acknowledges the alarm first and then disarms, each step checked; there is no separate acknowledge button. An alarm acknowledged elsewhere (keypad, app) shows as triggered with `acknowledged: true` until it is disarmed. Arming during an alarm isn't possible; disarm first. Resetting the panel after an alarm isn't possible through the API. Acknowledging hasn't been tested at a real panel, since that would need a real alarm; it follows the documented behaviour of the panel and the official app.
 
-While the installer is logged in, commands fail with a message saying so. If the result of a command can't be read back, the message says that too; check the state at the panel then.
+While the installer is logged in, commands fail with a message saying so; once a polling round has seen the lock, they fail at once without sending anything to the panel, and the entities keep showing their last state. If the result of a command can't be read back, the message says that too; check the state at the panel then.
 
 ## Exit and entry delays
 

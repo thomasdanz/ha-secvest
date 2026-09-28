@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-09-28
+
+### Changed
+
+- While the installer is logged in, arming, disarming and omitting fail at once with the installer message, without sending anything to the panel; the entities keep showing their last state. Until a polling round has seen the lock, the panel's answer gives the same message (#123).
+- Disarming from Home Assistant turns the omit switches off at once, since the panel includes omitted zones again; now covered by a test.
+
 ## [0.2.1] - 2026-09-28
 
 ### Added
@@ -139,7 +146,8 @@ First version, read-only: the state of partitions, zones and faults.
 - README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
 - Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
 
-[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.10...v0.2.0
 [0.1.10]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.9...v0.1.10
