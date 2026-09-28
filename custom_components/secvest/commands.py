@@ -48,6 +48,9 @@ class Failure:
 class CommandError(HomeAssistantError):
     """A command didn't reach its target; the message says why."""
 
+    # set once the arming_failed event has been fired for this failure
+    reported = False
+
 
 def _names(state: PanelState, zone_ids: tuple[str, ...] | list[str]) -> str:
     names = [
@@ -113,13 +116,19 @@ class Request:
     context: Context | None = None
 
 
-def raise_failure(
+def fire_arming_failed(
     coordinator: SecvestCoordinator,
     request: Request,
     failure: Failure,
-    state: PanelState,
+    state: PanelState | None = None,
 ) -> None:
-    """Fire the arming_failed event and raise the translated error."""
+    """Fire the arming_failed event, for every failed arm or disarm command.
+
+    Also for failures without a verified state (connection lost, installer
+    lock, wrong code, ...): HomeKit Bridge shows no message, so an
+    automation's notification is the only way to tell such a user.
+    """
+    state = state or coordinator.data
     number, target, action = request.number, request.target, request.action
     partition = state.partitions.get(number)
     name = partition.name if partition is not None else str(number)
@@ -146,9 +155,21 @@ def raise_failure(
     _LOGGER.info(
         "Partition %s: %s to %s failed (%s)", number, action, target, failure.reason
     )
-    raise CommandError(
+
+
+def raise_failure(
+    coordinator: SecvestCoordinator,
+    request: Request,
+    failure: Failure,
+    state: PanelState,
+) -> None:
+    """Fire the arming_failed event and raise the translated error."""
+    fire_arming_failed(coordinator, request, failure, state)
+    partition = state.partitions.get(request.number)
+    name = partition.name if partition is not None else str(request.number)
+    error = CommandError(
         translation_domain=DOMAIN,
-        translation_key=f"{action}_failed_{failure.reason}",
+        translation_key=f"{request.action}_failed_{failure.reason}",
         translation_placeholders={
             "partition": name,
             # the blocking zones by name, then other faults as displayed
@@ -159,6 +180,8 @@ def raise_failure(
             ),
         },
     )
+    error.reported = True
+    raise error
 
 
 def _refuse_while_locked(coordinator: SecvestCoordinator) -> None:
@@ -250,7 +273,24 @@ async def async_set_partition_state(
     keeps its previous state until it ends. Raises CommandError if the
     partition isn't in the target state afterwards, whatever the panel
     answered; a failed intermediate step stops the sequence and is named.
+    Every failure fires the arming_failed event once.
     """
+    request = Request(number, target, _action(target), user, context)
+    try:
+        await _set_partition_state(coordinator, request)
+    except CommandError as err:
+        if not err.reported:
+            # the reasons without a verified state are the error's key
+            reason = err.translation_key or "error"
+            fire_arming_failed(coordinator, request, Failure(reason))
+            err.reported = True
+        raise
+
+
+async def _set_partition_state(
+    coordinator: SecvestCoordinator, request: Request
+) -> None:
+    number, target = request.number, request.target
     _refuse_while_locked(coordinator)
     async with coordinator.client.hold(priority=True):
         current = await _read_current(coordinator, number)
@@ -267,7 +307,7 @@ async def async_set_partition_state(
             steps.insert(0, (PartitionState.ACKNOWLEDGED, "acknowledge_first"))
         elif current in ARMED and target in ARMED and current != target:
             steps.insert(0, (PartitionState.UNSET, "switch"))
-        await _run(coordinator, Request(number, target, "", user, context), steps)
+        await _run(coordinator, request, steps)
 
 
 async def _run(
@@ -286,7 +326,14 @@ async def _run(
                 publish=last,
             )
         except SecvestError as err:
-            raise _panel_error(err) from err
+            error = _panel_error(err)
+            # name the step the sequence broke off at
+            reason = error.translation_key or "error"
+            fire_arming_failed(
+                coordinator, replace(request, action=action), Failure(reason)
+            )
+            error.reported = True
+            raise error from err
         if not outcome.reached:
             if not last:
                 # show the real state the sequence stopped in

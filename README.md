@@ -98,7 +98,7 @@ The alarm panel arms away (full set), arms home (part set, "intern aktivieren") 
 
 The panel doesn't switch directly between the two armed modes, so switching disarms first and then arms again; the alarm panel keeps showing the previous mode until the switch is done, and if disarming fails, the message says so. Every command is checked by reading the partition again afterwards, whatever the panel answered: it counts as done only if the partition really is in the requested state.
 
-If arming or disarming fails, the action fails with one message of the form "Partition <name> was not armed: <reason>", shown in the UI and in automation traces, and the event `secvest_arming_failed` is fired with `entry_id`, `partition`, `partition_name`, `requested` (`set`, `partset` or `unset`), `reason`, `step` (`command`, `disarm_first` when switching between the armed modes failed at disarming, or `acknowledge_first` when acknowledging an alarm before disarming failed), `zones` (ids), `zone_names`, `faults` and `user` (the name of the code that was entered). The event carries the calling action's context, so an automation can tell where the command came from: `trigger.event.context.user_id` is set when a user acted in Home Assistant, `parent_id` when an automation or script did, and neither for other callers such as HomeKit Bridge. The reasons:
+If arming or disarming fails, the action fails with a message, shown in the UI and in automation traces, and the event `secvest_arming_failed` is fired once, for every failure, with `entry_id`, `partition`, `partition_name`, `requested` (`set`, `partset` or `unset`), `reason`, `step` (`command`, `disarm_first` when switching between the armed modes failed at disarming, or `acknowledge_first` when acknowledging an alarm before disarming failed), `zones` (ids), `zone_names`, `faults` and `user` (the name of the code that was entered). The event carries the calling action's context, so an automation can tell where the command came from: `trigger.event.context.user_id` is set when a user acted in Home Assistant, `parent_id` when an automation or script did, and neither for other callers such as HomeKit Bridge. The reasons:
 
 | `reason` | Meaning |
 |---|---|
@@ -109,6 +109,12 @@ If arming or disarming fails, the action fails with one message of the form "Par
 | `likely_faults` | As above, with faults that prevent arming as the likely reason |
 | `error` | The panel answered with another error |
 | `unknown` | The panel didn't change the state and gave no hint why |
+| `not_verified` | The result couldn't be read back (connection lost, timeout): the state is unclear, check it at the panel |
+| `installer_locked` | The installer is logged in at the panel; nothing was changed |
+| `arm_during_alarm` | Arming during an alarm isn't sent; disarm first |
+| `auth_failed` | The panel rejected the credentials; Home Assistant asks to reauthenticate |
+| `invalid_code` | The code entered doesn't match any configured code (`user` is empty); nothing was sent |
+| `no_codes` | No code is configured; nothing was sent |
 
 An automation can react to failed arming, for example with a notification. Home Assistant's own UI already shows the message, so this one only notifies for commands from elsewhere, such as the Apple Home app via HomeKit Bridge, which shows no reason:
 
