@@ -152,7 +152,7 @@ entity action (e.g. arm away)
                                       (see "Failed arming")
 ```
 
-The verification refresh replaces the next regular polling round, so a command doesn't add a burst of extra requests.
+The verification refresh replaces the next regular polling round, so a command doesn't add a burst of extra requests: the schedule starts again from it, and the minimum spacing counts from it. A regular round that read part of the state before the command and finishes after it discards its result, so it can't overwrite the verified state with an older one. The verification is a full round (partitions, alarms, faults, zones), which covers every kind of command with one mechanism.
 
 **Error responses are verified too.** An error response is never reported directly: the fresh state decides. If the target state was reached anyway (e.g. someone armed at the keypad at the same moment), the command counts as successful. The same applies to omitting zones: after a 403, the zone is read again, and its `omitted` and `omittable` decide the outcome and the message. Exceptions are the responses after which no further request is sent: a 401 (authentication gate) and the installer lock (every request fails); there the error is reported with the last known state.
 
