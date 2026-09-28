@@ -160,6 +160,12 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
             raise ServiceValidationError(
                 translation_domain=DOMAIN, translation_key="invalid_code"
             )
-        await async_set_partition_state(self.coordinator, self.number, target)
+        await async_set_partition_state(
+            self.coordinator,
+            self.number,
+            target,
+            user=user.name,
+            context=self._context,
+        )
         self._attr_changed_by = user.name
         self.async_write_ha_state()

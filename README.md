@@ -98,7 +98,7 @@ The alarm panel arms away (full set), arms home (part set, "intern aktivieren") 
 
 The panel doesn't switch directly between the two armed modes, so switching disarms first and then arms again; the alarm panel keeps showing the previous mode until the switch is done, and if disarming fails, the message says so. Every command is checked by reading the partition again afterwards, whatever the panel answered: it counts as done only if the partition really is in the requested state.
 
-If arming or disarming fails, the action fails with one message of the form "Partition <name> was not armed: <reason>", shown in the UI and in automation traces, and the event `secvest_arming_failed` is fired with `entry_id`, `partition`, `partition_name`, `requested` (`set`, `partset` or `unset`), `reason`, `step` (`command`, or `disarm_first` when switching between the armed modes failed at disarming), `zones` and `faults`. The reasons:
+If arming or disarming fails, the action fails with one message of the form "Partition <name> was not armed: <reason>", shown in the UI and in automation traces, and the event `secvest_arming_failed` is fired with `entry_id`, `partition`, `partition_name`, `requested` (`set`, `partset` or `unset`), `reason`, `step` (`command`, `disarm_first` when switching between the armed modes failed at disarming, or `acknowledge_first` when acknowledging an alarm before disarming failed), `zones` (ids), `zone_names`, `faults` and `user` (the name of the code that was entered). The event carries the calling action's context, so an automation can tell where the command came from: `trigger.event.context.user_id` is set when a user acted in Home Assistant, `parent_id` when an automation or script did, and neither for other callers such as HomeKit Bridge. The reasons:
 
 | `reason` | Meaning |
 |---|---|
@@ -110,17 +110,21 @@ If arming or disarming fails, the action fails with one message of the form "Par
 | `error` | The panel answered with another error |
 | `unknown` | The panel didn't change the state and gave no hint why |
 
-An automation can react to failed arming, for example with a notification:
+An automation can react to failed arming, for example with a notification. Home Assistant's own UI already shows the message, so this one only notifies for commands from elsewhere, such as the Apple Home app via HomeKit Bridge, which shows no reason:
 
 ```yaml
 triggers:
   - trigger: event
     event_type: secvest_arming_failed
+conditions:
+  - "{{ trigger.event.context.user_id is none and trigger.event.context.parent_id is none }}"
 actions:
   - action: notify.notify
     data:
-      message: "Alarm not armed ({{ trigger.event.data.reason }}): {{ trigger.event.data.zones | join(', ') }}"
+      message: "Alarm not armed ({{ trigger.event.data.reason }}): {{ trigger.event.data.zone_names | join(', ') }}"
 ```
+
+**HomeKit:** HomeKit Bridge can't ask for a code, so it passes the one set in its configuration (`entity_config` → `code`). Adding a separate code named e.g. "HomeKit" shows HomeKit as the one who armed or disarmed, and can be removed on its own.
 
 **Alarms:** disarming during an alarm acknowledges the alarm first and then disarms, each step checked; there is no separate acknowledge button. An alarm acknowledged elsewhere (keypad, app) shows as triggered with `acknowledged: true` until it is disarmed. Arming during an alarm isn't possible; disarm first. Resetting the panel after an alarm isn't possible through the API. Acknowledging hasn't been tested at a real panel, since that would need a real alarm; it follows the documented behaviour of the panel and the official app.
 

@@ -281,7 +281,8 @@
     {
       "name": "with a zone group, a code, v0.2 entities",
       "versions": [
-        "0.2.0"
+        "0.2.0",
+        "0.2.1"
       ],
       "minor_version": 2,
       "data": {

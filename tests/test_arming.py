@@ -6,8 +6,9 @@ from typing import Any
 from homeassistant.components.alarm_control_panel.const import (
     AlarmControlPanelState,
 )
-from homeassistant.core import Event, HomeAssistant
+from homeassistant.core import Context, Event, HomeAssistant
 import pytest
+from pytest_homeassistant_custom_component.common import MockUser
 
 from custom_components.secvest.api.errors import ArmingBlockedError
 from custom_components.secvest.api.models import PanelEvent, PartitionState
@@ -113,9 +114,41 @@ async def test_blocked(
             "reason": "blocked",
             "step": "command",
             "zones": ["209"],
+            "zone_names": ["Room 6 L"],
             "faults": [],
+            "user": "Tester",
         }
     ]
+
+
+@pytest.mark.parametrize("as_user", [False, True])
+async def test_event_keeps_the_context(
+    hass: HomeAssistant,
+    fake_panel: FakePanel,
+    setup: Setup,
+    hass_admin_user: MockUser,
+    as_user: bool,
+) -> None:
+    """The event carries the action's context, so automations see its origin.
+
+    HomeKit Bridge calls without a user; the frontend with the user's id.
+    """
+    await setup(code=CODE)
+    events = _events(hass)
+    fake_panel.open_zone("209")
+    user_id = hass_admin_user.id if as_user else None
+    context = Context(user_id=user_id)
+    with pytest.raises(CommandError):
+        await hass.services.async_call(
+            "alarm_control_panel",
+            "alarm_arm_away",
+            {"entity_id": PANEL, "code": CODE},
+            blocking=True,
+            context=context,
+        )
+    await hass.async_block_till_done()
+    assert [event.context.id for event in events] == [context.id]
+    assert events[0].context.user_id == user_id
 
 
 async def test_refused_without_reason(hass: HomeAssistant, setup: Setup) -> None:
