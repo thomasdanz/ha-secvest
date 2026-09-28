@@ -66,7 +66,7 @@ def explain(outcome: CommandOutcome, number: int, target: PartitionState) -> Fai
     certain = _from_answer(outcome.error)
     if certain is not None:
         return certain
-    if target != PartitionState.UNSET:
+    if target in ARMED:
         state = outcome.state
         if open_zones := state.open_zones(number):
             return Failure("likely_open_zones", tuple(z.id for z in open_zones))
@@ -97,8 +97,9 @@ def _from_answer(error: SecvestError | None) -> Failure | None:
 class Request:
     """A requested partition state and the action it stands for.
 
-    action is arm, disarm, or switch for disarming first when switching
-    between the armed modes.
+    action is arm, disarm or acknowledge, or for a failed step before the
+    requested one: switch (disarming first when switching between the armed
+    modes) or acknowledge_first (acknowledging before disarming an alarm).
     """
 
     number: int
@@ -125,7 +126,7 @@ def raise_failure(
             "requested": str(target),
             "reason": failure.reason,
             # the step that failed: disarm first when switching modes
-            "step": "disarm_first" if action == "switch" else "command",
+            "step": _STEPS.get(action, "command"),
             "zones": list(failure.zones),
             "faults": list(failure.faults),
         },
@@ -164,14 +165,33 @@ def _panel_error(err: SecvestError) -> CommandError:
 
 
 ARMED = frozenset({PartitionState.SET, PartitionState.PARTSET})
+IN_ALARM = frozenset(
+    {
+        PartitionState.SET_ALARM,
+        PartitionState.PARTSET_ALARM,
+        PartitionState.UNSET_ALARM,
+    }
+)
+# the event's step for a failed step before the requested one
+_STEPS = {"switch": "disarm_first", "acknowledge_first": "acknowledge_first"}
 
 
 def _reaches(number: int, target: PartitionState) -> Callable[[PanelState], bool]:
     def reached(state: PanelState) -> bool:
         partition = state.partitions.get(number)
-        return partition is not None and partition.state == target
+        if partition is None:
+            return False
+        if target == PartitionState.ACKNOWLEDGED:
+            # acknowledged, or already reset or disarmed meanwhile
+            return partition.state not in IN_ALARM
+        return partition.state == target
 
     return reached
+
+
+def _current(coordinator: SecvestCoordinator, number: int) -> PartitionState | str:
+    partition = coordinator.data.partitions.get(number)
+    return partition.state if partition is not None else ""
 
 
 async def async_set_partition_state(
@@ -180,43 +200,80 @@ async def async_set_partition_state(
     """Arm, arm internally or disarm a partition, verified.
 
     The panel ignores a direct switch between the armed modes, so that
-    disarms first; the whole sequence holds the queue, and the entity keeps
-    its previous state until it ends. Raises CommandError if the partition
-    isn't in the target state afterwards, whatever the panel answered; a
-    failed intermediate step stops the sequence and is named.
+    disarms first; disarming during an alarm acknowledges first, since the
+    official app never sends unset from an alarm state. Arming during an
+    alarm isn't sent at all. A sequence holds the queue, and the entity
+    keeps its previous state until it ends. Raises CommandError if the
+    partition isn't in the target state afterwards, whatever the panel
+    answered; a failed intermediate step stops the sequence and is named.
     """
-    client = coordinator.client
-    async with client.hold(priority=True):
-        partition = coordinator.data.partitions.get(number)
-        steps = [target]
-        if (
-            partition is not None
-            and partition.state in ARMED
-            and target in ARMED
-            and partition.state != target
+    async with coordinator.client.hold(priority=True):
+        current = _current(coordinator, number)
+        if target in ARMED and (
+            current in IN_ALARM or current == PartitionState.ACKNOWLEDGED
         ):
-            steps.insert(0, PartitionState.UNSET)
-        for index, step in enumerate(steps):
-            last = index == len(steps) - 1
-            try:
-                outcome = await coordinator.async_command(
-                    partial(client.set_partition_state, number, step),
-                    _reaches(number, step),
-                    publish=last,
-                )
-            except SecvestError as err:
-                raise _panel_error(err) from err
-            if not outcome.reached:
-                if not last:
-                    # show the real state the sequence stopped in
-                    coordinator.async_set_updated_data(outcome.state)
-                action = _action(target) if last else "switch"
-                raise_failure(
-                    coordinator,
-                    Request(number, target, action),
-                    explain(outcome, number, step),
-                    outcome.state,
-                )
+            raise CommandError(
+                translation_domain=DOMAIN,
+                translation_key="arm_during_alarm",
+                translation_placeholders={"partition": _name(coordinator, number)},
+            )
+        steps = [(target, _action(target))]
+        if target == PartitionState.UNSET and current in IN_ALARM:
+            steps.insert(0, (PartitionState.ACKNOWLEDGED, "acknowledge_first"))
+        elif current in ARMED and target in ARMED and current != target:
+            steps.insert(0, (PartitionState.UNSET, "switch"))
+        await _run(coordinator, number, target, steps)
+
+
+async def async_acknowledge(coordinator: SecvestCoordinator, number: int) -> None:
+    """Acknowledge the alarm of a partition, verified.
+
+    Only while the partition is in an alarm state, like the official app.
+    """
+    async with coordinator.client.hold(priority=True):
+        if _current(coordinator, number) not in IN_ALARM:
+            raise CommandError(
+                translation_domain=DOMAIN,
+                translation_key="no_alarm",
+                translation_placeholders={"partition": _name(coordinator, number)},
+            )
+        target = PartitionState.ACKNOWLEDGED
+        await _run(coordinator, number, target, [(target, "acknowledge")])
+
+
+async def _run(
+    coordinator: SecvestCoordinator,
+    number: int,
+    target: PartitionState,
+    steps: list[tuple[PartitionState, str]],
+) -> None:
+    """Send the steps one after another, each verified; stop at a failure."""
+    client = coordinator.client
+    for index, (step, action) in enumerate(steps):
+        last = index == len(steps) - 1
+        try:
+            outcome = await coordinator.async_command(
+                partial(client.set_partition_state, number, step),
+                _reaches(number, step),
+                publish=last,
+            )
+        except SecvestError as err:
+            raise _panel_error(err) from err
+        if not outcome.reached:
+            if not last:
+                # show the real state the sequence stopped in
+                coordinator.async_set_updated_data(outcome.state)
+            raise_failure(
+                coordinator,
+                Request(number, target, action),
+                explain(outcome, number, step),
+                outcome.state,
+            )
+
+
+def _name(coordinator: SecvestCoordinator, number: int) -> str:
+    partition = coordinator.data.partitions.get(number)
+    return partition.name if partition is not None else str(number)
 
 
 def _action(target: PartitionState) -> str:

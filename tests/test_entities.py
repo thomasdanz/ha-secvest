@@ -30,6 +30,10 @@ async def test_entity_registry(
             None,
         ),
         "partition_1_open_zones": ("sensor.alarmanlage_teilber_1_open_zones", None),
+        "partition_1_acknowledge": (
+            "button.alarmanlage_teilber_1_acknowledge_alarm",
+            None,
+        ),
         "problem": ("binary_sensor.alarmanlage_problem", None),
         "faults": ("sensor.alarmanlage_faults", None),
         "installer_lock": (

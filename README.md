@@ -118,6 +118,8 @@ actions:
       message: "Alarm not armed ({{ trigger.event.data.reason }}): {{ trigger.event.data.zones | join(', ') }}"
 ```
 
+**Alarms:** during an alarm the button **Acknowledge alarm** of the partition acknowledges it (like the official app, only while the alarm isn't acknowledged yet); the alarm panel stays triggered, with `acknowledged: true`, until it is disarmed. Disarming during an alarm acknowledges first and then disarms, each step checked. Arming during an alarm isn't possible; disarm first. Resetting the panel after an alarm isn't possible through the API. Acknowledging hasn't been tested at a real panel, since that would need a real alarm; it follows the documented behaviour of the panel and the official app.
+
 While the installer is logged in, commands fail with a message saying so. If the result of a command can't be read back, the message says that too; check the state at the panel then.
 
 ## How it works

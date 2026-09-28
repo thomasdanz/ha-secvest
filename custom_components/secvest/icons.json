@@ -21,6 +21,11 @@
       "open_zones": {
         "default": "mdi:window-open-variant"
       }
+    },
+    "button": {
+      "acknowledge": {
+        "default": "mdi:bell-check-outline"
+      }
     }
   }
 }
