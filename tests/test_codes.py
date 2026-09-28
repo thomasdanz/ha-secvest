@@ -75,6 +75,8 @@ async def test_wrong_code_sends_nothing(
     assert err.value.translation_key == "invalid_code"
     assert fake_panel.stats.requests == ROUND
     assert "Wrong code" in caplog.text
+    # the entered code is never logged
+    assert not code or code not in caplog.text
 
 
 async def test_code_required_for_arming(

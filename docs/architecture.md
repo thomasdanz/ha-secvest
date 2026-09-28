@@ -23,7 +23,7 @@ Terms follow the manufacturer's wording, see the [glossary](glossary.md).
 │ Home Assistant                                                │
 │                                                               │
 │  config_flow.py      alarm_control_panel.py  binary_sensor.py │
-│  diagnostics.py      switch.py  button.py  sensor.py  event.py│
+│  diagnostics.py      switch.py  sensor.py  event.py           │
 │  repairs.py                   │                               │
 │        │                      ▼                               │
 │        │               entity.py (base classes)               │
@@ -68,7 +68,7 @@ The API client is a self-contained Python package without any Home Assistant dep
 | `coordinator.py` | The only user of the client. Schedules polling rounds and log polling, executes commands and verifies them, applies backoff and pause, tracks the installer lock and the authentication state. Holds the latest `PanelState`. |
 | `entity.py` | Base entity classes: device info for the panel and per zone, availability rules, common attributes. |
 | `alarm_control_panel.py` | One panel per selected partition. Maps the partition state to Home Assistant states; an alarm is detected from the partition state itself (`*-alarm`, `acknowledged`), `/alarms/` only adds details. Arm/disarm call `commands.py`. |
-| `commands.py` | The command sequences (arm, disarm; later switching modes, acknowledging, omitting): hold the queue, send through `SecvestCoordinator.async_command`, judge by the verified state, and turn failures into one translated error plus the `secvest_arming_failed` event. |
+| `commands.py` | The command sequences (arm, disarm, switching between the armed modes, acknowledging before disarming, omitting): hold the queue, send through `SecvestCoordinator.async_command`, judge by the verified state, and turn failures into one translated error plus the `secvest_arming_failed` event. The event carries the calling action's context and the code's user name, so automations can tell where a command came from (#120). |
 | `binary_sensor.py` | Zone open/closed, zone problem, arming blocked per partition, installer lock. |
 | `switch.py` | Omit switch per omittable zone. |
 | `sensor.py` | Faults count with details. |
@@ -238,7 +238,8 @@ A group has a name (unique), at least two zones of the selected partitions (none
 | Stored in | Content |
 |---|---|
 | Config entry data | Address, user code, password, certificate verification, User-Agent override (advanced; empty = `ha-secvest/<version>`), `auth_failed` after a 401 |
-| Config entry options | Selected partitions (`partitions`), status interval (`scan_interval`), excluded zones (`excluded_zones`), device class per zone (`zone_device_classes`); later zone groups, the log interval and optional features |
+| Config entry options | Selected partitions (`partitions`), status interval (`scan_interval`), excluded zones (`excluded_zones`), device class per zone (`zone_device_classes`); later the log interval and optional features |
+| Config subentries | Zone groups (`zone_group`, #67) and codes for arming and disarming (`code`, #116: user name, salt and hash) |
 
 **Address:** stored normalised as `https://host:port[/path]`. Without a scheme the panel's own port 4433 applies unless one is given; an https URL without a port means 443 (e.g. a reverse proxy). The normalised address (host, port and path) is the entry's unique id, since the API reports no serial number. Setup validates the credentials with exactly one request (`GET /system/`) and takes the entry's title from the installation name. Only once the credentials are accepted, it reads the partitions (`GET /system/partitions/`) and the zone lists of the partitions that have zones, on the same connection, for the selection and the zones step; nothing else is sent during setup.
 
@@ -248,7 +249,7 @@ The user selects **partitions**, not zones. The zones are derived from the selec
 
 Changing options or zone groups reloads the entry: one update listener compares the options, the subentries and the User-Agent with the state at setup (Home Assistant doesn't allow its reloading options flow together with an update listener). The options flow sends nothing to the panel: it offers what the last polling round returned (zones of a newly selected partition are listed by id until the next round). It has two steps: partitions, status interval and (advanced) the User-Agent override, which is stored in the entry data; then the zones: excluded zones and a device class per zone (none by default). Setup ends with the same zones step (shared code), so zone types can be set right away; Home Assistant's own "Show as" still overrides the device class per entity. Device classes of zones that aren't shown, e.g. of a partition deselected for now, are kept.
 
-Devices follow the configuration: at setup, zone devices that are no longer selected or are excluded are removed. This is decided from the partitions' zone lists, not from the zones read, so a zone the panel briefly doesn't report keeps its device and settings. Later, zones that disappear or are excluded also drop out of their group, and empty groups are removed (#67).
+Devices follow the configuration: at setup, zone devices that are no longer selected or are excluded are removed. This is decided from the partitions' zone lists, not from the zones read, so a zone the panel briefly doesn't report keeps its device and settings. Zone groups are never changed automatically: a member zone that is no longer listed raises a repair issue (see "Zone groups").
 
 ## Updates
 

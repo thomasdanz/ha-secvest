@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 import pytest
 
-from custom_components.secvest.commands import CommandError
+from custom_components.secvest.commands import CommandError, async_set_omitted
 
 from .common import ROUND, Setup, coordinator_of
 from .fake_panel import FakePanel, Injection
@@ -126,3 +126,30 @@ async def test_ignored(
     with pytest.raises(CommandError) as err:
         await _switch(hass, "turn_on")
     assert err.value.translation_key == "omit_failed_unknown"
+
+
+async def test_installer_lock(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """The installer lock has its own message, as for arming."""
+    await setup()
+    fake_panel.installer_locked = True
+    with pytest.raises(CommandError) as err:
+        await _switch(hass, "turn_on")
+    assert err.value.translation_key == "installer_locked"
+    assert not fake_panel.zones["209"].omitted
+
+
+async def test_zone_no_longer_listed(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """A zone no selected partition lists anymore isn't sent at all."""
+    entry = await setup()
+    coordinator = coordinator_of(entry)
+    fake_panel.partitions[1].zone_ids.remove("209")
+    await coordinator.async_refresh()
+    sent = len(fake_panel.stats.requests)
+    with pytest.raises(CommandError) as err:
+        await async_set_omitted(coordinator, "209", True)
+    assert err.value.translation_key == "omit_failed_unknown"
+    assert len(fake_panel.stats.requests) == sent
