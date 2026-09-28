@@ -92,7 +92,11 @@ Replace `sensor.alarmanlage_faults` with the entity id of your faults sensor (in
 
 ## Arming and disarming
 
-The alarm panel arms away (full set), arms home (part set, "intern aktivieren") and disarms. The panel doesn't switch directly between the two armed modes, so switching disarms first and then arms again; the alarm panel keeps showing the previous mode until the switch is done, and if disarming fails, the message says so. No code is asked for: the panel user's credentials are the authorization. Every command is checked by reading the partition again afterwards, whatever the panel answered: it counts as done only if the partition really is in the requested state.
+The alarm panel arms away (full set), arms home (part set, "intern aktivieren") and disarms, with a code.
+
+**Codes:** on the integration's page, **Add code** stores a user name and a four-digit code (the panel's codes have four digits too). The alarm panel asks for a code to arm and to disarm and shows the user as the one who did it. With no code configured, arming and disarming aren't possible; everything else, like omitting zones, needs no code. You may use the same codes as at the keypad, but Home Assistant can't check them against the panel: a code changed at the keypad has to be changed here too. Codes are stored only as a salted hash; to change one, enter a new one.
+
+The panel doesn't switch directly between the two armed modes, so switching disarms first and then arms again; the alarm panel keeps showing the previous mode until the switch is done, and if disarming fails, the message says so. Every command is checked by reading the partition again afterwards, whatever the panel answered: it counts as done only if the partition really is in the requested state.
 
 If arming or disarming fails, the action fails with one message of the form "Partition <name> was not armed: <reason>", shown in the UI and in automation traces, and the event `secvest_arming_failed` is fired with `entry_id`, `partition`, `partition_name`, `requested` (`set`, `partset` or `unset`), `reason`, `step` (`command`, or `disarm_first` when switching between the armed modes failed at disarming), `zones` and `faults`. The reasons:
 

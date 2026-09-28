@@ -17,6 +17,7 @@ from homeassistant.config_entries import (
     SubentryFlowResult,
 )
 from homeassistant.const import (
+    CONF_CODE,
     CONF_DEVICE_CLASS,
     CONF_NAME,
     CONF_PASSWORD,
@@ -51,6 +52,7 @@ from .api.errors import (
 )
 from .api.models import Partition, Zone
 from .api.transport import Transport
+from .codes import CODE_PATTERN, codes, hash_code, matches
 from .const import (
     CONF_ADVANCED,
     CONF_AREA_ID,
@@ -68,6 +70,7 @@ from .const import (
     DOMAIN,
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
+    SUBENTRY_CODE,
     SUBENTRY_ZONE_GROUP,
     TESTED_FIRMWARE,
     TESTED_MODEL,
@@ -247,7 +250,7 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
         cls, config_entry: ConfigEntry
     ) -> dict[str, type[ConfigSubentryFlow]]:
         """Zone groups are subentries of the panel's entry."""
-        return {SUBENTRY_ZONE_GROUP: ZoneGroupFlow}
+        return {SUBENTRY_ZONE_GROUP: ZoneGroupFlow, SUBENTRY_CODE: CodeFlow}
 
     def __init__(self) -> None:
         """Start without a checked connection."""
@@ -655,3 +658,78 @@ def _group_device(
         if identifier in device.identifiers and isinstance(device, dr.DeviceEntry):
             return device
     return None
+
+
+class CodeFlow(ConfigSubentryFlow):
+    """Add or change a user's code for arming and disarming.
+
+    Home Assistant's own codes; nothing is sent to the panel. Only a salted
+    hash is stored.
+    """
+
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Add a code."""
+        return self._form("user", user_input, None)
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Change a user's name or code."""
+        return self._form("reconfigure", user_input, self._get_reconfigure_subentry())
+
+    def _form(
+        self,
+        step_id: str,
+        user_input: dict[str, Any] | None,
+        subentry: ConfigSubentry | None,
+    ) -> SubentryFlowResult:
+        entry = self._get_entry()
+        own = subentry.subentry_id if subentry is not None else None
+        others = [c for c in codes(entry) if c.subentry_id != own]
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            name = user_input[CONF_NAME].strip()
+            code = (user_input.get(CONF_CODE) or "").strip()
+            if not name:
+                errors[CONF_NAME] = "name_required"
+            elif name.casefold() in {c.name.casefold() for c in others}:
+                errors[CONF_NAME] = "name_exists"
+            elif (subentry is None or code) and not CODE_PATTERN.fullmatch(code):
+                errors[CONF_CODE] = "invalid_code"
+            elif code and any(matches(other, code) for other in others):
+                errors[CONF_CODE] = "code_exists"
+            else:
+                data: dict[str, Any] = {CONF_NAME: name}
+                if code:
+                    data.update(hash_code(code))
+                elif subentry is not None:
+                    # an empty code keeps the current one
+                    data.update(
+                        {k: v for k, v in subentry.data.items() if k != CONF_NAME}
+                    )
+                if subentry is None:
+                    return self.async_create_entry(title=name, data=data)
+                return self.async_update_and_abort(
+                    entry, subentry, title=name, data=data
+                )
+        code_field = (
+            vol.Required(CONF_CODE) if subentry is None else vol.Optional(CONF_CODE)
+        )
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_NAME): TextSelector(),
+                # when changing, an empty code keeps the current one
+                code_field: TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                ),
+            }
+        )
+        # the code is never suggested; it isn't stored
+        name = (user_input or (subentry.data if subentry else {})).get(CONF_NAME)
+        return self.async_show_form(
+            step_id=step_id,
+            data_schema=self.add_suggested_values_to_schema(schema, {CONF_NAME: name}),
+            errors=errors,
+        )

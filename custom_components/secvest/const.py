@@ -20,6 +20,8 @@ CONF_EXCLUDED_ZONES = "excluded_zones"
 
 # zone groups: config subentries, a Home Assistant concept (#67)
 SUBENTRY_ZONE_GROUP = "zone_group"
+# codes for arming and disarming: subentries too
+SUBENTRY_CODE = "code"
 CONF_ZONES = "zones"
 CONF_HIDE_MEMBERS = "hide_members"
 # area of a new group device; the device page manages it afterwards

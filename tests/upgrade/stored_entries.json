@@ -279,7 +279,7 @@
       }
     },
     {
-      "name": "with a zone group, v0.2 entities",
+      "name": "with a zone group, a code, v0.2 entities",
       "versions": [
         "0.2.0"
       ],
@@ -313,6 +313,17 @@
             "device_class": "same_as_zones",
             "hide_members": true,
             "area_id": "first_floor"
+          }
+        },
+        {
+          "subentry_id": "01JCODE00000000000000000000A",
+          "subentry_type": "code",
+          "title": "User 1",
+          "unique_id": null,
+          "data": {
+            "name": "User 1",
+            "salt": "00000000000000000000000000000000",
+            "hash": "ef713ec2f8232f6d79218ab01afe3ec0279675389b5e306551bc78f714739979"
           }
         }
       ],

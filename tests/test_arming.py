@@ -24,12 +24,16 @@ from .common import ROUND, Setup, coordinator_of
 from .fake_panel import FakePanel, Injection
 
 PANEL = "alarm_control_panel.alarmanlage_teilber_1"
+CODE = "4711"
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
 async def _call(hass: HomeAssistant, service: str, entity_id: str = PANEL) -> None:
     await hass.services.async_call(
-        "alarm_control_panel", service, {"entity_id": entity_id}, blocking=True
+        "alarm_control_panel",
+        service,
+        {"entity_id": entity_id, "code": CODE},
+        blocking=True,
     )
 
 
@@ -61,7 +65,7 @@ async def test_arm(
     expected: str,
 ) -> None:
     """Arming sends the state and shows the verified result."""
-    await setup()
+    await setup(code=CODE)
     await _call(hass, service)
     assert _state(hass) == expected
     assert fake_panel.partitions[1].state == sent
@@ -75,7 +79,7 @@ async def test_arm(
 
 async def test_disarm(hass: HomeAssistant, fake_panel: FakePanel, setup: Setup) -> None:
     """Disarming is verified the same way."""
-    entry = await setup()
+    entry = await setup(code=CODE)
     await _call(hass, "alarm_arm_away")
     await _call(hass, "alarm_disarm")
     assert _state(hass) == AlarmControlPanelState.DISARMED
@@ -86,7 +90,7 @@ async def test_blocked(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
     """409 names the blocking zones (certain); the event says the same."""
-    await setup()
+    await setup(code=CODE)
     events = _events(hass)
     fake_panel.open_zone("209")
     with pytest.raises(CommandError) as err:
@@ -116,7 +120,7 @@ async def test_blocked(
 
 async def test_refused_without_reason(hass: HomeAssistant, setup: Setup) -> None:
     """409 with an empty list: a partition without zones."""
-    await setup(**{CONF_PARTITIONS: [1, 2]})
+    await setup(code=CODE, **{CONF_PARTITIONS: [1, 2]})
     with pytest.raises(CommandError) as err:
         await _call(hass, "alarm_arm_away", "alarm_control_panel.alarmanlage_teilber_2")
     assert err.value.translation_key == "arm_failed_refused"
@@ -126,7 +130,7 @@ async def test_no_permission(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
     """An empty 403 means no permission for the partition (certain)."""
-    await setup()
+    await setup(code=CODE)
     await _call(hass, "alarm_arm_away")
     fake_panel.rights = {2}
     with pytest.raises(CommandError) as err:
@@ -148,7 +152,7 @@ async def test_silently_ignored(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
     """200 without effect: the likely reason comes from the fresh state."""
-    await setup()
+    await setup(code=CODE)
     events = _events(hass)
     # an open entry door makes the reference panel ignore "set"
     fake_panel.open_zone("219")
@@ -165,7 +169,7 @@ async def test_installer_lock(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
     """The installer lock has its own message; nothing is verified."""
-    await setup()
+    await setup(code=CODE)
     fake_panel.installer_locked = True
     with pytest.raises(CommandError) as err:
         await _call(hass, "alarm_arm_away")
@@ -176,7 +180,7 @@ async def test_not_verified(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
     """If the result can't be read back, the message says so."""
-    await setup()
+    await setup(code=CODE)
     fake_panel.inject(Injection("GET", "/system/partitions/", "drop_before", times=2))
     with pytest.raises(CommandError) as err:
         await _call(hass, "alarm_arm_away")
@@ -205,14 +209,14 @@ async def test_explain_from_the_answer(
     expected: Failure,
 ) -> None:
     """The reason from a 409 is certain and names zones and faults."""
-    entry = await setup()
+    entry = await setup(code=CODE)
     outcome = CommandOutcome(False, error, coordinator_of(entry).data, False)
     assert explain(outcome, 1, PartitionState.SET) == expected
 
 
 async def test_explain_likely_faults(fake_panel: FakePanel, setup: Setup) -> None:
     """Without open zones, blocking faults are the likely reason."""
-    entry = await setup()
+    entry = await setup(code=CODE)
     fake_panel.static_faults.append(
         {
             "type": "1234",
@@ -242,7 +246,7 @@ async def test_switch_modes(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
     """Away → home disarms first; the entity doesn't show the step between."""
-    await setup()
+    await setup(code=CODE)
     await _call(hass, "alarm_arm_away")
     shown: list[str] = []
     hass.bus.async_listen(
@@ -265,7 +269,7 @@ async def test_same_mode_sends_it_once(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
     """Arming into the current mode doesn't disarm first."""
-    await setup()
+    await setup(code=CODE)
     await _call(hass, "alarm_arm_away")
     sent = len(fake_panel.stats.requests)
     await _call(hass, "alarm_arm_away")
@@ -276,7 +280,7 @@ async def test_switch_fails_at_disarming(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
     """A failed first step stops the sequence and is named."""
-    await setup()
+    await setup(code=CODE)
     events = _events(hass)
     await _call(hass, "alarm_arm_away")
     fake_panel.rights = {2}
@@ -296,7 +300,7 @@ async def test_switch_fails_at_arming(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
     """If arming fails after disarming, the entity shows the real state."""
-    await setup()
+    await setup(code=CODE)
     await _call(hass, "alarm_arm_away")
     # the partition isn't set up for internal arming
     fake_panel.partitions[1].internal_arming = False
@@ -310,7 +314,7 @@ async def test_rejected_credentials(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
     """A 401 during a command has its own message; nothing is verified."""
-    await setup()
+    await setup(code=CODE)
     fake_panel.password = "changed"
     with pytest.raises(CommandError) as err:
         await _call(hass, "alarm_arm_away")
@@ -326,7 +330,7 @@ async def test_installer_lock_at_the_read(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
     """The lock at the read before the command is reported as the lock."""
-    entry = await setup()
+    entry = await setup(code=CODE)
     lock = (FIXTURES / "GET_system.403.json").read_bytes()
     fake_panel.inject(
         Injection(
@@ -348,7 +352,7 @@ async def test_installer_logs_in_during_the_command(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
     """The lock at the verification is reported as the lock."""
-    entry = await setup()
+    entry = await setup(code=CODE)
     lock = (FIXTURES / "GET_system.403.json").read_bytes()
     # /alarms/ is first read in the verification, after the command
     fake_panel.inject(

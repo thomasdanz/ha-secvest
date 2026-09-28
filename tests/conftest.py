@@ -10,17 +10,19 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import CONF_PASSWORD, CONF_URL, CONF_VERIFY_SSL
+from homeassistant.const import CONF_NAME, CONF_PASSWORD, CONF_URL, CONF_VERIFY_SSL
 from homeassistant.core import HomeAssistant
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest import coordinator as coordinator_module
+from custom_components.secvest.codes import hash_code
 from custom_components.secvest.const import (
     CONF_PARTITIONS,
     CONF_USER_AGENT,
     CONF_USER_CODE,
     DOMAIN,
+    SUBENTRY_CODE,
 )
 
 from .common import Setup
@@ -90,6 +92,7 @@ async def setup(hass: HomeAssistant, fake_panel: FakePanel) -> AsyncIterator[Set
     async def _setup(
         password: str | None = None,
         data: dict[str, Any] | None = None,
+        code: str | None = None,
         **options: Any,
     ) -> MockConfigEntry:
         entry = MockConfigEntry(
@@ -104,6 +107,17 @@ async def setup(hass: HomeAssistant, fake_panel: FakePanel) -> AsyncIterator[Set
                 **(data or {}),
             },
             options={CONF_PARTITIONS: [1], **options},
+            # a user's code for arming and disarming, if the test needs one
+            subentries_data=[
+                {
+                    "subentry_type": SUBENTRY_CODE,
+                    "title": "Tester",
+                    "unique_id": None,
+                    "data": {CONF_NAME: "Tester", **hash_code(code)},
+                }
+            ]
+            if code
+            else [],
         )
         entry.add_to_hass(hass)
         entries.append(entry)

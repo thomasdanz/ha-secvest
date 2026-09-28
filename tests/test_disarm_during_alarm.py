@@ -18,6 +18,7 @@ from .fake_panel import FakePanel, Injection
 
 PANEL = "alarm_control_panel.alarmanlage_teilber_1"
 PUT = ("PUT", "/system/partitions-1/")
+CODE = "4711"
 # the fresh read before deciding the sequence
 READ = ("GET", "/system/partitions/")
 
@@ -38,11 +39,14 @@ async def test_disarm_during_alarm(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
     """Disarming acknowledges first; unset is never sent from an alarm."""
-    entry = await setup()
+    entry = await setup(code=CODE)
     await _alarm(fake_panel, entry)
     sent = len(fake_panel.stats.requests)
     await hass.services.async_call(
-        "alarm_control_panel", "alarm_disarm", {"entity_id": PANEL}, blocking=True
+        "alarm_control_panel",
+        "alarm_disarm",
+        {"entity_id": PANEL, "code": CODE},
+        blocking=True,
     )
     assert _state(hass, PANEL) == AlarmControlPanelState.DISARMED
     assert fake_panel.stats.requests[sent:] == [READ, PUT, *ROUND, PUT, *ROUND]
@@ -53,14 +57,17 @@ async def test_disarm_from_acknowledged(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
     """After acknowledging, disarming is a single command."""
-    entry = await setup()
+    entry = await setup(code=CODE)
     await _alarm(fake_panel, entry)
     # acknowledged at the keypad or in the app
     fake_panel.partitions[1].state = "acknowledged"
     await coordinator_of(entry).async_refresh()
     sent = len(fake_panel.stats.requests)
     await hass.services.async_call(
-        "alarm_control_panel", "alarm_disarm", {"entity_id": PANEL}, blocking=True
+        "alarm_control_panel",
+        "alarm_disarm",
+        {"entity_id": PANEL, "code": CODE},
+        blocking=True,
     )
     assert _state(hass, PANEL) == AlarmControlPanelState.DISARMED
     assert fake_panel.stats.requests[sent:] == [READ, PUT, *ROUND]
@@ -70,12 +77,15 @@ async def test_acknowledging_first_fails(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
     """A failed acknowledgement stops disarming and is named."""
-    entry = await setup()
+    entry = await setup(code=CODE)
     await _alarm(fake_panel, entry)
     fake_panel.inject(Injection("PUT", "/system/partitions-1/", "status", status=500))
     with pytest.raises(CommandError) as err:
         await hass.services.async_call(
-            "alarm_control_panel", "alarm_disarm", {"entity_id": PANEL}, blocking=True
+            "alarm_control_panel",
+            "alarm_disarm",
+            {"entity_id": PANEL, "code": CODE},
+            blocking=True,
         )
     assert err.value.translation_key == "acknowledge_first_failed_error"
     assert "acknowledging the alarm first failed" in str(err.value)
@@ -87,12 +97,15 @@ async def test_no_arming_during_an_alarm(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
     """Arming during an alarm isn't sent at all."""
-    entry = await setup()
+    entry = await setup(code=CODE)
     await _alarm(fake_panel, entry)
     sent = len(fake_panel.stats.requests)
     with pytest.raises(CommandError) as err:
         await hass.services.async_call(
-            "alarm_control_panel", "alarm_arm_home", {"entity_id": PANEL}, blocking=True
+            "alarm_control_panel",
+            "alarm_arm_home",
+            {"entity_id": PANEL, "code": CODE},
+            blocking=True,
         )
     assert err.value.translation_key == "arm_during_alarm"
     # only the fresh read; nothing is sent

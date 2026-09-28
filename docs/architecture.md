@@ -74,6 +74,7 @@ The API client is a self-contained Python package without any Home Assistant dep
 | `sensor.py` | Faults count with details. |
 | `event.py` | Log entries as events. |
 | `config_flow.py` | Setup, partition/zone selection, options, zone groups (subentry flow), reauthentication. |
+| `codes.py` | Codes for arming and disarming (config subentries, #116): user name plus a salted hash (PBKDF2) of a four-digit code; lookup by code. Home Assistant's own: they can't be checked against the panel (no API, and failed logins must be avoided). |
 | `groups.py` | Zone groups as stored in their subentries; what a change of which reloads the entry. |
 | `repairs.py` | Repair issues for maintenance faults and for selected partitions that are empty or missing. |
 | `diagnostics.py` | Redacted diagnostics download. |
@@ -208,7 +209,7 @@ The panel's partitions are independent of each other, so everything that belongs
 
 | Entity | Platform | Content |
 |---|---|---|
-| Alarm panel | alarm_control_panel | disarmed / armed_home / armed_away / triggered (and optionally pending), unknown for an unknown state; named after the partition; attributes: panel state (raw, the app's underscore spelling normalised), acknowledged, alarm type of the first alarm `/alarms/` reports for the partition (translated; unknown codes raw) and its zones. An alarm `/alarms/` reports for a partition whose state isn't an alarm state (not observed) shows as triggered too and is logged once. A failing `/alarms/` doesn't fail the round (logged once); the partition state still shows the alarm. Unavailable while the panel doesn't report the partition. |
+| Alarm panel (a code is needed to arm and disarm, #116; with none configured, both fail with a message; `changed_by` shows the code's user) | alarm_control_panel | disarmed / armed_home / armed_away / triggered (and optionally pending), unknown for an unknown state; named after the partition; attributes: panel state (raw, the app's underscore spelling normalised), acknowledged, alarm type of the first alarm `/alarms/` reports for the partition (translated; unknown codes raw) and its zones. An alarm `/alarms/` reports for a partition whose state isn't an alarm state (not observed) shows as triggered too and is logged once. A failing `/alarms/` doesn't fail the round (logged once); the partition state still shows the alarm. Unavailable while the panel doesn't report the partition. |
 | Open zones | sensor | Number of the partition's zones that are open and not omitted; ids and names as attributes |
 | Arming blocked | binary_sensor | "Blocked" / "Possible" (no device class: open windows are a state, not a problem). On while open zones is above 0, or a fault other than an open zone with `prevents-set` affects the partition; attributes: the open zones and those faults. Open zones count whether or not the panel lists them as faults: an open entry door is no fault on the reference panel, but arming via the API fails then (configuration-dependent) |
 
