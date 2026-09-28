@@ -27,7 +27,12 @@ from .groups import reload_snapshot, zone_groups
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.ALARM_CONTROL_PANEL, Platform.BINARY_SENSOR, Platform.SENSOR]
+PLATFORMS = [
+    Platform.ALARM_CONTROL_PANEL,
+    Platform.BINARY_SENSOR,
+    Platform.BUTTON,
+    Platform.SENSOR,
+]
 
 type SecvestConfigEntry = ConfigEntry[SecvestCoordinator]
 
@@ -140,7 +145,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: SecvestConfigEntry) ->
 # id; registry entries of other kinds come from an older version
 _ENTITY_KINDS = re.compile(
     r"(installer_lock|problem|faults"
-    r"|partition_\d+_(alarm|arming_blocked|open_zones)"
+    r"|partition_\d+_(alarm|arming_blocked|open_zones|acknowledge)"
     r"|zone_[^_]+_(open|problem)"
     r"|group_[^_]+_open)"
 )
