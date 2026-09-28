@@ -153,3 +153,21 @@ async def test_zone_no_longer_listed(
         await async_set_omitted(coordinator, "209", True)
     assert err.value.translation_key == "omit_failed_unknown"
     assert len(fake_panel.stats.requests) == sent
+
+
+async def test_switch_off_right_after_disarming(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """Disarming includes omitted zones; the verification round shows it."""
+    await setup(code="4711")
+    await _switch(hass, "turn_on")
+    for service in ("alarm_arm_away", "alarm_disarm"):
+        await hass.services.async_call(
+            "alarm_control_panel",
+            service,
+            {"entity_id": "alarm_control_panel.alarmanlage_teilber_1", "code": "4711"},
+            blocking=True,
+        )
+    # no polling round in between: the command's own verification did it
+    assert not fake_panel.zones["209"].omitted
+    assert _state(hass) == STATE_OFF
