@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file. The format is b
 - Switching between armed away and armed home disarms first and then arms again, each step checked; the alarm panel shows the previous mode until the switch is done (#18).
 - Alarm details on the alarm panel: the alarm type and the zones that raised it; a failing alarm list no longer fails the whole polling round (#19).
 - Acknowledge alarm button per partition, available during an alarm; disarming during an alarm acknowledges first. Not tested at a real panel, since that would need an alarm (#20).
+- Omit switch per omittable zone, checked by reading the zone again; the message tells a zone that can't be omitted from missing rights (#27).
 
 ## [0.1.10] - 2026-09-28
 

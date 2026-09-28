@@ -42,9 +42,16 @@ async def test_entity_registry(
         ),
     }
     zones = fake_panel.partitions[1].zone_ids
-    expected = set(panel) | {
-        f"zone_{zone_id}_{key}" for zone_id in zones for key in ("open", "problem")
-    }
+    expected = (
+        set(panel)
+        | {f"zone_{zone_id}_{key}" for zone_id in zones for key in ("open", "problem")}
+        # omittable zones only
+        | {
+            f"zone_{zone_id}_omit"
+            for zone_id in zones
+            if fake_panel.zones[zone_id].omittable
+        }
+    )
     assert set(entities) == expected
     for key, (entity_id, category) in panel.items():
         assert (entities[key].entity_id, entities[key].entity_category) == (

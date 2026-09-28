@@ -451,3 +451,15 @@ async def test_no_area(hass: HomeAssistant, setup: Setup) -> None:
     entry = await setup()
     await _add(hass, entry, _group())
     assert _group_device(hass).area_id is None
+
+
+async def test_hidden_members_include_the_omit_switch(
+    hass: HomeAssistant, setup: Setup
+) -> None:
+    """Hiding grouped zones hides their omit switches too."""
+    entry = await setup()
+    await _add(hass, entry, _group())
+    for member in MEMBERS:
+        assert _hidden(hass, member.replace("binary_sensor.", "switch.") + "_omit") is (
+            er.RegistryEntryHider.INTEGRATION
+        )

@@ -26,6 +26,14 @@
       "acknowledge": {
         "default": "mdi:bell-check-outline"
       }
+    },
+    "switch": {
+      "omit": {
+        "default": "mdi:eye-outline",
+        "state": {
+          "on": "mdi:eye-off-outline"
+        }
+      }
     }
   }
 }
