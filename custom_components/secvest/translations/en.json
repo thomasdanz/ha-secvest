@@ -102,6 +102,35 @@
       "open_zones": {
         "name": "{partition} open zones"
       }
+    },
+    "alarm_control_panel": {
+      "partition": {
+        "state_attributes": {
+          "alarm_type": {
+            "name": "Alarm type",
+            "state": {
+              "undefined": "Undefined",
+              "fault": "Fault",
+              "technical": "Technical",
+              "fire": "Fire",
+              "burglary": "Burglary",
+              "medical": "Medical",
+              "panic": "Panic",
+              "social": "Social",
+              "inactivity": "Inactivity"
+            }
+          },
+          "panel_state": {
+            "name": "Panel state"
+          },
+          "acknowledged": {
+            "name": "Acknowledged"
+          },
+          "alarm_zones": {
+            "name": "Alarm zones"
+          }
+        }
+      }
     }
   },
   "exceptions": {
