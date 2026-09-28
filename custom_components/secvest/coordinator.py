@@ -314,6 +314,19 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
             _LOGGER.info("The installer is logged in; the panel is locked")
             self.installer_locked = True
 
+    def note_panel_error(self, err: SecvestError) -> None:
+        """Take in a 401 or the installer lock from a request outside a round.
+
+        As in a round: a 401 is remembered and starts the reauthentication,
+        the installer lock is shown.
+        """
+        if isinstance(err, AuthenticationError):
+            self._remember_auth_failed()
+            self.config_entry.async_start_reauth(self.hass)
+        elif isinstance(err, InstallerLockedError):
+            self._set_installer_locked()
+            self.async_update_listeners()
+
     async def async_command(
         self,
         send: Callable[[], Awaitable[object]],

@@ -113,11 +113,11 @@
               "fault": "Störung",
               "technical": "Technik",
               "fire": "Feuer",
-              "burglary": "Einbruch",
-              "medical": "Medizinisch",
-              "panic": "Überfall",
-              "social": "Sozial",
-              "inactivity": "Inaktivität"
+              "burglary": "Einbruchalarm",
+              "medical": "Medizinischer Alarm",
+              "panic": "Überfallalarm",
+              "social": "Pflegenotruf-Alarm",
+              "inactivity": "Inaktivität Pflege"
             }
           },
           "panel_state": {
@@ -130,11 +130,6 @@
             "name": "Alarmzonen"
           }
         }
-      }
-    },
-    "button": {
-      "acknowledge": {
-        "name": "{partition} Alarm quittieren"
       }
     },
     "switch": {
@@ -216,53 +211,29 @@
     "switch_failed_unknown": {
       "message": "Teilbereich {partition} wurde nicht umgeschaltet: Das vorherige Deaktivieren ist gescheitert. Die Zentrale hat den Zustand nicht geändert; Grund unbekannt"
     },
-    "acknowledge_failed_blocked": {
-      "message": "Der Alarm von Teilbereich {partition} wurde nicht quittiert. Blockiert durch {items}"
-    },
     "acknowledge_first_failed_blocked": {
       "message": "Teilbereich {partition} wurde nicht deaktiviert: Das vorherige Quittieren des Alarms ist gescheitert. Blockiert durch {items}"
-    },
-    "acknowledge_failed_refused": {
-      "message": "Der Alarm von Teilbereich {partition} wurde nicht quittiert. Die Zentrale hat ohne Angabe eines Grundes abgelehnt"
     },
     "acknowledge_first_failed_refused": {
       "message": "Teilbereich {partition} wurde nicht deaktiviert: Das vorherige Quittieren des Alarms ist gescheitert. Die Zentrale hat ohne Angabe eines Grundes abgelehnt"
     },
-    "acknowledge_failed_no_permission": {
-      "message": "Der Alarm von Teilbereich {partition} wurde nicht quittiert. Keine Berechtigung für diesen Teilbereich"
-    },
     "acknowledge_first_failed_no_permission": {
       "message": "Teilbereich {partition} wurde nicht deaktiviert: Das vorherige Quittieren des Alarms ist gescheitert. Keine Berechtigung für diesen Teilbereich"
-    },
-    "acknowledge_failed_likely_open_zones": {
-      "message": "Der Alarm von Teilbereich {partition} wurde nicht quittiert. Vermutlich wegen offener Zonen: {items}"
     },
     "acknowledge_first_failed_likely_open_zones": {
       "message": "Teilbereich {partition} wurde nicht deaktiviert: Das vorherige Quittieren des Alarms ist gescheitert. Vermutlich wegen offener Zonen: {items}"
     },
-    "acknowledge_failed_likely_faults": {
-      "message": "Der Alarm von Teilbereich {partition} wurde nicht quittiert. Vermutlich wegen Störungen: {items}"
-    },
     "acknowledge_first_failed_likely_faults": {
       "message": "Teilbereich {partition} wurde nicht deaktiviert: Das vorherige Quittieren des Alarms ist gescheitert. Vermutlich wegen Störungen: {items}"
     },
-    "acknowledge_failed_error": {
-      "message": "Der Alarm von Teilbereich {partition} wurde nicht quittiert. Die Zentrale hat mit einem Fehler geantwortet"
-    },
     "acknowledge_first_failed_error": {
       "message": "Teilbereich {partition} wurde nicht deaktiviert: Das vorherige Quittieren des Alarms ist gescheitert. Die Zentrale hat mit einem Fehler geantwortet"
-    },
-    "acknowledge_failed_unknown": {
-      "message": "Der Alarm von Teilbereich {partition} wurde nicht quittiert. Die Zentrale hat den Zustand nicht geändert; Grund unbekannt"
     },
     "acknowledge_first_failed_unknown": {
       "message": "Teilbereich {partition} wurde nicht deaktiviert: Das vorherige Quittieren des Alarms ist gescheitert. Die Zentrale hat den Zustand nicht geändert; Grund unbekannt"
     },
     "arm_during_alarm": {
       "message": "Teilbereich {partition} ist im Alarm; deaktiviere ihn zuerst (der Alarm wird dabei quittiert)"
-    },
-    "no_alarm": {
-      "message": "Teilbereich {partition} hat keinen Alarm zum Quittieren"
     },
     "omit_failed_not_omittable": {
       "message": "Zone {zone} wurde nicht ausgeblendet. Sie ist nicht ausblendbar"

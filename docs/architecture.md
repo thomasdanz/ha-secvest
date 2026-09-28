@@ -71,7 +71,6 @@ The API client is a self-contained Python package without any Home Assistant dep
 | `commands.py` | The command sequences (arm, disarm; later switching modes, acknowledging, omitting): hold the queue, send through `SecvestCoordinator.async_command`, judge by the verified state, and turn failures into one translated error plus the `secvest_arming_failed` event. |
 | `binary_sensor.py` | Zone open/closed, zone problem, arming blocked per partition, installer lock. |
 | `switch.py` | Omit switch per omittable zone. |
-| `button.py` | Acknowledge alarm per partition. |
 | `sensor.py` | Faults count with details. |
 | `event.py` | Log entries as events. |
 | `config_flow.py` | Setup, partition/zone selection, options, zone groups (subentry flow), reauthentication. |
@@ -100,7 +99,7 @@ Other Secvest integrations were reviewed for this design. These patterns load th
 
 - **No `Connection: close`** and no new connection per request — every new connection without session resumption costs a 6.5 s handshake.
 - **No path variants.** One request per operation with the exact path; no trying `/x/` and then `/x` on failure.
-- **No automatic retries of commands** (arm, disarm, omit, acknowledge). The outcome is determined by the verification refresh. Single exception: if the connection was lost after sending and the verification shows the target was not reached, the command is sent once more.
+- **No automatic retries of commands** (arm, disarm, omit, and acknowledging while disarming). The outcome is determined by the verification refresh. Single exception: if the connection was lost after sending and the verification shows the target was not reached, the command is sent once more.
 - **No retries after a failed login**, neither REST nor web interface.
 - **No full log download per polling round.** The full log is fetched once, to set the baseline; after that only incrementally and rarely.
 - **No guessed requests.** Only calls documented in the specification (observed on a panel or defined by the official app) are sent.
@@ -157,7 +156,9 @@ The verification refresh replaces the next regular polling round, so a command d
 
 **Error responses are verified too.** An error response is never reported directly: the fresh state decides. If the target state was reached anyway (e.g. someone armed at the keypad at the same moment), the command counts as successful. The same applies to omitting zones: after a 403, the zone is read again, and its `omitted` and `omittable` decide the outcome and the message. Exceptions are the responses after which no further request is sent: a 401 (authentication gate) and the installer lock (every request fails); there the error is reported with the last known state.
 
-**Disarming during an alarm:** the official app only allows `unset` from `set`/`partset` or from `acknowledged`. Disarming a partition in an alarm state (`set-alarm`, `partset-alarm`, `unset-alarm`) therefore first acknowledges the alarm and then disarms, each step verified, like switching between armed modes. A direct `unset` from an alarm state is never sent (see "No guessed requests"). Arming during an alarm (an alarm state or `acknowledged`) isn't sent at all; the message asks to disarm first. Acknowledging alone (button) is offered only in an alarm state, like the app; it counts as done once the partition is no longer in an alarm state. Not tested at a real panel (it would need an alarm).
+**Disarming during an alarm:** the official app only allows `unset` from `set`/`partset` or from `acknowledged`. Disarming a partition in an alarm state (`set-alarm`, `partset-alarm`, `unset-alarm`) therefore first acknowledges the alarm and then disarms, each step verified, like switching between armed modes. A direct `unset` from an alarm state is never sent (see "No guessed requests"). Arming during an alarm (an alarm state or `acknowledged`) isn't sent at all; the message asks to disarm first. There is no separate acknowledge action: disarming covers it (decided 2026-09-28). The acknowledge step counts as done once the partition is no longer in an alarm state. Not tested at a real panel (it would need an alarm).
+
+**Fresh state before a sequence:** what to send first (disarm before switching modes, acknowledge before disarming, or refusing to arm during an alarm) is decided from the partition read right before, within the same hold, not from the last round, which can be an interval old. A 401 or the installer lock at that read is handled like in a round.
 
 **Connection lost after sending a command** (`ConnectionLostError`): the command may or may not have reached the panel. The integration first runs the verification refresh; only if the target state was not reached, it sends the command **once** more (verified again). This is the single exception to "no automatic retries of commands" and is safe because a state change the panel already applied is not applied twice.
 
@@ -210,7 +211,6 @@ The panel's partitions are independent of each other, so everything that belongs
 | Alarm panel | alarm_control_panel | disarmed / armed_home / armed_away / triggered (and optionally pending), unknown for an unknown state; named after the partition; attributes: panel state (raw, the app's underscore spelling normalised), acknowledged, alarm type of the first alarm `/alarms/` reports for the partition (translated; unknown codes raw) and its zones. An alarm `/alarms/` reports for a partition whose state isn't an alarm state (not observed) shows as triggered too and is logged once. A failing `/alarms/` doesn't fail the round (logged once); the partition state still shows the alarm. Unavailable while the panel doesn't report the partition. |
 | Open zones | sensor | Number of the partition's zones that are open and not omitted; ids and names as attributes |
 | Arming blocked | binary_sensor | "Blocked" / "Possible" (no device class: open windows are a state, not a problem). On while open zones is above 0, or a fault other than an open zone with `prevents-set` affects the partition; attributes: the open zones and those faults. Open zones count whether or not the panel lists them as faults: an open entry door is no fault on the reference panel, but arming via the API fails then (configuration-dependent) |
-| Acknowledge alarm | button | Available only while the partition is in alarm |
 
 **Per selected zone** (one device per zone, named after the zone with its kind — "Funkzone Keller", "Wireless zone …" in English — with the kind as its model (in Home Assistant's language, German or else English, since the model can't be translated like the name), and linked to the panel device via its device id, so each detector can be assigned to an area; the panel device is registered at setup before the platforms)
 

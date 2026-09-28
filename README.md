@@ -2,7 +2,7 @@
 
 A Home Assistant custom integration for the ABUS Secvest alarm panel. It talks to the panel's local REST API, the one the official app uses, as documented in [`secvest-api`](https://github.com/thomasdanz/secvest-api).
 
-> **Status:** v0.2: shows partitions, zones and faults, arms and disarms, acknowledges alarms and omits zones. Log events follow with v0.3 (see the [milestones](https://github.com/thomasdanz/ha-secvest/milestones)).
+> **Status:** v0.2: shows partitions, zones and faults, arms and disarms (acknowledging an alarm on the way) and omits zones. Log events follow with v0.3 (see the [milestones](https://github.com/thomasdanz/ha-secvest/milestones)).
 
 > **Disclaimer:** This is an unofficial community project, not affiliated with or endorsed by ABUS. The panel is security equipment: use this integration at your own risk.
 
@@ -69,7 +69,7 @@ Zones that belong to one opening, such as the two wings of a window, can be comb
 
 ## Entities
 
-- **Alarm panel** per selected partition, named after the partition: disarmed, armed home (internally armed), armed away or triggered. An acknowledged alarm is still shown as triggered, with the attribute `acknowledged`; the attribute `panel_state` holds the panel's own state. While the panel reports an alarm, `alarm_type` names its kind (burglary, fire, panic, …) and `alarm_zones` the zones that raised it; the alarm is detected from the partition's state itself, so it shows even if these details can't be read. You can arm (away or home, i.e. internally) and disarm it; see "Arming and disarming".
+- **Alarm panel** per selected partition, named after the partition: disarmed, armed home (internally armed), armed away or triggered. An acknowledged alarm is still shown as triggered, with the attribute `acknowledged`; the attribute `panel_state` holds the panel's own state. While the panel reports an alarm, `alarm_type` names its kind in the panel's own terms (burglar alarm, fire alarm, hold-up alarm, …) and `alarm_zones` the zones that raised it; the alarm is detected from the partition's state itself, so it shows even if these details can't be read. You can arm (away or home, i.e. internally) and disarm it; see "Arming and disarming".
 - **Zones:** each zone of the selected partitions is its own device below the panel device, named with its kind (e.g. "Wireless zone Cellar", in German "Funkzone Keller"; the kind is also shown as the model), so you can assign it to an area. Its binary sensor is on while the zone is open; other zone states (such as tamper) show as unknown, with the panel's value in the attribute `zone_state`. The API doesn't tell detector types apart, so the sensors have no device class until you choose one per zone in the options. An **Omit** switch per omittable zone omits it for one arming cycle ("ausblenden"); the panel includes it again at the next disarm, and the switch follows. A diagnostic **Problem** sensor per zone is on for such other states or while a fault (other than "zone open") affects the zone.
 - **Faults** on the panel device: the number of current faults, all of them in the attribute `faults` and a readable list in `summary` (one line per fault). This includes faults of components the API doesn't list otherwise, such as a repeater's low battery. Open zones, which the panel also reports as faults (even when disarmed), are left out here and counted by **Open zones**.
 - **Problem** on the panel device: on while **Faults** is above 0.
@@ -118,7 +118,7 @@ actions:
       message: "Alarm not armed ({{ trigger.event.data.reason }}): {{ trigger.event.data.zones | join(', ') }}"
 ```
 
-**Alarms:** during an alarm the button **Acknowledge alarm** of the partition acknowledges it (like the official app, only while the alarm isn't acknowledged yet); the alarm panel stays triggered, with `acknowledged: true`, until it is disarmed. Disarming during an alarm acknowledges first and then disarms, each step checked. Arming during an alarm isn't possible; disarm first. Resetting the panel after an alarm isn't possible through the API. Acknowledging hasn't been tested at a real panel, since that would need a real alarm; it follows the documented behaviour of the panel and the official app.
+**Alarms:** disarming during an alarm acknowledges the alarm first and then disarms, each step checked; there is no separate acknowledge button. An alarm acknowledged elsewhere (keypad, app) shows as triggered with `acknowledged: true` until it is disarmed. Arming during an alarm isn't possible; disarm first. Resetting the panel after an alarm isn't possible through the API. Acknowledging hasn't been tested at a real panel, since that would need a real alarm; it follows the documented behaviour of the panel and the official app.
 
 While the installer is logged in, commands fail with a message saying so. If the result of a command can't be read back, the message says that too; check the state at the panel then.
 
