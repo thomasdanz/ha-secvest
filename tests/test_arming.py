@@ -104,6 +104,7 @@ async def test_blocked(
             "partition_name": "Teilber. 1",
             "requested": "set",
             "reason": "blocked",
+            "step": "command",
             "zones": ["209"],
             "faults": [],
         }
@@ -227,3 +228,74 @@ async def test_explain_likely_faults(fake_panel: FakePanel, setup: Setup) -> Non
     )
     # otherwise the reason is unknown; for disarming, nothing is derived
     assert explain(outcome, 1, PartitionState.UNSET) == Failure("unknown")
+
+
+PUT = ("PUT", "/system/partitions-1/")
+
+
+async def test_switch_modes(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """Away → home disarms first; the entity doesn't show the step between."""
+    await setup()
+    await _call(hass, "alarm_arm_away")
+    shown: list[str] = []
+    hass.bus.async_listen(
+        "state_changed",
+        lambda event: (
+            shown.append(event.data["new_state"].state)
+            if event.data["entity_id"] == PANEL
+            else None
+        ),
+    )
+    sent = len(fake_panel.stats.requests)
+    await _call(hass, "alarm_arm_home")
+    await hass.async_block_till_done()
+    assert _state(hass) == AlarmControlPanelState.ARMED_HOME
+    assert fake_panel.stats.requests[sent:] == [PUT, *ROUND, PUT, *ROUND]
+    assert AlarmControlPanelState.DISARMED not in shown
+
+
+async def test_same_mode_sends_it_once(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """Arming into the current mode doesn't disarm first."""
+    await setup()
+    await _call(hass, "alarm_arm_away")
+    sent = len(fake_panel.stats.requests)
+    await _call(hass, "alarm_arm_away")
+    assert fake_panel.stats.requests[sent:] == [PUT, *ROUND]
+
+
+async def test_switch_fails_at_disarming(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """A failed first step stops the sequence and is named."""
+    await setup()
+    events = _events(hass)
+    await _call(hass, "alarm_arm_away")
+    fake_panel.rights = {2}
+    sent = len(fake_panel.stats.requests)
+    with pytest.raises(CommandError) as err:
+        await _call(hass, "alarm_arm_home")
+    assert err.value.translation_key == "switch_failed_no_permission"
+    assert "disarming first failed" in str(err.value)
+    assert fake_panel.stats.requests[sent:] == [PUT, *ROUND]
+    assert _state(hass) == AlarmControlPanelState.ARMED_AWAY
+    await hass.async_block_till_done()
+    assert events[-1].data["step"] == "disarm_first"
+    assert events[-1].data["requested"] == "partset"
+
+
+async def test_switch_fails_at_arming(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """If arming fails after disarming, the entity shows the real state."""
+    await setup()
+    await _call(hass, "alarm_arm_away")
+    # the partition isn't set up for internal arming
+    fake_panel.partitions[1].internal_arming = False
+    with pytest.raises(CommandError) as err:
+        await _call(hass, "alarm_arm_home")
+    assert err.value.translation_key == "arm_failed_refused"
+    assert _state(hass) == AlarmControlPanelState.DISARMED

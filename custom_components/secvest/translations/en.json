@@ -155,6 +155,27 @@
     },
     "not_verified": {
       "message": "The command was sent, but its result couldn't be read back ({error}). Check the state at the panel"
+    },
+    "switch_failed_blocked": {
+      "message": "Partition {partition} was not switched: disarming first failed: blocked by {items}"
+    },
+    "switch_failed_refused": {
+      "message": "Partition {partition} was not switched: disarming first failed: the panel refused without naming a reason"
+    },
+    "switch_failed_no_permission": {
+      "message": "Partition {partition} was not switched: disarming first failed: no permission for this partition"
+    },
+    "switch_failed_likely_open_zones": {
+      "message": "Partition {partition} was not switched: disarming first failed: probably because of open zones: {items}"
+    },
+    "switch_failed_likely_faults": {
+      "message": "Partition {partition} was not switched: disarming first failed: probably because of faults: {items}"
+    },
+    "switch_failed_error": {
+      "message": "Partition {partition} was not switched: disarming first failed: the panel answered with an error"
+    },
+    "switch_failed_unknown": {
+      "message": "Partition {partition} was not switched: disarming first failed: the panel didn't change the state; reason unknown"
     }
   },
   "options": {

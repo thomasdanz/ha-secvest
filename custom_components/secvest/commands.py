@@ -8,7 +8,9 @@ never from panel texts.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from functools import partial
 import logging
 from typing import TYPE_CHECKING
 
@@ -91,14 +93,27 @@ def _from_answer(error: SecvestError | None) -> Failure | None:
     return None
 
 
+@dataclass(frozen=True, slots=True)
+class Request:
+    """A requested partition state and the action it stands for.
+
+    action is arm, disarm, or switch for disarming first when switching
+    between the armed modes.
+    """
+
+    number: int
+    target: PartitionState
+    action: str
+
+
 def raise_failure(
     coordinator: SecvestCoordinator,
-    number: int,
-    target: PartitionState,
+    request: Request,
     failure: Failure,
     state: PanelState,
 ) -> None:
     """Fire the arming_failed event and raise the translated error."""
+    number, target, action = request.number, request.target, request.action
     partition = state.partitions.get(number)
     name = partition.name if partition is not None else str(number)
     coordinator.hass.bus.async_fire(
@@ -109,11 +124,12 @@ def raise_failure(
             "partition_name": name,
             "requested": str(target),
             "reason": failure.reason,
+            # the step that failed: disarm first when switching modes
+            "step": "disarm_first" if action == "switch" else "command",
             "zones": list(failure.zones),
             "faults": list(failure.faults),
         },
     )
-    action = "disarm" if target == PartitionState.UNSET else "arm"
     _LOGGER.info(
         "Partition %s: %s to %s failed (%s)", number, action, target, failure.reason
     )
@@ -147,28 +163,61 @@ def _panel_error(err: SecvestError) -> CommandError:
     )
 
 
+ARMED = frozenset({PartitionState.SET, PartitionState.PARTSET})
+
+
+def _reaches(number: int, target: PartitionState) -> Callable[[PanelState], bool]:
+    def reached(state: PanelState) -> bool:
+        partition = state.partitions.get(number)
+        return partition is not None and partition.state == target
+
+    return reached
+
+
 async def async_set_partition_state(
     coordinator: SecvestCoordinator, number: int, target: PartitionState
 ) -> None:
     """Arm, arm internally or disarm a partition, verified.
 
-    Raises CommandError if the partition isn't in the target state
-    afterwards, whatever the panel answered.
+    The panel ignores a direct switch between the armed modes, so that
+    disarms first; the whole sequence holds the queue, and the entity keeps
+    its previous state until it ends. Raises CommandError if the partition
+    isn't in the target state afterwards, whatever the panel answered; a
+    failed intermediate step stops the sequence and is named.
     """
     client = coordinator.client
-
-    def reached(state: PanelState) -> bool:
-        partition = state.partitions.get(number)
-        return partition is not None and partition.state == target
-
     async with client.hold(priority=True):
-        try:
-            outcome = await coordinator.async_command(
-                lambda: client.set_partition_state(number, target), reached
-            )
-        except SecvestError as err:
-            raise _panel_error(err) from err
-    if not outcome.reached:
-        raise_failure(
-            coordinator, number, target, explain(outcome, number, target), outcome.state
-        )
+        partition = coordinator.data.partitions.get(number)
+        steps = [target]
+        if (
+            partition is not None
+            and partition.state in ARMED
+            and target in ARMED
+            and partition.state != target
+        ):
+            steps.insert(0, PartitionState.UNSET)
+        for index, step in enumerate(steps):
+            last = index == len(steps) - 1
+            try:
+                outcome = await coordinator.async_command(
+                    partial(client.set_partition_state, number, step),
+                    _reaches(number, step),
+                    publish=last,
+                )
+            except SecvestError as err:
+                raise _panel_error(err) from err
+            if not outcome.reached:
+                if not last:
+                    # show the real state the sequence stopped in
+                    coordinator.async_set_updated_data(outcome.state)
+                action = _action(target) if last else "switch"
+                raise_failure(
+                    coordinator,
+                    Request(number, target, action),
+                    explain(outcome, number, step),
+                    outcome.state,
+                )
+
+
+def _action(target: PartitionState) -> str:
+    return "disarm" if target == PartitionState.UNSET else "arm"
