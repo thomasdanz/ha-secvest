@@ -1,5 +1,7 @@
 """Tests for the codes for arming and disarming (#116)."""
 
+from collections.abc import Mapping
+import json
 from typing import Any
 
 from homeassistant.components.alarm_control_panel.const import (
@@ -11,9 +13,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.exceptions import ServiceValidationError
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import MockConfigEntry, flush_store
 
-from custom_components.secvest.codes import find
+from custom_components.secvest.codes import CONF_HASH, CONF_SALT, find, hash_code
 from custom_components.secvest.const import SUBENTRY_CODE
 
 from .common import ROUND, Setup
@@ -75,6 +77,8 @@ async def test_wrong_code_sends_nothing(
     assert err.value.translation_key == "invalid_code"
     assert fake_panel.stats.requests == ROUND
     assert "Wrong code" in caplog.text
+    # the entered code is never logged
+    assert not code or code not in caplog.text
 
 
 async def test_code_required_for_arming(
@@ -120,7 +124,7 @@ async def test_add_code(hass: HomeAssistant, setup: Setup) -> None:
     (subentry,) = entry.subentries.values()
     assert subentry.title == "Anna"
     assert subentry.data[CONF_NAME] == "Anna"
-    assert "2468" not in str(dict(subentry.data))
+    _assert_hashed(subentry.data, "2468")
     user = find(entry, "2468")
     assert user is not None
     assert user.name == "Anna"
@@ -179,3 +183,35 @@ async def test_change_code(hass: HomeAssistant, setup: Setup) -> None:
     await reconfigure({CONF_NAME: "Renamed", CONF_CODE: "1357"}, "Renamed")
     assert find(entry, "4711") is None
     assert find(entry, "1357") is not None
+    _assert_hashed(entry.subentries[subentry_id].data, "1357")
+
+
+def _assert_hashed(data: Mapping[str, Any], code: str) -> None:
+    """Only the name, a salt and the PBKDF2 hash are stored, never the code.
+
+    Compared field by field: a substring check could match the hex of a
+    random salt by chance.
+    """
+    assert set(data) == {CONF_NAME, CONF_SALT, CONF_HASH}
+    assert code not in data.values()
+    assert len(data[CONF_SALT]) == 32
+    assert data[CONF_HASH] == hash_code(code, data[CONF_SALT])[CONF_HASH]
+
+
+async def test_salted_and_never_stored(
+    hass: HomeAssistant, setup: Setup, hass_storage: dict[str, Any]
+) -> None:
+    """Each code gets its own salt; the stored entry never contains a code."""
+    # the same code hashes differently each time
+    assert hash_code("2468")[CONF_HASH] != hash_code("2468")[CONF_HASH]
+    entry = await setup()
+    for name, code in (("Anna", "2468"), ("Ben", "1357")):
+        await _add(hass, entry, {CONF_NAME: name, CONF_CODE: code})
+    first, second = (subentry.data for subentry in entry.subentries.values())
+    assert first[CONF_SALT] != second[CONF_SALT]
+    # what Home Assistant writes to .storage/core.config_entries
+    await flush_store(hass.config_entries._store)
+    stored = json.dumps(hass_storage["core.config_entries"])
+    assert CONF_HASH in stored
+    assert '"2468"' not in stored
+    assert '"1357"' not in stored
