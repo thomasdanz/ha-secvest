@@ -2,7 +2,7 @@
 
 A Home Assistant custom integration for the ABUS Secvest alarm panel. It talks to the panel's local REST API, the one the official app uses, as documented in [`secvest-api`](https://github.com/thomasdanz/secvest-api).
 
-> **Status:** v0.1 is read-only: it shows the state of partitions, zones and faults. Arming and disarming follow with v0.2 (see the [milestones](https://github.com/thomasdanz/ha-secvest/milestones)).
+> **Status:** v0.2: shows partitions, zones and faults, arms and disarms, acknowledges alarms and omits zones. Log events follow with v0.3 (see the [milestones](https://github.com/thomasdanz/ha-secvest/milestones)).
 
 > **Disclaimer:** This is an unofficial community project, not affiliated with or endorsed by ABUS. The panel is security equipment: use this integration at your own risk.
 
@@ -122,6 +122,16 @@ actions:
 
 While the installer is logged in, commands fail with a message saying so. If the result of a command can't be read back, the message says that too; check the state at the panel then.
 
+## Exit and entry delays
+
+The panel's API reports no transitional states, so the alarm panel never shows `arming` or `pending`:
+
+- **Arming from Home Assistant** (or the official app) takes effect immediately, without an exit time, whatever exit mode the panel uses at the keypad. Leave the house before arming, or arm internally.
+- **Arming at the keypad** with an exit time: the partition reports disarmed until the exit time is over, then armed. Home Assistant shows the same.
+- **Entry delay:** when an entry door opens while armed, the partition keeps reporting its armed state until it is disarmed or the alarm goes off. Home Assistant can't tell that an entry delay is running.
+
+The panel's log does record the start of an entry delay. An optional "pending" state based on it is planned for a later version; it will depend on the panel's language, since the log only has texts there.
+
 ## How it works
 
 After setup the integration polls the panel every 30 seconds, never more often than every 24 seconds (the official app's own cycle). To poll on demand, use the action `homeassistant.update_entity` with any of the integration's entities; the same limit applies. If the panel doesn't answer, the integration waits longer after each failed attempt (up to 5 minutes) and pauses for 15 minutes after 5 failures in a row; entities keep their last state until the pause starts.
@@ -133,7 +143,7 @@ If the panel later rejects the credentials (for example after the password was c
 ## Limitations
 
 - **Delay:** changes show up with the next polling round, by default within 30 seconds.
-- **No exit or entry delay states:** the API reports no transitional state; arming takes effect immediately, and during an entry delay the partition keeps reporting its armed state.
+- **No exit or entry delay states:** see "Exit and entry delays".
 - **Arming blocked** covers open zones and the faults the panel reports as preventing arming; the panel may still refuse arming for reasons it reports only when arming is requested.
 - **Faults:** the sensor shows the list the panel returns; whether the panel shortens very long lists is unknown.
 - **Entities are tied to the config entry:** the API reports no serial number, so removing and re-adding the integration creates new entities. Their entity ids can be renamed back in Home Assistant.

@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-28
+
+Control: arming, disarming, acknowledging alarms and omitting zones, each checked by reading the panel again.
+
 ### Added
 
 - Arming (away and home) and disarming from the alarm panel, each checked by reading the partition again; failures raise one message with the reason and fire the event `secvest_arming_failed` (#16, #17).
@@ -11,6 +15,11 @@ All notable changes to this project are documented in this file. The format is b
 - Alarm details on the alarm panel: the alarm type and the zones that raised it; a failing alarm list no longer fails the whole polling round (#19).
 - Acknowledge alarm button per partition, available during an alarm; disarming during an alarm acknowledges first. Not tested at a real panel, since that would need an alarm (#20).
 - Omit switch per omittable zone, checked by reading the zone again; the message tells a zone that can't be omitted from missing rights (#27).
+- README: why the alarm panel shows no arming or pending state (#22).
+
+### Upgrade notes
+
+- Nothing to do. New entities appear by themselves: an acknowledge button per partition and an omit switch per omittable zone (hidden for grouped zones if the group hides its zones).
 
 ## [0.1.10] - 2026-09-28
 
@@ -120,7 +129,8 @@ First version, read-only: the state of partitions, zones and faults.
 - README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
 - Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
 
-[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.10...HEAD
+[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.10...v0.2.0
 [0.1.10]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/thomasdanz/ha-secvest/compare/v0.1.7...v0.1.8
