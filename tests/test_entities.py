@@ -26,7 +26,7 @@ async def test_entity_registry(
     panel = {
         "partition_1_alarm": ("alarm_control_panel.alarmanlage_teilber_1", None),
         "partition_1_arming_blocked": (
-            "binary_sensor.alarmanlage_teilber_1_arming_blocked",
+            "binary_sensor.alarmanlage_teilber_1_arming",
             None,
         ),
         "partition_1_open_zones": ("sensor.alarmanlage_teilber_1_open_zones", None),
@@ -79,7 +79,7 @@ async def test_entity_ids_follow_installation_and_names(
     }
     assert ids["partition_1_alarm"] == "alarm_control_panel.butterkeks_krumelmonster"
     assert ids["partition_1_arming_blocked"] == (
-        "binary_sensor.butterkeks_krumelmonster_arming_blocked"
+        "binary_sensor.butterkeks_krumelmonster_arming"
     )
     assert ids["faults"] == "sensor.butterkeks_faults"
     assert ids["zone_209_open"] == "binary_sensor.butterkeks_haustur"

@@ -88,10 +88,10 @@
         "name": "Problem"
       },
       "arming_blocked": {
-        "name": "{partition} Aktivierung blockiert",
+        "name": "{partition} Aktivierung",
         "state": {
           "on": "Blockiert",
-          "off": "Möglich"
+          "off": "Frei"
         }
       }
     },

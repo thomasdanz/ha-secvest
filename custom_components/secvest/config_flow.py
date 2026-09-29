@@ -365,14 +365,18 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
             error = await self._validate(data, read_partitions=False)
             if error is None:
                 # the reload creates a new transport with these credentials
-                return self.async_update_reload_and_abort(
-                    entry,
-                    data_updates={
-                        CONF_USER_CODE: data[CONF_USER_CODE],
-                        CONF_PASSWORD: data[CONF_PASSWORD],
-                        CONF_AUTH_FAILED: False,
-                    },
-                )
+                updates = {
+                    CONF_USER_CODE: data[CONF_USER_CODE],
+                    CONF_PASSWORD: data[CONF_PASSWORD],
+                    CONF_AUTH_FAILED: False,
+                }
+                if entry.update_listeners:
+                    # loaded (401 while running): its update listener reloads
+                    # once the flag is cleared, as Home Assistant expects
+                    return self.async_update_and_abort(entry, data_updates=updates)
+                # not loaded (401 at setup, or after a restart): nothing else
+                # would reload it
+                return self.async_update_reload_and_abort(entry, data_updates=updates)
             errors["base"] = error
         # the password is never suggested
         user_code = (user_input or entry.data)[CONF_USER_CODE]

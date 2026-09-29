@@ -80,7 +80,8 @@ class FaultsSensor(SecvestEntity, SensorEntity):
 class OpenZonesSensor(SecvestEntity, SensorEntity):
     """The number of open, not omitted zones of a partition.
 
-    Arming blocked is on while this is above 0 (or a fault prevents arming).
+    The arming sensor is on (blocked) while this is above 0, or while a
+    fault prevents arming.
     """
 
     _attr_translation_key = "open_zones"

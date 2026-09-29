@@ -78,11 +78,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> b
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _remove_stale_entities(hass, entry)
     _hide_grouped_zones(hass, entry)
-    # changed options or zone groups (subentries) reload the entry
+    # changed options or zone groups (subentries) reload the entry, and so
+    # does a reauthentication, which clears the flag a 401 set
     snapshot = reload_snapshot(entry)
+    auth_failed = [bool(entry.data.get(CONF_AUTH_FAILED))]
 
     async def _reload_on_change(hass: HomeAssistant, entry: SecvestConfigEntry) -> None:
-        if reload_snapshot(entry) != snapshot:
+        now_failed = bool(entry.data.get(CONF_AUTH_FAILED))
+        reauthenticated = auth_failed[0] and not now_failed
+        auth_failed[0] = now_failed
+        if reauthenticated or reload_snapshot(entry) != snapshot:
             hass.config_entries.async_schedule_reload(entry.entry_id)
 
     entry.async_on_unload(entry.add_update_listener(_reload_on_change))

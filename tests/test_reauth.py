@@ -6,8 +6,10 @@ from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntryState
 from homeassistant.const import CONF_PASSWORD, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.secvest.config_flow import SecvestConfigFlow
 from custom_components.secvest.const import CONF_AUTH_FAILED, CONF_USER_CODE, DOMAIN
 
 from .common import ROUND, Setup, coordinator_of
@@ -111,3 +113,38 @@ async def test_reauth_suggests_the_user_code(
         str(key): (key.description or {}).get("suggested_value") for key in schema
     }
     assert suggested == {CONF_USER_CODE: fake_panel.user_code, CONF_PASSWORD: None}
+
+
+async def test_reauthenticate_while_loaded(
+    hass: HomeAssistant,
+    fake_panel: FakePanel,
+    setup: Setup,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """After a 401 while running, the update listener reloads the entry.
+
+    Home Assistant expects that of an entry with an update listener; the
+    same credentials again (e.g. a proxy answered the 401) reload it too.
+    """
+    entry = await setup()
+    password = fake_panel.password
+    fake_panel.password = "changed"
+    await coordinator_of(entry).async_refresh()
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.LOADED
+    fake_panel.password = password
+    # Home Assistant warns (and later refuses) if a flow reloads an entry that
+    # has an update listener (breaks in 2026.12)
+    reloads: list[object] = []
+    monkeypatch.setattr(
+        SecvestConfigFlow,
+        "async_update_reload_and_abort",
+        lambda self, *args, **kwargs: reloads.append(args),
+    )
+    result = await _reauth(hass, entry, password)
+    await hass.async_block_till_done()
+    assert result["reason"] == "reauth_successful"
+    assert entry.data[CONF_AUTH_FAILED] is False
+    assert entry.state is ConfigEntryState.LOADED
+    assert hass.states.get(LOCK_SENSOR).state != STATE_UNAVAILABLE  # type: ignore[union-attr]
+    assert reloads == []
