@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+
+- README: the safety notes explain prominently that a single rejected login (401) stops all requests until you reauthenticate, also after a restart and also for a 401 from a reverse proxy.
+
 ## [0.2.4] - 2026-09-29
 
 ### Changed
