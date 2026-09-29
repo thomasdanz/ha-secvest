@@ -17,7 +17,7 @@ A Home Assistant custom integration for the ABUS Secvest alarm panel. It talks t
 - The panel is security equipment in an inhabited building. Test automations that use it carefully.
 - **Use a separate panel user** for Home Assistant: the level "normal user" is enough, with rights for exactly the partitions Home Assistant should operate. Every user sees all partitions, but the panel refuses commands on the others.
 - **Polling limits:** the integration never polls more often than every 24 seconds, the official app's own cycle, and backs off when the panel doesn't answer. An overloaded panel can stop responding and may need a power cycle.
-- **No automatic retries after failed logins:** failed logins may count towards a code tamper alarm, so the integration never repeats rejected credentials.
+- **One rejected login stops everything:** failed logins may count towards a code tamper alarm, so the integration never causes a second one. After the first `401 Unauthorized` it sends nothing more with these credentials — no retry, no polling, also not after a restart of Home Assistant — its entities are unavailable, and Home Assistant asks you to reauthenticate (Settings → Devices & services). Only new credentials, checked with a single request, start it again. This holds for every 401, also one a reverse proxy in front of the panel answers.
 - **Don't expose the panel's API to the internet unprotected.** The panel neither noticed nor limited failed logins at its REST API in tests (see [`secvest-api`](https://github.com/thomasdanz/secvest-api)).
 
 ## Installation
@@ -153,7 +153,7 @@ After setup the integration polls the panel every 30 seconds, never more often t
 
 While the installer is logged in at the panel, its API is locked. The diagnostic sensor **Installer lock** on the panel device is on meanwhile; the other entities keep their last state, and each polling round costs a single request until the installer has logged out.
 
-If the panel later rejects the credentials (for example after the password was changed at the panel), the integration stops sending anything, also after a restart of Home Assistant, and asks you to reauthenticate: enter user code and password again; they are checked with a single request.
+If the panel later rejects the credentials (for example after the password was changed at the panel), the integration stops sending anything after that single 401, also after a restart of Home Assistant, and asks you to reauthenticate: enter user code and password again; they are checked with a single request. If a reverse proxy answered the 401, fix the proxy first, then reauthenticate.
 
 ## Limitations
 
