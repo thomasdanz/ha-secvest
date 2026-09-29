@@ -20,6 +20,7 @@ from homeassistant.exceptions import HomeAssistantError
 from .api.errors import (
     ArmingBlockedError,
     AuthenticationError,
+    CommunicationError,
     ConnectionLostError,
     InstallerLockedError,
     NotAllowedError,
@@ -247,6 +248,13 @@ async def _read_current(
     """
     try:
         partitions = await coordinator.client.get_partitions()
+    except CommunicationError as err:
+        # nothing was sent yet, so the state is certainly unchanged
+        raise CommandError(
+            translation_domain=DOMAIN,
+            translation_key="unreachable",
+            translation_placeholders={"error": str(err)},
+        ) from err
     except SecvestError as err:
         coordinator.note_panel_error(err)
         raise _panel_error(err) from err

@@ -187,6 +187,9 @@
     "installer_locked": {
       "message": "Der Errichter ist an der Zentrale angemeldet, das sperrt sie; Befehle gehen wieder, sobald er sich abgemeldet hat"
     },
+    "unreachable": {
+      "message": "Die Zentrale ist nicht erreichbar ({error}); es wurde nichts gesendet"
+    },
     "not_verified": {
       "message": "Der Befehl wurde gesendet, aber sein Ergebnis ließ sich nicht zurücklesen ({error}). Prüfe den Zustand an der Zentrale"
     },

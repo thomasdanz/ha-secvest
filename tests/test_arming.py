@@ -227,15 +227,29 @@ async def test_known_installer_lock_sends_nothing(
     assert _state(hass) == AlarmControlPanelState.DISARMED
 
 
+async def test_unreachable(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """If the read before the command fails, nothing is sent (#128)."""
+    await setup(code=CODE)
+    fake_panel.inject(Injection("GET", "/system/partitions/", "drop_before", times=2))
+    with pytest.raises(CommandError) as err:
+        await _call(hass, "alarm_arm_away")
+    assert err.value.translation_key == "unreachable"
+    assert ("PUT", "/system/partitions-1/") not in fake_panel.stats.requests
+
+
 async def test_not_verified(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
     """If the result can't be read back, the message says so."""
     await setup(code=CODE)
-    fake_panel.inject(Injection("GET", "/system/partitions/", "drop_before", times=2))
+    # /faults/ is first read in the verification, after the command
+    fake_panel.inject(Injection("GET", "/faults/", "drop_before", times=2))
     with pytest.raises(CommandError) as err:
         await _call(hass, "alarm_arm_away")
     assert err.value.translation_key == "not_verified"
+    assert ("PUT", "/system/partitions-1/") in fake_panel.stats.requests
 
 
 @pytest.mark.parametrize(

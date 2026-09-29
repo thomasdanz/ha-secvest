@@ -187,6 +187,9 @@
     "installer_locked": {
       "message": "The installer is logged in at the panel, which locks it; commands work again once the installer has logged out"
     },
+    "unreachable": {
+      "message": "The panel can't be reached ({error}); nothing was sent"
+    },
     "not_verified": {
       "message": "The command was sent, but its result couldn't be read back ({error}). Check the state at the panel"
     },

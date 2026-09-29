@@ -237,10 +237,11 @@ async def test_backoff_and_pause(
     fake_panel: FakePanel, setup: Setup, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Failures back off, pause after several in a row, success resets."""
-    monkeypatch.setattr(coordinator_module, "PAUSE_AFTER", 2)
+    monkeypatch.setattr(coordinator_module, "PAUSE_AFTER", 4)
     entry = await setup()
     coordinator = coordinator_of(entry)
-    fake_panel.inject(Injection("GET", "/faults/", "drop_before", times=4))
+    # each failed round: the read and its one reconnect
+    fake_panel.inject(Injection("GET", "/faults/", "drop_before", times=8))
 
     await coordinator.async_refresh()
     assert coordinator.backoff.failures == 1
@@ -252,6 +253,16 @@ async def test_backoff_and_pause(
     await coordinator.async_refresh()
     assert len(fake_panel.stats.requests) == sent
     assert coordinator.backoff.failures == 1
+
+    coordinator.backoff.not_before = 0
+    await coordinator.async_refresh()
+    assert _available(coordinator)
+    # from the 3rd failure in a row a stale state isn't shown anymore (#128)
+    coordinator.backoff.not_before = 0
+    await coordinator.async_refresh()
+    # not paused yet: PAUSE_AFTER is 4 here
+    assert coordinator.backoff.failures == 3
+    assert not _available(coordinator)
 
     coordinator.backoff.not_before = 0
     await coordinator.async_refresh()
