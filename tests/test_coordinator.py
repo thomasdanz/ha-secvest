@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import UpdateFailed
 import pytest
@@ -31,6 +32,12 @@ from .common import ROUND, Setup, coordinator_of
 from .fake_panel import FakePanel, Injection
 
 MANIFEST = Path(__file__).parent.parent / "custom_components/secvest/manifest.json"
+
+
+def _panel_state(hass: HomeAssistant) -> str:
+    state = hass.states.get("alarm_control_panel.alarmanlage_teilber_1")
+    assert state is not None
+    return state.state
 
 
 def _available(coordinator: SecvestCoordinator) -> bool:
@@ -234,7 +241,10 @@ def test_backoff_sequence() -> None:
 
 
 async def test_backoff_and_pause(
-    fake_panel: FakePanel, setup: Setup, monkeypatch: pytest.MonkeyPatch
+    hass: HomeAssistant,
+    fake_panel: FakePanel,
+    setup: Setup,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Failures back off, pause after several in a row, success resets."""
     monkeypatch.setattr(coordinator_module, "PAUSE_AFTER", 4)
@@ -263,6 +273,9 @@ async def test_backoff_and_pause(
     # not paused yet: PAUSE_AFTER is 4 here
     assert coordinator.backoff.failures == 3
     assert not _available(coordinator)
+    # and Home Assistant shows it, though it only notifies at the first
+    # failure of a series
+    assert _panel_state(hass) == STATE_UNAVAILABLE
 
     coordinator.backoff.not_before = 0
     await coordinator.async_refresh()
@@ -274,6 +287,7 @@ async def test_backoff_and_pause(
     assert coordinator.last_update_success
     assert coordinator.backoff.failures == 0
     assert _available(coordinator)
+    assert _panel_state(hass) != STATE_UNAVAILABLE
 
 
 async def test_retry_after_is_the_backoff(fake_panel: FakePanel, setup: Setup) -> None:

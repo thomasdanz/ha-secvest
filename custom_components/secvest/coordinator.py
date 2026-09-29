@@ -11,7 +11,7 @@ import time
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -229,6 +229,8 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         self.installer_locked = False
         # set by setup once the panel device is registered
         self.panel_device_id = ""
+        # the availability the entities last showed
+        self._shown_available = True
 
     @property
     def available(self) -> bool:
@@ -244,6 +246,21 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
             and self.backoff.failures < UNAVAILABLE_AFTER
             and not self.client.transport.authentication_failed
         )
+
+    @callback
+    def _async_refresh_finished(self) -> None:
+        """Let the entities show a change of availability after a failed round.
+
+        Home Assistant notifies the entities only at the first failed round
+        of a series, but they become unavailable later (UNAVAILABLE_AFTER, the
+        pause); without this they would keep showing the stale state.
+        """
+        available = self.available
+        if available == self._shown_available:
+            return
+        self._shown_available = available
+        if not self.last_update_success:
+            self.async_update_listeners()
 
     async def _async_update_data(self) -> PanelState:
         """Run one round, never sooner than the minimum after the last one."""
