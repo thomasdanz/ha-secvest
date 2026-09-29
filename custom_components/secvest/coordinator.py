@@ -34,6 +34,7 @@ from .const import (
     MIN_SCAN_INTERVAL,
     PAUSE,
     PAUSE_AFTER,
+    UNAVAILABLE_AFTER,
 )
 from .groups import zone_groups
 
@@ -233,13 +234,14 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
     def available(self) -> bool:
         """Return whether entities are available.
 
-        Single failed rounds keep the last state; entities become unavailable
-        only once polling pauses, so they don't flap, or once the panel
-        rejected the credentials.
+        Single failed rounds keep the last state, so entities don't flap;
+        from UNAVAILABLE_AFTER failures in a row (about 3 minutes) they are
+        unavailable, since a stale state of an alarm panel misleads. Also
+        once the panel rejected the credentials.
         """
         return (
             self.data is not None
-            and not self.backoff.paused
+            and self.backoff.failures < UNAVAILABLE_AFTER
             and not self.client.transport.authentication_failed
         )
 

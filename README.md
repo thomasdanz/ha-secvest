@@ -109,7 +109,8 @@ If arming or disarming fails, the action fails with a message, shown in the UI a
 | `likely_faults` | As above, with faults that prevent arming as the likely reason |
 | `error` | The panel answered with another error |
 | `unknown` | The panel didn't change the state and gave no hint why |
-| `not_verified` | The result couldn't be read back (connection lost, timeout): the state is unclear, check it at the panel |
+| `unreachable` | The panel couldn't be reached before sending; nothing was sent, the state is unchanged |
+| `not_verified` | The command was sent, but the result couldn't be read back (connection lost, timeout): the state is unclear, check it at the panel |
 | `installer_locked` | The installer is logged in at the panel; nothing was changed |
 | `arm_during_alarm` | Arming during an alarm isn't sent; disarm first |
 | `auth_failed` | The panel rejected the credentials; Home Assistant asks to reauthenticate |
@@ -148,7 +149,7 @@ The panel's log does record the start of an entry delay. An optional "pending" s
 
 ## How it works
 
-After setup the integration polls the panel every 30 seconds, never more often than every 24 seconds (the official app's own cycle). To poll on demand, use the action `homeassistant.update_entity` with any of the integration's entities; the same limit applies. If the panel doesn't answer, the integration waits longer after each failed attempt (up to 5 minutes) and pauses for 15 minutes after 5 failures in a row; entities keep their last state until the pause starts.
+After setup the integration polls the panel every 30 seconds, never more often than every 24 seconds (the official app's own cycle). To poll on demand, use the action `homeassistant.update_entity` with any of the integration's entities; the same limit applies. If the panel doesn't answer, the integration waits longer after each failed attempt (up to 5 minutes) and pauses for 15 minutes after 5 failures in a row. Entities keep their last state through one or two failed rounds and are unavailable from the third one on (about 3 minutes), so Home Assistant and HomeKit don't show an outdated state for long; the first successful round brings them back.
 
 While the installer is logged in at the panel, its API is locked. The diagnostic sensor **Installer lock** on the panel device is on meanwhile; the other entities keep their last state, and each polling round costs a single request until the installer has logged out.
 

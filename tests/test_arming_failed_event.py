@@ -76,9 +76,20 @@ async def test_not_verified(
 ) -> None:
     """The state is unclear: the event is the hint to check the panel."""
     await setup(code=CODE)
-    fake_panel.inject(Injection("GET", "/system/partitions/", "drop_before", times=2))
+    # /faults/ is first read in the verification, after the command
+    fake_panel.inject(Injection("GET", "/faults/", "drop_before", times=2))
     data = await _failed(hass, "alarm_arm_home")
     assert data["reason"] == "not_verified"
+
+
+async def test_unreachable(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """Unreachable before sending: certainly nothing changed."""
+    await setup(code=CODE)
+    fake_panel.inject(Injection("GET", "/system/partitions/", "drop_before", times=2))
+    data = await _failed(hass, "alarm_arm_home")
+    assert data["reason"] == "unreachable"
 
 
 async def test_failed_step_is_named(

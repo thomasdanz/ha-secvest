@@ -54,6 +54,9 @@ MAX_SCAN_INTERVAL = 3600
 BACKOFF_MAX = 300
 PAUSE_AFTER = 5
 PAUSE = 900
+# entities show the last state through single failed rounds, but not for
+# long: from this many failures in a row they are unavailable (about 3 min)
+UNAVAILABLE_AFTER = 3
 
 # tested model and firmware (ADR 0005)
 TESTED_MODEL = "Secvest Touch FUAA50500"
