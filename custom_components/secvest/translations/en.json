@@ -88,10 +88,10 @@
         "name": "Problem"
       },
       "arming_blocked": {
-        "name": "{partition} arming blocked",
+        "name": "{partition} arming",
         "state": {
           "on": "Blocked",
-          "off": "Possible"
+          "off": "Free"
         }
       }
     },

@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-09-29
+
+### Changed
+
+- The arming blocked sensor is named "<partition> arming" ("<Teilbereich> Aktivierung") and shows "Blocked" / "Free" ("Blockiert" / "Frei") instead of "Blocked" / "Possible" (#134).
+
+### Fixed
+
+- Reauthenticating an entry that was running when the 401 came reloaded it in a way Home Assistant warns about and will refuse from 2026.12 ("has an update listener and should use it for scheduling a reload"); its update listener reloads it now (#134).
+
+### Upgrade notes
+
+- Existing installations keep the entity id of the arming sensor (e.g. `binary_sensor.<installation>_<partition>_arming_blocked`); only its name and state texts change. Rename the entity id in Home Assistant if you like.
+
 ## [0.2.5] - 2026-09-29
 
 ### Fixed
@@ -177,7 +191,8 @@ First version, read-only: the state of partitions, zones and faults.
 - README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
 - Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
 
-[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.5...HEAD
+[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.6...HEAD
+[0.2.6]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.2...v0.2.3

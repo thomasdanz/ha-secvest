@@ -9,7 +9,7 @@ from custom_components.secvest.const import CONF_PARTITIONS
 from .common import Setup, coordinator_of
 from .fake_panel import FakePanel
 
-BLOCKED = "binary_sensor.alarmanlage_teilber_1_arming_blocked"
+BLOCKED = "binary_sensor.alarmanlage_teilber_1_arming"
 OPEN_ZONES = "sensor.alarmanlage_teilber_1_open_zones"
 
 
@@ -36,7 +36,7 @@ async def test_arming_blocked(
     assert state is not None
     assert state.state == STATE_OFF
     assert "device_class" not in state.attributes
-    assert state.attributes["friendly_name"] == "Alarmanlage Teilber. 1 arming blocked"
+    assert state.attributes["friendly_name"] == "Alarmanlage Teilber. 1 arming"
     assert state.attributes["blocking_zones"] == []
     assert _state(hass, OPEN_ZONES) == "0"
 
@@ -51,9 +51,7 @@ async def test_arming_blocked(
     assert zones["zones"] == ["209"]
     assert zones["summary"] == "Room 6 L"
     # the zone belongs to partition 1 only
-    assert _state(hass, "binary_sensor.alarmanlage_teilber_2_arming_blocked") == (
-        STATE_OFF
-    )
+    assert _state(hass, "binary_sensor.alarmanlage_teilber_2_arming") == (STATE_OFF)
 
 
 async def test_entry_door_blocks(
