@@ -362,7 +362,8 @@
     {
       "name": "with a zone group, a code with its hash parameters, the log, v0.3 entities",
       "versions": [
-        "0.3.0"
+        "0.3.0",
+        "0.3.1"
       ],
       "minor_version": 2,
       "data": {

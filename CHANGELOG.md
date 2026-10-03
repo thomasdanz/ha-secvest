@@ -4,9 +4,11 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-03
+
 ### Fixed
 
-- The logbook shows the text of each new log entry with the panel's time again; in 0.3.0 these rows were missing and the log had "Error with secvest describe event" for each entry (#167).
+- The logbook shows the text of each new log entry with the panel's time. In 0.3.0 these rows were missing and the log had "Error with secvest describe event" for each entry; entries recorded since then get their rows too (#167).
 
 ## [0.3.0] - 2026-10-03
 
@@ -242,7 +244,8 @@ First version, read-only: the state of partitions, zones and faults.
 - README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
 - Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
 
-[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/thomasdanz/ha-secvest/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.9...v0.3.0
 [0.2.9]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.8...v0.2.9
 [0.2.8]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.7...v0.2.8
