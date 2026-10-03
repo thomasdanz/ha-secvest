@@ -1,7 +1,9 @@
 """Incremental log polling without gaps (#11)."""
 
 from datetime import timedelta
+from email.utils import parsedate_to_datetime
 import logging
+from pathlib import Path
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -11,11 +13,13 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest import coordinator as coordinator_module
 from custom_components.secvest.api.models import LogEntry, LogEvent, LogType
+from custom_components.secvest.api.parsing import loads, parse_log
 from custom_components.secvest.log import OVERLAP, LogTracker, entry_time
 
 from .common import ROUND, Setup, coordinator_of
 from .fake_panel import FakePanel, Injection
 
+FIXTURES = Path(__file__).parent / "fixtures"
 FULL_LOG = ("GET", "/logs/")
 
 
@@ -106,6 +110,24 @@ def test_stored_state_round_trip() -> None:
 
 
 # the time of an entry (#8)
+
+
+async def test_entry_time_from_a_real_pair(hass: HomeAssistant) -> None:
+    """A pair recorded at the reference panel (specification, 2026-10-03).
+
+    The disarm request was answered with this Date header; its log entry is
+    the one with this id.
+    """
+    await hass.config.async_set_time_zone("Europe/Berlin")
+    date_header = "Sat, 03 Oct 2026 18:25:01 GMT"
+    log = parse_log(
+        loads((FIXTURES / "GET_logs_filter-timestamp-ge.example5.json").read_bytes())
+    )
+    (disarmed,) = (entry for entry in log if entry.id == "458511129856")
+    written = entry_time(disarmed)
+    assert written is not None
+    assert written == parsedate_to_datetime(date_header)
+    assert written.isoformat() == "2026-10-03T20:25:01+02:00"
 
 
 async def test_entry_time_without_timestamp(hass: HomeAssistant) -> None:
