@@ -23,8 +23,8 @@ Terms follow the manufacturer's wording, see the [glossary](glossary.md).
 │ Home Assistant                                                │
 │                                                               │
 │  config_flow.py      alarm_control_panel.py  binary_sensor.py │
-│  diagnostics.py*     switch.py  sensor.py  event.py*          │
-│                               │                               │
+│  diagnostics.py*     switch.py  sensor.py  event.py           │
+│  logbook.py                   │                               │
 │        │                      ▼                               │
 │        │               entity.py (base classes)               │
 │        │                      │                               │
@@ -46,7 +46,7 @@ Terms follow the manufacturer's wording, see the [glossary](glossary.md).
                          Secvest panel
 ```
 
-`*` planned (#43, #34). Repair issues are raised by the coordinator itself.
+`*` planned (#43). Repair issues are raised by the coordinator itself.
 
 ### API client
 
@@ -74,7 +74,8 @@ The API client is a self-contained Python package without any Home Assistant dep
 | `binary_sensor.py` | Zone open/closed, zone problem, arming blocked per partition, installer lock. |
 | `switch.py` | Omit switch per omittable zone. |
 | `sensor.py` | Faults count with details. |
-| `event.py` | Planned (#34): log entries as events. |
+| `event.py` | The log event entity: receives each batch of new log entries from the coordinator and fires one event per entry, oldest first; also fires `secvest_log_entry` for the logbook (#34). |
+| `logbook.py` | Describes `secvest_log_entry` in Home Assistant's logbook: the entry's text with the panel's time, since the event entity's own logbook rows only show the type (#34). |
 | `config_flow.py` | Setup, partition/zone selection, options, zone groups (subentry flow), reauthentication. |
 | `log.py` | The log state (#11): the baseline, the entries of the overlap window, de-duplication by content and the stored state. |
 | `codes.py` | Codes for arming and disarming (config subentries, #116): user name plus a salted hash (PBKDF2) of a four-digit code and its parameters (`kdf`; missing means `pbkdf2-sha256-100000`, as stored before 0.3); lookup by code, hashing all stored codes in one executor job so the event loop isn't blocked (#139). The hash protects against casual reading of the configuration only: four digits are 10,000 candidates. Home Assistant's own: they can't be checked against the panel (no API, and failed logins must be avoided). |
@@ -124,7 +125,7 @@ every log interval (default 5 min, minimum 2 min), at the start of the next roun
 - **Increments:** `$filter=timestamp ge <newest known timestamp − 1 h>`. The overlap returns already known entries again on purpose: it covers entries written later within the same second, and the hour the panel's local clock repeats when daylight saving time ends.
 - **De-duplication by content:** an entry counts as known if `id`, timestamp, text and event fields all match. The `id` alone isn't enough, since it seems to be derived from the timestamp and could repeat when the clock goes back.
 - **Persistence:** the newest timestamp and the entries of the overlap window are stored (a Home Assistant `Store` per entry, removed with the entry), so a Home Assistant restart neither replays nor skips entries.
-- **Schedule:** the log is read at the start of a regular round once the log interval is due (before the state, so the state the round publishes isn't delayed by the slow log read), on the round's connection, so it never runs in parallel to it and follows its backoff, the installer lock and the 401 gate. The first read comes about a minute after setup, so setup doesn't wait for the slow log. A failed log read doesn't fail the round (logged once); the log is read again after the next interval. Verification rounds after commands don't read the log. New entries go to listeners, oldest first (#11; the event entity follows in #34).
+- **Schedule:** the log is read at the start of a regular round once the log interval is due (before the state, so the state the round publishes isn't delayed by the slow log read), on the round's connection, so it never runs in parallel to it and follows its backoff, the installer lock and the 401 gate. The first read comes about a minute after setup, so setup doesn't wait for the slow log. A failed log read doesn't fail the round (logged once); the log is read again after the next interval. Verification rounds after commands don't read the log. New entries go to listeners, oldest first: the log event entity (#34).
 - **Time:** log timestamps are the panel's local wall-clock time; they are read in Home Assistant's time zone, which is assumed to be the panel's (#8). In the hour that repeats when daylight saving time ends, the earlier occurrence is used.
 - **Limits (documented):** entries written after a panel restart before its clock is set (dated 2019-01-01), and more than 600 new entries between two log polls, can be missed.
 
@@ -206,7 +207,7 @@ The panel's partitions are independent of each other, so everything that belongs
 | Faults | sensor | Number of current faults **except "zone open"** (the panel lists every open omittable zone as a fault, even when disarmed; those are counted per partition as open zones); list and readable summary of the same faults as attributes |
 | Problem | binary_sensor | On while the faults sensor is above 0, i.e. any fault other than an open zone is present |
 | Installer lock | binary_sensor (diagnostic) | On while the installer is logged in at the panel |
-| Log | event | New log entries |
+| Log | event | One event per new log entry (#34): event type `normal`, `alarm`, `trouble` (`unknown` for a type the client doesn't know); attributes `text` (displayed only), `time` (#8), `user`, `user_name`, `partition` (one-based), `zone`. The baseline fires nothing, and the stored log state keeps a restart from replaying entries. Each entry also gets a logbook row with its text and the panel's time |
 | Diagnostics | sensor (diagnostic) | Last round duration, connection setup time, reconnects, backoff state |
 
 **Per selected partition** (entities on the panel device, named after the partition)

@@ -9,11 +9,10 @@ from homeassistant.util import dt as dt_util
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.secvest import coordinator as coordinator_module
 from custom_components.secvest.api.models import LogEntry, LogEvent, LogType
 from custom_components.secvest.log import OVERLAP, LogTracker, entry_time
 
-from .common import ROUND, Setup, coordinator_of
+from .common import ROUND, Setup, coordinator_of, poll_log_now
 from .fake_panel import FakePanel, Injection
 
 FULL_LOG = ("GET", "/logs/")
@@ -117,22 +116,10 @@ async def test_entry_time_without_timestamp(hass: HomeAssistant) -> None:
 # with the fake panel
 
 
-@pytest.fixture
-def log_now(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Read the log with the first round instead of a minute later."""
-    monkeypatch.setattr(coordinator_module, "FIRST_LOG_DELAY", 0)
-
-
 def _batches(entry: MockConfigEntry) -> list[list[LogEntry]]:
     batches: list[list[LogEntry]] = []
     coordinator_of(entry).async_add_log_listener(batches.append)
     return batches
-
-
-async def _poll_now(entry: MockConfigEntry) -> None:
-    coordinator = coordinator_of(entry)
-    coordinator._log_due = 0
-    await coordinator.async_refresh()
 
 
 def _log_requests(fake_panel: FakePanel) -> list[str]:
@@ -150,7 +137,7 @@ async def test_baseline_then_incremental(
     written = fake_panel.add_log_entry(
         "Ben 003 TB 1 aktiv", partition="0", user="3", username="User"
     )
-    await _poll_now(entry)
+    await poll_log_now(entry)
     assert _log_requests(fake_panel)[-1].startswith("/logs/?$filter=timestamp%20ge%20")
     assert len(batches) == 1
     (new,) = batches[0]
@@ -158,7 +145,7 @@ async def test_baseline_then_incremental(
     assert new.events[0].partition == 1
 
     # read again: nothing new, nothing fired
-    await _poll_now(entry)
+    await poll_log_now(entry)
     assert len(batches) == 1
 
 
@@ -173,7 +160,7 @@ async def test_entry_time_is_real_time(
     entry = await setup()
     batches = _batches(entry)
     fake_panel.add_log_entry("Ben 003 TB 1 aktiv")
-    await _poll_now(entry)
+    await poll_log_now(entry)
     (new,) = batches[0]
     written = entry_time(new)
     assert written is not None
@@ -204,18 +191,18 @@ async def test_restart_neither_replays_nor_skips(
     """The stored state survives a reload; no new baseline, no replay."""
     entry = await setup()
     fake_panel.add_log_entry("before the restart")
-    await _poll_now(entry)
+    await poll_log_now(entry)
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     # the first round after the restart reads incrementally, firing nothing
     assert _log_requests(fake_panel).count("/logs/") == 1
     batches = _batches(entry)
-    await _poll_now(entry)
+    await poll_log_now(entry)
     assert batches == []
     # the stored state was used: no second full read
     assert _log_requests(fake_panel).count("/logs/") == 1
     written = fake_panel.add_log_entry("after the restart")
-    await _poll_now(entry)
+    await poll_log_now(entry)
     assert [[e.id for e in batch] for batch in batches] == [[written["id"]]]
 
 
@@ -225,11 +212,11 @@ async def test_clock_goes_back_at_the_panel(
     """An entry an hour 'earlier' after the clock went back still fires."""
     entry = await setup()
     fake_panel.add_log_entry("summer time")
-    await _poll_now(entry)
+    await poll_log_now(entry)
     batches = _batches(entry)
     fake_panel.clock_offset -= OVERLAP
     written = fake_panel.add_log_entry("winter time")
-    await _poll_now(entry)
+    await poll_log_now(entry)
     assert [[e.id for e in batch] for batch in batches] == [[written["id"]]]
 
 
@@ -246,10 +233,10 @@ async def test_failed_log_read_keeps_the_round(
     coordinator = coordinator_of(entry)
     assert coordinator.last_update_success
     assert not coordinator.log.has_baseline
-    await _poll_now(entry)
+    await poll_log_now(entry)
     assert coordinator.last_update_success
     assert caplog.text.count("Reading the log failed") == 1
-    await _poll_now(entry)
+    await poll_log_now(entry)
     assert coordinator.log.has_baseline
 
 
@@ -280,6 +267,6 @@ async def test_rejected_credentials_at_the_log(
     caplog.set_level(logging.WARNING)
     entry = await setup()
     fake_panel.inject(Injection("GET", "/logs/", "status", status=401))
-    await _poll_now(entry)
+    await poll_log_now(entry)
     assert not coordinator_of(entry).last_update_success
     assert coordinator_of(entry).client.transport.authentication_failed

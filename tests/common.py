@@ -30,6 +30,13 @@ def coordinator_of(entry: MockConfigEntry) -> SecvestCoordinator:
     return coordinator
 
 
+async def poll_log_now(entry: MockConfigEntry) -> None:
+    """Run a round that reads the log, without waiting for its interval."""
+    coordinator = coordinator_of(entry)
+    coordinator._log_due = 0
+    await coordinator.async_refresh()
+
+
 def get_state(hass: HomeAssistant, entity_id: str = PANEL) -> State:
     """Return an entity's state, which has to exist."""
     state = hass.states.get(entity_id)
