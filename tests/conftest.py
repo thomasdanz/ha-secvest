@@ -2,6 +2,7 @@
 
 from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime, timedelta
+from ipaddress import ip_address
 from pathlib import Path
 from typing import Any
 
@@ -48,6 +49,17 @@ def panel_certificate(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, P
         .serial_number(x509.random_serial_number())
         .not_valid_before(now - timedelta(days=1))
         .not_valid_after(now + timedelta(days=1))
+        # valid for the fake panel's address, so it can also be trusted in a
+        # test with certificate verification on
+        .add_extension(
+            x509.SubjectAlternativeName([x509.IPAddress(ip_address("127.0.0.1"))]),
+            critical=False,
+        )
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .add_extension(
+            x509.SubjectKeyIdentifier.from_public_key(key.public_key()),
+            critical=False,
+        )
         .sign(key, hashes.SHA256())
     )
     directory = tmp_path_factory.mktemp("fake-panel")

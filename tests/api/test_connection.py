@@ -3,6 +3,7 @@
 import asyncio
 from collections.abc import AsyncIterator
 import logging
+from pathlib import Path
 import ssl
 import time
 
@@ -201,6 +202,24 @@ async def test_certificate_verification(fake_panel: FakePanel) -> None:
     finally:
         await transport.close()
     assert fake_panel.stats.requests == []
+
+
+async def test_certificate_verified(
+    fake_panel: FakePanel,
+    panel_certificate: tuple[Path, Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With verification on, a trusted certificate is accepted (#148)."""
+    # the default context trusts what SSL_CERT_FILE names
+    monkeypatch.setenv("SSL_CERT_FILE", str(panel_certificate[0]))
+    transport = Transport(
+        fake_panel.url, fake_panel.user_code, fake_panel.password, verify_ssl=True
+    )
+    try:
+        data = await transport.request("GET", "/system/")
+    finally:
+        await transport.close()
+    assert data["partitions"] == ["1", "2", "3", "4"]
 
 
 async def test_base_path(fake_panel: FakePanel) -> None:
