@@ -27,7 +27,7 @@ from custom_components.secvest.codes import (
 )
 from custom_components.secvest.const import SUBENTRY_CODE
 
-from .common import ROUND, Setup, call_panel, get_state
+from .common import ROUND, Setup, arming_failed_events, call_panel, get_state
 from .fake_panel import FakePanel
 
 
@@ -78,22 +78,52 @@ async def test_wrong_code_sends_nothing(
 async def test_code_required_for_arming(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
-    """Without a code arming isn't even tried."""
+    """Without a code arming isn't even tried.
+
+    Home Assistant refuses it before the entity sees it, so this is the one
+    failed arming without an arming_failed event (#143).
+    """
     await setup(code="4711")
-    with pytest.raises(ServiceValidationError):
+    state = get_state(hass)
+    assert state.attributes["code_arm_required"] is True
+    assert state.attributes["code_format"] == "number"
+    events = arming_failed_events(hass)
+    with pytest.raises(ServiceValidationError) as err:
         await call_panel(hass, "alarm_arm_home", code=None)
+    assert err.value.translation_key == "code_arm_required"
+    await hass.async_block_till_done()
+    assert events == []
     assert fake_panel.stats.requests == ROUND
 
 
 async def test_no_codes_configured(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
-    """With no code configured, arming and disarming aren't possible."""
+    """Without any code, none is asked for; a code passed anyway is ignored."""
     await setup()
-    with pytest.raises(ServiceValidationError) as err:
-        await call_panel(hass, "alarm_arm_away", code="4711")
-    assert err.value.translation_key == "no_codes"
-    assert fake_panel.stats.requests == ROUND
+    state = get_state(hass)
+    assert state.attributes["code_arm_required"] is False
+    assert state.attributes["code_format"] is None
+    await call_panel(hass, "alarm_arm_away", code=None)
+    assert get_state(hass).state == AlarmControlPanelState.ARMED_AWAY
+    assert get_state(hass).attributes["changed_by"] is None
+    # e.g. the code HomeKit Bridge sends
+    await call_panel(hass, "alarm_disarm", code="1234")
+    assert get_state(hass).state == AlarmControlPanelState.DISARMED
+    assert get_state(hass).attributes["changed_by"] is None
+
+
+async def test_removing_the_last_code(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """Without its last code the panel asks for none any more."""
+    entry = await setup(code="4711")
+    (subentry_id,) = entry.subentries
+    assert hass.config_entries.async_remove_subentry(entry, subentry_id)
+    await hass.async_block_till_done()
+    assert get_state(hass).attributes["code_arm_required"] is False
+    await call_panel(hass, "alarm_arm_home", code=None)
+    assert get_state(hass).state == AlarmControlPanelState.ARMED_HOME
 
 
 async def test_omitting_needs_no_code(
@@ -113,6 +143,7 @@ async def test_omitting_needs_no_code(
 async def test_add_code(hass: HomeAssistant, setup: Setup) -> None:
     """A code is stored only as a salted hash."""
     entry = await setup()
+    assert get_state(hass).attributes["code_arm_required"] is False
     result = await _add(hass, entry, {CONF_NAME: " Anna ", CONF_CODE: "2468"})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     (subentry,) = entry.subentries.values()
@@ -122,6 +153,10 @@ async def test_add_code(hass: HomeAssistant, setup: Setup) -> None:
     user = await async_find(hass, entry, "2468")
     assert user is not None
     assert user.name == "Anna"
+    # the first code makes codes required
+    assert get_state(hass).attributes["code_arm_required"] is True
+    with pytest.raises(ServiceValidationError):
+        await call_panel(hass, "alarm_arm_away", code="1234")
     await call_panel(hass, "alarm_arm_away", code="2468")
     assert get_state(hass).attributes["changed_by"] == "Anna"
 

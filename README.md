@@ -94,9 +94,11 @@ Replace `sensor.alarmanlage_faults` with the entity id of your faults sensor (in
 
 ## Arming and disarming
 
-The alarm panel arms away (full set), arms home (part set, "intern aktivieren") and disarms, with a code.
+The alarm panel arms away (full set), arms home (part set, "intern aktivieren") and disarms, with a code once you have added one.
 
-**Codes:** on the integration's page, **Add code** stores a user name and a four-digit code (the panel's codes have four digits too). The alarm panel asks for a code to arm and to disarm and shows the user as the one who did it, until the state changes in another way (at the keypad, in the app or by an alarm). With no code configured, arming and disarming aren't possible; everything else, like omitting zones, needs no code. You may use the same codes as at the keypad, but Home Assistant can't check them against the panel: a code changed at the keypad has to be changed here too. Codes are stored only as a salted hash; to change one, enter a new one. The hash protects against casual reading of the configuration, not against someone with access to Home Assistant's storage: a four-digit code has only 10,000 possible values.
+**Codes:** on the integration's page, **Add code** stores a user name and a four-digit code (the panel's codes have four digits too). The alarm panel asks for a code to arm and to disarm and shows the user as the one who did it, until the state changes in another way (at the keypad, in the app or by an alarm). Everything else, like omitting zones, needs no code. You may use the same codes as at the keypad, but Home Assistant can't check them against the panel: a code changed at the keypad has to be changed here too. Codes are stored only as a salted hash; to change one, enter a new one. The hash protects against casual reading of the configuration, not against someone with access to Home Assistant's storage: a four-digit code has only 10,000 possible values.
+
+**Without codes:** as long as no code is added, the alarm panel asks for none, and no user is shown; a code sent anyway (e.g. by HomeKit Bridge) is ignored. Then everyone and everything with access to Home Assistant — its users, automations, HomeKit — can arm and disarm. Add a code to restrict that; with the first code, a code is needed for arming and disarming, and removing the last one lifts it again.
 
 The panel doesn't switch directly between the two armed modes, so switching disarms first and then arms again; the alarm panel keeps showing the previous mode until the switch is done, and if disarming fails, the message says so. Every command is checked by reading the partition again afterwards, whatever the panel answered: it counts as done only if the partition really is in the requested state. If the partition already is in the requested state (e.g. armed at the keypad meanwhile), nothing is sent, and the user shown doesn't change.
 
@@ -117,7 +119,8 @@ If arming or disarming fails, the action fails with a message, shown in the UI a
 | `arm_during_alarm` | Arming during an alarm isn't sent; disarm first |
 | `auth_failed` | The panel rejected the credentials; Home Assistant asks to reauthenticate |
 | `invalid_code` | The code entered doesn't match any configured code (`user` is empty); nothing was sent |
-| `no_codes` | No code is configured; nothing was sent |
+
+One failure has no event: arming **without any code** while codes are configured. Home Assistant refuses it itself ("code required") before the integration is called. Home Assistant's UI always asks for the code; for HomeKit Bridge, set the code in its `entity_config`.
 
 An automation can react to failed arming, for example with a notification. Home Assistant's own UI already shows the message, so this one only notifies for commands from elsewhere, such as the Apple Home app via HomeKit Bridge, which shows no reason:
 
