@@ -6,22 +6,14 @@ from homeassistant.components.alarm_control_panel.const import (
 from homeassistant.core import HomeAssistant
 import pytest
 
-from .common import Setup, coordinator_of
+from .common import PANEL, Setup, coordinator_of, state_of
 from .fake_panel import FakePanel, Injection
-
-PANEL = "alarm_control_panel.alarmanlage_teilber_1"
 
 
 def _attributes(hass: HomeAssistant) -> dict[str, object]:
     state = hass.states.get(PANEL)
     assert state is not None
     return dict(state.attributes)
-
-
-def _state(hass: HomeAssistant) -> str:
-    state = hass.states.get(PANEL)
-    assert state is not None
-    return state.state
 
 
 async def test_alarm_with_details(
@@ -33,7 +25,7 @@ async def test_alarm_with_details(
     fake_panel.partitions[1].state = "set"
     fake_panel.trigger_alarm(1, "209")
     await coordinator_of(entry).async_refresh()
-    assert _state(hass) == AlarmControlPanelState.TRIGGERED
+    assert state_of(hass) == AlarmControlPanelState.TRIGGERED
     attributes = _attributes(hass)
     assert attributes["panel_state"] == "set-alarm"
     assert attributes["alarm_type"] == "burglary"
@@ -57,7 +49,7 @@ async def test_alarm_without_alarms_list(
     entry = await setup()
     fake_panel.partitions[1].state = "partset-alarm"
     await coordinator_of(entry).async_refresh()
-    assert _state(hass) == AlarmControlPanelState.TRIGGERED
+    assert state_of(hass) == AlarmControlPanelState.TRIGGERED
     assert _attributes(hass)["alarm_type"] is None
 
 
@@ -76,7 +68,7 @@ async def test_alarms_failing(
     await coordinator.async_refresh()
     assert coordinator.last_update_success
     assert coordinator.backoff.failures == 0
-    assert _state(hass) == AlarmControlPanelState.TRIGGERED
+    assert state_of(hass) == AlarmControlPanelState.TRIGGERED
     assert caplog.text.count("Reading the alarms failed") == 1
 
 
@@ -94,6 +86,6 @@ async def test_alarm_only_in_the_list(
     )
     await coordinator.async_refresh()
     await coordinator.async_refresh()
-    assert _state(hass) == AlarmControlPanelState.TRIGGERED
+    assert state_of(hass) == AlarmControlPanelState.TRIGGERED
     assert _attributes(hass)["alarm_type"] == "fire"
     assert caplog.text.count("reports an alarm for partition 1") == 1

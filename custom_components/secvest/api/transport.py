@@ -229,6 +229,9 @@ class Transport:
         # so nothing is sent with these credentials again. New credentials
         # mean a new transport.
         self._auth_failed = False
+        # set by close(); a late refresh or command must not reach the
+        # stopped thread
+        self._closed = False
 
     @property
     def ssl_context(self) -> ssl.SSLContext:
@@ -275,14 +278,19 @@ class Transport:
     ) -> Any:
         """Send one request and return the decoded JSON of the answer."""
         async with self.hold():
+            if self._closed:
+                raise CommunicationError("no request sent: the connection is closed")
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(
                 self._executor, self._request_sync, method, path, body, read_timeout
             )
 
     async def close(self) -> None:
-        """Close the connection and stop the thread."""
+        """Close the connection and stop the thread; later requests fail."""
         async with self.hold(priority=True):
+            if self._closed:
+                return
+            self._closed = True
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(self._executor, self._disconnect)
         self._executor.shutdown(wait=True)
@@ -324,18 +332,12 @@ class Transport:
         }
         with translate_errors():
             try:
-                status, payload = self._exchange(method, path, data, headers, timeout)
-            except _NotSentError:
-                # closed by the panel before the request went out
+                status, payload = self._attempt(method, path, data, headers, timeout)
+            except (_NotSentError, *_CLOSED_BY_PEER):
+                # closed by the panel before the request went out, or before
+                # a read was answered (a command raised ConnectionLostError)
                 _LOGGER.debug("Connection closed by the panel, reconnecting")
-                status, payload = self._exchange(method, path, data, headers, timeout)
-            except _CLOSED_BY_PEER as err:
-                if method != "GET":
-                    raise ConnectionLostError(
-                        "the connection broke after the command was sent"
-                    ) from err
-                _LOGGER.debug("Connection closed by the panel, reconnecting")
-                status, payload = self._exchange(method, path, data, headers, timeout)
+                status, payload = self._attempt(method, path, data, headers, timeout)
         if status == http.client.UNAUTHORIZED:
             self._auth_failed = True
             self._disconnect()
@@ -344,6 +346,28 @@ class Transport:
                 "until they are entered again"
             )
         return check_response(status, payload)
+
+    def _attempt(
+        self,
+        method: str,
+        path: str,
+        data: bytes | None,
+        headers: dict[str, str],
+        timeout: float,
+    ) -> tuple[int, bytes]:
+        """Exchange once; a command that broke off after going out is lost.
+
+        The panel may or may not have received it, so it is never sent
+        again here (the coordinator verifies, then decides).
+        """
+        try:
+            return self._exchange(method, path, data, headers, timeout)
+        except _CLOSED_BY_PEER as err:
+            if method != "GET":
+                raise ConnectionLostError(
+                    "the connection broke after the command was sent"
+                ) from err
+            raise
 
     def _exchange(
         self,

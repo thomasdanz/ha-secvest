@@ -7,17 +7,13 @@ such a user; it's fired once for every failed arm or disarm command.
 from pathlib import Path
 from typing import Any
 
-from homeassistant.core import Event, HomeAssistant
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 import pytest
 
-from custom_components.secvest.commands import EVENT_ARMING_FAILED
-
-from .common import Setup, coordinator_of
+from .common import CODE, PANEL, Setup, arming_failed_events, call_panel, coordinator_of
 from .fake_panel import FakePanel, Injection
 
-PANEL = "alarm_control_panel.alarmanlage_teilber_1"
-CODE = "4711"
 LOCK = (Path(__file__).parent / "fixtures" / "GET_system.403.json").read_bytes()
 
 
@@ -25,15 +21,9 @@ async def _failed(
     hass: HomeAssistant, service: str, code: str | None = CODE
 ) -> dict[str, Any]:
     """Call the service, expect it to fail, return the one event's data."""
-    events: list[Event[Any]] = []
-    hass.bus.async_listen(EVENT_ARMING_FAILED, events.append)
+    events = arming_failed_events(hass)
     with pytest.raises(HomeAssistantError):
-        await hass.services.async_call(
-            "alarm_control_panel",
-            service,
-            {"entity_id": PANEL, "code": code},
-            blocking=True,
-        )
+        await call_panel(hass, service, code=code)
     await hass.async_block_till_done()
     assert len(events) == 1
     return dict(events[0].data)

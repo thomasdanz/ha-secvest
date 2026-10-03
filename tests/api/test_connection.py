@@ -336,3 +336,36 @@ async def test_closed_connection_not_noticed_in_time(
     await transport.request(method, path, body)
     assert fake_panel.stats.requests == [("GET", "/system/"), (method, path)]
     assert transport.stats.reconnects == 1
+
+
+async def test_command_lost_after_sending_it_anew(
+    fake_panel: FakePanel, transport: Transport, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A command that broke off again after going out anew is a lost connection.
+
+    The first attempt didn't go out (the panel had closed the connection);
+    the second went out and its answer was lost, so the outcome is unknown.
+    """
+    fake_panel.idle_timeout = 0.2
+    monkeypatch.setattr(transport_module, "MAX_IDLE", 60)
+    await transport.request("GET", "/system/")
+    await asyncio.sleep(0.5)
+    monkeypatch.setattr(transport_module, "_closed", lambda conn: False)
+    fake_panel.inject(Injection("PUT", "/system/partitions-1/", "drop_after"))
+    with pytest.raises(ConnectionLostError):
+        await transport.request("PUT", "/system/partitions-1/", {"state": "set"})
+    assert fake_panel.stats.requests == [
+        ("GET", "/system/"),
+        ("PUT", "/system/partitions-1/"),
+    ]
+    assert fake_panel.partitions[1].state == "set"
+
+
+async def test_request_after_close(fake_panel: FakePanel, transport: Transport) -> None:
+    """A late request after closing is a communication error; nothing is sent."""
+    await transport.close()
+    with pytest.raises(CommunicationError):
+        await transport.request("GET", "/system/")
+    # closing twice is harmless
+    await transport.close()
+    assert fake_panel.stats.requests == []

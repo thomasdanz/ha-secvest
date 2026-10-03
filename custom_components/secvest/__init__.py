@@ -19,10 +19,9 @@ from .const import (
     CONF_USER_CODE,
     CONF_ZONE_DEVICE_CLASSES,
     DOMAIN,
-    MANUFACTURER,
-    PANEL_MODEL,
 )
-from .coordinator import SecvestCoordinator, clear_issues
+from .coordinator import SecvestCoordinator, clear_issues, forget_rounds
+from .entity import panel_device_info
 from .groups import reload_snapshot, zone_groups
 
 _LOGGER = logging.getLogger(__name__)
@@ -65,11 +64,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> b
             raise
     # registered first, so that the zone devices can refer to it
     panel = dr.async_get(hass).async_get_or_create(
-        config_entry_id=entry.entry_id,
-        identifiers={(DOMAIN, entry.entry_id)},
-        manufacturer=MANUFACTURER,
-        model=PANEL_MODEL,
-        name=entry.title,
+        config_entry_id=entry.entry_id, **panel_device_info(entry)
     )
     coordinator.panel_device_id = panel.id
     entry.runtime_data = coordinator
@@ -206,8 +201,9 @@ def _remove_orphaned_devices(
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> None:
-    """Remove the repair issues of a deleted entry."""
+    """Remove the repair issues and the kept rounds of a deleted entry."""
     clear_issues(hass, entry.entry_id, keep=())
+    forget_rounds(hass, entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> bool:

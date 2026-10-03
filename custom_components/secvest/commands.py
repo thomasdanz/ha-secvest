@@ -131,14 +131,12 @@ def fire_arming_failed(
     """
     state = state or coordinator.data
     number, target, action = request.number, request.target, request.action
-    partition = state.partitions.get(number)
-    name = partition.name if partition is not None else str(number)
     coordinator.hass.bus.async_fire(
         EVENT_ARMING_FAILED,
         {
             "entry_id": coordinator.config_entry.entry_id,
             "partition": number,
-            "partition_name": name,
+            "partition_name": state.partition_name(number),
             "requested": str(target),
             "reason": failure.reason,
             # the step that failed: disarm first when switching modes
@@ -166,13 +164,11 @@ def raise_failure(
 ) -> None:
     """Fire the arming_failed event and raise the translated error."""
     fire_arming_failed(coordinator, request, failure, state)
-    partition = state.partitions.get(request.number)
-    name = partition.name if partition is not None else str(request.number)
     error = CommandError(
         translation_domain=DOMAIN,
         translation_key=f"{request.action}_failed_{failure.reason}",
         translation_placeholders={
-            "partition": name,
+            "partition": state.partition_name(request.number),
             # the blocking zones by name, then other faults as displayed
             "items": ", ".join(
                 part
@@ -308,7 +304,9 @@ async def _set_partition_state(
             raise CommandError(
                 translation_domain=DOMAIN,
                 translation_key="arm_during_alarm",
-                translation_placeholders={"partition": _name(coordinator, number)},
+                translation_placeholders={
+                    "partition": coordinator.data.partition_name(number)
+                },
             )
         steps = [(target, _action(target))]
         if target == PartitionState.UNSET and current in IN_ALARM:
@@ -352,11 +350,6 @@ async def _run(
                 explain(outcome, number, step),
                 outcome.state,
             )
-
-
-def _name(coordinator: SecvestCoordinator, number: int) -> str:
-    partition = coordinator.data.partitions.get(number)
-    return partition.name if partition is not None else str(number)
 
 
 def _action(target: PartitionState) -> str:

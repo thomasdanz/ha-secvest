@@ -92,6 +92,11 @@ class PanelState:
         """Return the faults other than open zones that prevent arming."""
         return [f for f in self.problems if f.prevents_set and number in f.partitions]
 
+    def partition_name(self, number: int) -> str:
+        """Return the partition's name, or its number if it isn't reported."""
+        partition = self.partitions.get(number)
+        return partition.name if partition is not None else str(number)
+
 
 def scan_interval(options: Mapping[str, object]) -> timedelta:
     """Return the configured status interval, never below the minimum."""
@@ -187,14 +192,32 @@ def _round_starts(hass: HomeAssistant) -> dict[str, float]:
     return starts
 
 
-def _last_rounds(
-    hass: HomeAssistant,
-) -> dict[str, tuple[tuple[int, ...], PanelState]]:
-    # the result of each entry's last round, for a reload shortly after it
-    rounds: dict[str, tuple[tuple[int, ...], PanelState]] = hass.data.setdefault(
-        DOMAIN, {}
-    ).setdefault("last_rounds", {})
+@dataclass(slots=True)
+class _LastRound:
+    """An entry's last successful round, for a reload shortly after it.
+
+    Lock and backoff are kept up to date by later rounds too, so a reload
+    after a locked or failed round goes on from there (#145).
+    """
+
+    partitions: tuple[int, ...]
+    state: PanelState
+    installer_locked: bool
+    # the coordinator's own, so later failures count here too
+    backoff: Backoff
+
+
+def _last_rounds(hass: HomeAssistant) -> dict[str, _LastRound]:
+    rounds: dict[str, _LastRound] = hass.data.setdefault(DOMAIN, {}).setdefault(
+        "last_rounds", {}
+    )
     return rounds
+
+
+def forget_rounds(hass: HomeAssistant, entry_id: str) -> None:
+    """Forget a removed entry's rounds."""
+    _round_starts(hass).pop(entry_id, None)
+    _last_rounds(hass).pop(entry_id, None)
 
 
 class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
@@ -313,12 +336,19 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
     def _accept(self, state: PanelState) -> None:
         """Take a successful round's result into account."""
         self.backoff.succeeded()
-        entry_id = self.config_entry.entry_id
-        _last_rounds(self.hass)[entry_id] = (self.selected_partitions, state)
-        self._check_groups(state)
         if self.installer_locked:
             _LOGGER.info("The installer logged out; the panel is unlocked")
             self.installer_locked = False
+        _last_rounds(self.hass)[self.config_entry.entry_id] = _LastRound(
+            self.selected_partitions, state, False, self.backoff
+        )
+        self._check_issues(state)
+
+    def _check_issues(self, state: PanelState) -> None:
+        """Raise or clear the repair issues; only from a complete round."""
+        for number in self.selected_partitions:
+            self._check_partition(number, state.partitions.get(number))
+        self._check_groups(state)
 
     def _remember_auth_failed(self) -> None:
         # never retried: the transport already blocks further requests, and
@@ -332,12 +362,14 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         if not self.installer_locked:
             _LOGGER.info("The installer is logged in; the panel is locked")
             self.installer_locked = True
+            if last := _last_rounds(self.hass).get(self.config_entry.entry_id):
+                last.installer_locked = True
 
     def note_panel_error(self, err: SecvestError) -> None:
         """Take in a 401 or the installer lock from a request outside a round.
 
         As in a round: a 401 is remembered and starts the reauthentication,
-        the installer lock is shown.
+        the installer lock is shown. Other errors are left to the caller.
         """
         if isinstance(err, AuthenticationError):
             self._remember_auth_failed()
@@ -372,13 +404,8 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
             try:
                 await send()
                 error = None
-            except AuthenticationError:
-                self._remember_auth_failed()
-                self.config_entry.async_start_reauth(self.hass)
-                raise
-            except InstallerLockedError:
-                self._set_installer_locked()
-                self.async_update_listeners()
+            except (AuthenticationError, InstallerLockedError) as err:
+                self.note_panel_error(err)
                 raise
             except SecvestError as err:
                 error = err
@@ -401,13 +428,8 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         _round_starts(self.hass)[self.config_entry.entry_id] = time.monotonic()
         try:
             state = await self._round()
-        except AuthenticationError:
-            self._remember_auth_failed()
-            self.config_entry.async_start_reauth(self.hass)
-            raise
-        except InstallerLockedError:
-            self._set_installer_locked()
-            self.async_update_listeners()
+        except (AuthenticationError, InstallerLockedError) as err:
+            self.note_panel_error(err)
             raise
         self._accept(state)
         if publish:
@@ -419,7 +441,8 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
 
         A reload (changed options or zone groups) would otherwise wait up to
         the minimum spacing before its first round. The result is only taken
-        for the same selected partitions; nothing is sent.
+        for the same selected partitions; nothing is sent. The installer lock
+        and the backoff go on from where the rounds since left them.
         """
         entry_id = self.config_entry.entry_id
         start = _round_starts(self.hass).get(entry_id)
@@ -427,16 +450,16 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         if (
             start is None
             or last is None
-            or last[0] != self.selected_partitions
+            or last.partitions != self.selected_partitions
             or time.monotonic() - start >= MIN_SCAN_INTERVAL
         ):
             return False
-        state = last[1]
-        for number in self.selected_partitions:
-            self._check_partition(number, state.partitions.get(number))
-        self._check_groups(state)
-        self.data = state
+        self.installer_locked = last.installer_locked
+        self.backoff = last.backoff
+        self._check_issues(last.state)
+        self.data = last.state
         self.last_update_success = True
+        self._shown_available = self.available
         _LOGGER.debug("Reusing the round from %.1f s ago", time.monotonic() - start)
         return True
 
@@ -561,7 +584,6 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         zones: dict[str, Zone] = {}
         for number in self.selected_partitions:
             partition = partitions.get(number)
-            self._check_partition(number, partition)
             if partition is None or not partition.zone_ids:
                 # nothing to read
                 continue

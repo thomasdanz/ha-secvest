@@ -9,7 +9,7 @@ import pytest
 
 from custom_components.secvest.commands import CommandError, async_set_omitted
 
-from .common import ROUND, Setup, coordinator_of
+from .common import ROUND, Setup, coordinator_of, state_of
 from .fake_panel import FakePanel, Injection
 
 SWITCH = "switch.alarmanlage_room_6_l_omit"
@@ -22,24 +22,18 @@ async def _switch(hass: HomeAssistant, service: str) -> None:
     )
 
 
-def _state(hass: HomeAssistant) -> str:
-    state = hass.states.get(SWITCH)
-    assert state is not None
-    return state.state
-
-
 async def test_omit_and_include(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
     """The switch omits the zone and includes it again, verified."""
     await setup()
-    assert _state(hass) == STATE_OFF
+    assert state_of(hass, SWITCH) == STATE_OFF
     await _switch(hass, "turn_on")
-    assert _state(hass) == STATE_ON
+    assert state_of(hass, SWITCH) == STATE_ON
     assert fake_panel.zones["209"].omitted
     assert fake_panel.stats.requests[len(ROUND) :] == [PUT, *ROUND]
     await _switch(hass, "turn_off")
-    assert _state(hass) == STATE_OFF
+    assert state_of(hass, SWITCH) == STATE_OFF
     assert not fake_panel.zones["209"].omitted
 
 
@@ -64,7 +58,7 @@ async def test_panel_includes_at_disarm(
     await _switch(hass, "turn_on")
     fake_panel.zones["209"].omitted = False
     await coordinator_of(entry).async_refresh()
-    assert _state(hass) == STATE_OFF
+    assert state_of(hass, SWITCH) == STATE_OFF
 
 
 async def test_no_permission(
@@ -79,7 +73,7 @@ async def test_no_permission(
     assert str(err.value) == (
         "Zone Room 6 L was not omitted: no permission to omit zones of this partition"
     )
-    assert _state(hass) == STATE_OFF
+    assert state_of(hass, SWITCH) == STATE_OFF
 
 
 async def test_not_omittable_anymore(
@@ -170,7 +164,7 @@ async def test_switch_off_right_after_disarming(
         )
     # no polling round in between: the command's own verification did it
     assert not fake_panel.zones["209"].omitted
-    assert _state(hass) == STATE_OFF
+    assert state_of(hass, SWITCH) == STATE_OFF
 
 
 @pytest.mark.parametrize("service", ["turn_on", "turn_off"])
@@ -187,4 +181,4 @@ async def test_known_installer_lock_sends_nothing(
     assert err.value.translation_key == "installer_locked"
     assert len(fake_panel.stats.requests) == sent
     # the switch keeps its last state
-    assert _state(hass) == STATE_OFF
+    assert state_of(hass, SWITCH) == STATE_OFF

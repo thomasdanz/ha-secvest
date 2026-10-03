@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import STATE_UNAVAILABLE
+from homeassistant.const import STATE_ON, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import UpdateFailed
 import pytest
@@ -137,6 +137,63 @@ async def test_quick_reload_reuses_the_round(
     await coordinator_of(entry).async_refresh()
     assert _round_start(hass, entry) - before >= 0.5
     assert fake_panel.stats.requests == ROUND * 2
+
+
+async def test_quick_reload_keeps_the_installer_lock(
+    hass: HomeAssistant,
+    fake_panel: FakePanel,
+    setup: Setup,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A reload right after a locked round still shows the lock (#145)."""
+    monkeypatch.setattr(coordinator_module, "MIN_SCAN_INTERVAL", 0.5)
+    entry = await setup()
+    fake_panel.installer_locked = True
+    await coordinator_of(entry).async_refresh()
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    coordinator = coordinator_of(entry)
+    assert coordinator.installer_locked
+    lock = hass.states.get("binary_sensor.alarmanlage_installer_lock")
+    assert lock is not None
+    assert lock.state == STATE_ON
+    assert fake_panel.stats.requests == [*ROUND, ("GET", "/system/partitions/")]
+
+
+async def test_quick_reload_keeps_the_backoff(
+    hass: HomeAssistant,
+    fake_panel: FakePanel,
+    setup: Setup,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A reload right after a failed round keeps counting failures (#145)."""
+    monkeypatch.setattr(coordinator_module, "MIN_SCAN_INTERVAL", 0.5)
+    entry = await setup()
+    fake_panel.inject(Injection("GET", "/faults/", "drop_before", times=2))
+    await coordinator_of(entry).async_refresh()
+    backoff = coordinator_of(entry).backoff
+    assert backoff.failures == 1
+    not_before = backoff.not_before
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    coordinator = coordinator_of(entry)
+    assert coordinator.backoff.failures == 1
+    assert coordinator.backoff.not_before == not_before
+    # the backoff's delay still holds after the reload
+    await coordinator.async_refresh()
+    assert len(fake_panel.stats.requests) == len(ROUND) + 4
+    assert coordinator.backoff.failures == 1
+
+
+async def test_removed_entry_forgets_its_rounds(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """Removing the entry drops what a reload would take over (#145)."""
+    entry = await setup()
+    assert entry.entry_id in hass.data[DOMAIN]["round_starts"]
+    assert entry.entry_id in hass.data[DOMAIN]["last_rounds"]
+    assert await hass.config_entries.async_remove(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.entry_id not in hass.data[DOMAIN]["round_starts"]
+    assert entry.entry_id not in hass.data[DOMAIN]["last_rounds"]
 
 
 async def test_spacing_survives_a_reload(
