@@ -1,5 +1,6 @@
 """Base entity classes."""
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -8,6 +9,20 @@ from homeassistant.util import slugify
 from .api.models import Zone
 from .const import DOMAIN, MANUFACTURER, PANEL_MODEL
 from .coordinator import SecvestCoordinator
+
+
+def panel_device_info(entry: ConfigEntry) -> DeviceInfo:
+    """Return the panel device of a config entry.
+
+    The API reports no serial number or model, so the entry identifies the
+    panel.
+    """
+    return DeviceInfo(
+        identifiers={(DOMAIN, entry.entry_id)},
+        manufacturer=MANUFACTURER,
+        model=PANEL_MODEL,
+        name=entry.title,
+    )
 
 
 class SecvestEntity(CoordinatorEntity[SecvestCoordinator]):
@@ -20,14 +35,7 @@ class SecvestEntity(CoordinatorEntity[SecvestCoordinator]):
         super().__init__(coordinator)
         entry = coordinator.config_entry
         self._attr_unique_id = f"{entry.entry_id}_{key}"
-        # the API reports no serial number or model, so the entry identifies
-        # the panel
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            manufacturer=MANUFACTURER,
-            model=PANEL_MODEL,
-            name=entry.title,
-        )
+        self._attr_device_info = panel_device_info(entry)
 
     @property
     def available(self) -> bool:

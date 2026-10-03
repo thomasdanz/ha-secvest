@@ -13,7 +13,7 @@ from custom_components.secvest.const import (
 )
 
 from .common import ROUND, Setup, coordinator_of
-from .fake_panel import FakePanel
+from .fake_panel import FakePanel, Injection
 
 
 def _issue(hass: HomeAssistant, entry_id: str, number: int) -> ir.IssueEntry | None:
@@ -45,6 +45,28 @@ async def test_empty_partition(
     fake_panel.partitions[2].zone_ids.remove("209")
     await coordinator_of(entry).async_refresh()
     assert _issue(hass, entry.entry_id, 2) is not None
+
+
+async def test_failed_round_changes_no_issue(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """Issues follow successful rounds only (#145)."""
+    entry = await setup(**{CONF_PARTITIONS: [1, 2]})
+    fake_panel.partitions[2].zone_ids.append("209")
+    # the round fails after reading the partitions
+    fake_panel.inject(
+        Injection("GET", "/system/partitions-2/zones/", "status", status=500)
+    )
+    coordinator = coordinator_of(entry)
+    await coordinator.async_refresh()
+    assert not coordinator.last_update_success
+    assert _issue(hass, entry.entry_id, 2) is not None
+    # the next round, without waiting for the backoff
+    coordinator.backoff.not_before = 0
+    await coordinator.async_refresh()
+    # read anew, so that mypy doesn't keep the narrowing from above
+    assert coordinator_of(entry).last_update_success
+    assert _issue(hass, entry.entry_id, 2) is None
 
 
 async def test_missing_partition(

@@ -11,10 +11,8 @@ import pytest
 
 from custom_components.secvest.const import CONF_PARTITIONS
 
-from .common import Setup, coordinator_of
+from .common import PANEL, Setup, coordinator_of
 from .fake_panel import FakePanel
-
-PANEL = "alarm_control_panel.alarmanlage_teilber_1"
 
 
 async def test_one_panel_per_selected_partition(

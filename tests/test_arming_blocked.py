@@ -6,17 +6,11 @@ from homeassistant.helpers import entity_registry as er
 
 from custom_components.secvest.const import CONF_PARTITIONS
 
-from .common import Setup, coordinator_of
+from .common import Setup, coordinator_of, state_of
 from .fake_panel import FakePanel
 
 BLOCKED = "binary_sensor.alarmanlage_teilber_1_arming"
 OPEN_ZONES = "sensor.alarmanlage_teilber_1_open_zones"
-
-
-def _state(hass: HomeAssistant, entity_id: str) -> str:
-    state = hass.states.get(entity_id)
-    assert state is not None
-    return state.state
 
 
 async def test_arming_blocked(
@@ -38,12 +32,12 @@ async def test_arming_blocked(
     assert "device_class" not in state.attributes
     assert state.attributes["friendly_name"] == "Alarmanlage Teilber. 1 arming"
     assert state.attributes["blocking_zones"] == []
-    assert _state(hass, OPEN_ZONES) == "0"
+    assert state_of(hass, OPEN_ZONES) == "0"
 
     fake_panel.open_zone("209")
     await coordinator.async_refresh()
-    assert _state(hass, BLOCKED) == STATE_ON
-    assert _state(hass, OPEN_ZONES) == "1"
+    assert state_of(hass, BLOCKED) == STATE_ON
+    assert state_of(hass, OPEN_ZONES) == "1"
     attributes = hass.states.get(BLOCKED).attributes  # type: ignore[union-attr]
     assert attributes["blocking_zones"] == ["209"]
     assert attributes["blocking_faults"] == []
@@ -51,7 +45,7 @@ async def test_arming_blocked(
     assert zones["zones"] == ["209"]
     assert zones["summary"] == "Room 6 L"
     # the zone belongs to partition 1 only
-    assert _state(hass, "binary_sensor.alarmanlage_teilber_2_arming") == (STATE_OFF)
+    assert state_of(hass, "binary_sensor.alarmanlage_teilber_2_arming") == (STATE_OFF)
 
 
 async def test_entry_door_blocks(
@@ -62,8 +56,8 @@ async def test_entry_door_blocks(
     fake_panel.open_zone("219")
     await coordinator_of(entry).async_refresh()
     assert coordinator_of(entry).data.faults == ()
-    assert _state(hass, BLOCKED) == STATE_ON
-    assert _state(hass, OPEN_ZONES) == "1"
+    assert state_of(hass, BLOCKED) == STATE_ON
+    assert state_of(hass, OPEN_ZONES) == "1"
 
 
 async def test_omitted_zone_doesnt_block(
@@ -74,8 +68,8 @@ async def test_omitted_zone_doesnt_block(
     fake_panel.open_zone("209")
     fake_panel.zones["209"].omitted = True
     await coordinator_of(entry).async_refresh()
-    assert _state(hass, BLOCKED) == STATE_OFF
-    assert _state(hass, OPEN_ZONES) == "0"
+    assert state_of(hass, BLOCKED) == STATE_OFF
+    assert state_of(hass, OPEN_ZONES) == "0"
 
 
 async def test_other_blocking_fault(
@@ -95,8 +89,8 @@ async def test_other_blocking_fault(
         }
     )
     await coordinator_of(entry).async_refresh()
-    assert _state(hass, BLOCKED) == STATE_ON
-    assert _state(hass, OPEN_ZONES) == "0"
+    assert state_of(hass, BLOCKED) == STATE_ON
+    assert state_of(hass, OPEN_ZONES) == "0"
     attributes = hass.states.get(BLOCKED).attributes  # type: ignore[union-attr]
     assert attributes["blocking_faults"] == ["Sabotage"]
 
@@ -128,5 +122,5 @@ async def test_partition_disappears(
     entry = await setup()
     del fake_panel.partitions[1]
     await coordinator_of(entry).async_refresh()
-    assert _state(hass, BLOCKED) == STATE_UNAVAILABLE
-    assert _state(hass, OPEN_ZONES) == STATE_UNAVAILABLE
+    assert state_of(hass, BLOCKED) == STATE_UNAVAILABLE
+    assert state_of(hass, OPEN_ZONES) == STATE_UNAVAILABLE

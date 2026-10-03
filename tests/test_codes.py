@@ -18,17 +18,8 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry, flush_
 from custom_components.secvest.codes import CONF_HASH, CONF_SALT, find, hash_code
 from custom_components.secvest.const import SUBENTRY_CODE
 
-from .common import ROUND, Setup
+from .common import ROUND, Setup, call_panel, get_state
 from .fake_panel import FakePanel
-
-PANEL = "alarm_control_panel.alarmanlage_teilber_1"
-
-
-async def _call(hass: HomeAssistant, service: str, code: str | None) -> None:
-    data: dict[str, Any] = {"entity_id": PANEL}
-    if code is not None:
-        data["code"] = code
-    await hass.services.async_call("alarm_control_panel", service, data, blocking=True)
 
 
 async def _add(
@@ -44,22 +35,16 @@ async def _add(
     return result
 
 
-def _state(hass: HomeAssistant) -> Any:
-    state = hass.states.get(PANEL)
-    assert state is not None
-    return state
-
-
 async def test_right_code(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
     """With the right code the command is sent; the user is shown."""
     await setup(code="4711")
-    await _call(hass, "alarm_arm_away", "4711")
-    assert _state(hass).state == AlarmControlPanelState.ARMED_AWAY
-    assert _state(hass).attributes["changed_by"] == "Tester"
-    await _call(hass, "alarm_disarm", "4711")
-    assert _state(hass).state == AlarmControlPanelState.DISARMED
+    await call_panel(hass, "alarm_arm_away", code="4711")
+    assert get_state(hass).state == AlarmControlPanelState.ARMED_AWAY
+    assert get_state(hass).attributes["changed_by"] == "Tester"
+    await call_panel(hass, "alarm_disarm", code="4711")
+    assert get_state(hass).state == AlarmControlPanelState.DISARMED
 
 
 @pytest.mark.parametrize("code", ["1234", "", "abcd", "47111"])
@@ -73,7 +58,7 @@ async def test_wrong_code_sends_nothing(
     """A wrong code fails before anything is sent."""
     await setup(code="4711")
     with pytest.raises(ServiceValidationError) as err:
-        await _call(hass, "alarm_disarm", code)
+        await call_panel(hass, "alarm_disarm", code=code)
     assert err.value.translation_key == "invalid_code"
     assert fake_panel.stats.requests == ROUND
     assert "Wrong code" in caplog.text
@@ -87,7 +72,7 @@ async def test_code_required_for_arming(
     """Without a code arming isn't even tried."""
     await setup(code="4711")
     with pytest.raises(ServiceValidationError):
-        await _call(hass, "alarm_arm_home", None)
+        await call_panel(hass, "alarm_arm_home", code=None)
     assert fake_panel.stats.requests == ROUND
 
 
@@ -97,7 +82,7 @@ async def test_no_codes_configured(
     """With no code configured, arming and disarming aren't possible."""
     await setup()
     with pytest.raises(ServiceValidationError) as err:
-        await _call(hass, "alarm_arm_away", "4711")
+        await call_panel(hass, "alarm_arm_away", code="4711")
     assert err.value.translation_key == "no_codes"
     assert fake_panel.stats.requests == ROUND
 
@@ -128,8 +113,8 @@ async def test_add_code(hass: HomeAssistant, setup: Setup) -> None:
     user = find(entry, "2468")
     assert user is not None
     assert user.name == "Anna"
-    await _call(hass, "alarm_arm_away", "2468")
-    assert _state(hass).attributes["changed_by"] == "Anna"
+    await call_panel(hass, "alarm_arm_away", code="2468")
+    assert get_state(hass).attributes["changed_by"] == "Anna"
 
 
 @pytest.mark.parametrize(

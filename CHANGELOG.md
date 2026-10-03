@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-10-03
+
+### Fixed
+
+- Changing options or zone groups right after a polling round that found the installer logged in, or that failed, no longer shows the state from before it: the installer lock stays shown, and polling keeps its backoff instead of starting afresh (#145).
+- A command whose connection broke twice, first before it went out and then after, is now treated like any lost connection: verified, and sent once more if the panel didn't take it, instead of failing with "the panel answered with an error" (#145).
+- A repair issue for an empty or missing partition is only raised or cleared by a complete polling round, not by one that fails afterwards (#145).
+- A request after the connection was closed (e.g. a late refresh while the entry unloads) fails with a connection error instead of an unexpected error in the log (#145).
+
 ## [0.2.6] - 2026-09-29
 
 ### Changed
@@ -191,7 +200,8 @@ First version, read-only: the state of partitions, zones and faults.
 - README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
 - Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
 
-[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.6...HEAD
+[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.7...HEAD
+[0.2.7]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.3...v0.2.4

@@ -92,6 +92,7 @@ All communication with one panel goes through one queue in `transport.py`:
 - **Timeouts.** A generous connect timeout covers the slow TLS handshake; shorter read timeouts afterwards; a longer one for the log.
 - **Headers.** Every request carries Basic Auth (preemptively, the panel sends no challenge), `Accept` and `Content-Type: application/json` and a User-Agent: `ha-secvest/<version>` unless the user overrides it (e.g. for a reverse proxy that filters by User-Agent). No `Connection: close`.
 - **Authentication gate.** After a 401 the transport rejects every further request, also those already queued, without sending them. New credentials mean a new transport: the entry is reloaded after reauthentication.
+- **Closed transport.** Once closed (the entry unloads), the transport rejects every request with a `CommunicationError` without sending it.
 - **Direct access and reverse proxy.** The integration must work both directly against the panel (the design case) and through a TLS-terminating reverse proxy in front of it. A proxy holds its own TLS session to the panel, so the slow handshake doesn't occur on that path; session resumption towards the proxy is harmless. The load rules apply unchanged, since every request still reaches the panel.
 
 ### Don'ts
@@ -129,11 +130,11 @@ The partition state alone tells whether a partition is in alarm, so an alarm is 
 The coordinator merges the results into one immutable `PanelState` and notifies the entities. A round never overlaps with another round; if a round takes longer than the interval, the next one starts late instead of piling up.
 
 - **Setup** runs the first round; the entry is loaded only once it succeeded. A 401 there stops the entry without a retry (reauthentication, see "Error handling"); other failures let Home Assistant retry the setup later.
-- **Quick reloads:** a reload (changed options or zone groups) within the minimum spacing takes the last round's result instead of waiting for a new round, as long as the selected partitions are the same; nothing is sent, and the next round keeps the spacing.
+- **Quick reloads:** a reload (changed options or zone groups) within the minimum spacing takes the last successful round's result instead of waiting for a new round, as long as the selected partitions are the same; nothing is sent, and the next round keeps the spacing. The installer lock and the backoff go on from where the rounds since left them, so a reload after a locked or failed round shows neither an unlocked panel nor a fresh start. Both are kept per entry and dropped when the entry is removed.
 - **Minimum spacing:** a round never starts sooner than 24 s after the previous one started, whatever triggers it (interval, a manual refresh, setup retry, reload after an options change). The time of the last round is kept outside the coordinator, so a new coordinator after a reload or setup retry keeps the spacing; a round that comes too early waits.
 - **Manual refresh:** there is no refresh button; Home Assistant's `homeassistant.update_entity` action on any of the integration's entities runs a round, within the same minimum spacing.
 - **Commands go first:** a round doesn't hold the request queue, so a command can go ahead between two of its reads.
-- **Zones:** only the zone lists of the selected partitions that have zones (according to `/system/partitions/`) are read; a zone in several selected partitions is kept once. A selected partition without zones raises a repair issue (it shows only its state and can't be armed), which leads to the options to deselect it and can be ignored if the partition is empty on purpose; it disappears once the partition has zones again or is deselected. A selected partition the panel doesn't report at all (not expected: the tested panel always reports its four partitions) is skipped and raises the same kind of issue. The issue is logged once per change.
+- **Zones:** only the zone lists of the selected partitions that have zones (according to `/system/partitions/`) are read; a zone in several selected partitions is kept once. A selected partition without zones raises a repair issue (like all repair issues, only from a complete round) (it shows only its state and can't be armed), which leads to the options to deselect it and can be ignored if the partition is empty on purpose; it disappears once the partition has zones again or is deselected. A selected partition the panel doesn't report at all (not expected: the tested panel always reports its four partitions) is skipped and raises the same kind of issue. The issue is logged once per change.
 
 ### Commands and verification
 
@@ -161,7 +162,7 @@ The verification refresh replaces the next regular polling round, so a command d
 
 **Fresh state before a sequence:** what to send first (disarm before switching modes, acknowledge before disarming, or refusing to arm during an alarm) is decided from the partition read right before, within the same hold, not from the last round, which can be an interval old. A 401 or the installer lock at that read is handled like in a round.
 
-**Connection lost after sending a command** (`ConnectionLostError`): the command may or may not have reached the panel. The integration first runs the verification refresh; only if the target state was not reached, it sends the command **once** more (verified again). This is the single exception to "no automatic retries of commands" and is safe because a state change the panel already applied is not applied twice.
+**Connection lost after sending a command** (`ConnectionLostError`): the command may or may not have reached the panel. The integration first runs the verification refresh; only if the target state was not reached, it sends the command **once** more (verified again). This includes a command that first didn't go out because the panel had just closed the connection, and then broke off after going out on a new one. This is the single exception to "no automatic retries of commands" and is safe because a state change the panel already applied is not applied twice.
 
 ### Failed arming
 

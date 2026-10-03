@@ -35,7 +35,7 @@ from custom_components.secvest.const import (
     SUBENTRY_ZONE_GROUP,
 )
 
-from .common import Setup, coordinator_of
+from .common import Setup, coordinator_of, state_of
 from .fake_panel import FakePanel
 
 GROUP = "binary_sensor.alarmanlage_room_3"
@@ -93,12 +93,6 @@ def _hidden(hass: HomeAssistant, entity_id: str) -> er.RegistryEntryHider | None
     return entity.hidden_by
 
 
-def _state(hass: HomeAssistant, entity_id: str) -> str:
-    state = hass.states.get(entity_id)
-    assert state is not None
-    return state.state
-
-
 async def test_add_group(
     hass: HomeAssistant,
     fake_panel: FakePanel,
@@ -148,7 +142,7 @@ async def test_add_group(
 
     fake_panel.open_zone("204")
     await coordinator_of(entry).async_refresh()
-    assert _state(hass, GROUP) == STATE_ON
+    assert state_of(hass, GROUP) == STATE_ON
     attributes = hass.states.get(GROUP).attributes  # type: ignore[union-attr]
     assert attributes["open_zones"] == ["204"]
 
@@ -161,10 +155,10 @@ async def test_group_states(
     await _add(hass, entry, _group())
     fake_panel.zones["203"].state = "tamper"
     await coordinator_of(entry).async_refresh()
-    assert _state(hass, GROUP) == "unknown"
+    assert state_of(hass, GROUP) == "unknown"
     fake_panel.open_zone("204")
     await coordinator_of(entry).async_refresh()
-    assert _state(hass, GROUP) == STATE_ON
+    assert state_of(hass, GROUP) == STATE_ON
 
 
 async def test_invalid_input(hass: HomeAssistant, setup: Setup) -> None:
@@ -214,7 +208,7 @@ async def test_reconfigure(hass: HomeAssistant, setup: Setup) -> None:
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reconfigure_successful"
     # the entity id stays, the name follows
-    assert _state(hass, GROUP) == STATE_OFF
+    assert state_of(hass, GROUP) == STATE_OFF
     assert (
         hass.states.get(GROUP).attributes["friendly_name"]  # type: ignore[union-attr]
         == "Zone group Room 3 new"
@@ -240,6 +234,21 @@ async def test_user_hidden_entity_stays_hidden(
     registry.async_update_entity(MEMBERS[0], hidden_by=er.RegistryEntryHider.USER)
     await _add(hass, entry, _group(hide_members=False))
     assert _hidden(hass, MEMBERS[0]) is er.RegistryEntryHider.USER
+
+
+async def test_user_hidden_member_of_a_hiding_group(
+    hass: HomeAssistant, setup: Setup
+) -> None:
+    """A member the user hid stays hidden by the user, also after unticking."""
+    entry = await setup()
+    registry = er.async_get(hass)
+    registry.async_update_entity(MEMBERS[0], hidden_by=er.RegistryEntryHider.USER)
+    await _add(hass, entry, _group())
+    assert _hidden(hass, MEMBERS[0]) is er.RegistryEntryHider.USER
+    assert _hidden(hass, MEMBERS[1]) is er.RegistryEntryHider.INTEGRATION
+    await _reconfigure(hass, entry, _subentry_id(entry), _group(hide_members=False))
+    assert _hidden(hass, MEMBERS[0]) is er.RegistryEntryHider.USER
+    assert _hidden(hass, MEMBERS[1]) is None
 
 
 async def test_delete_group(hass: HomeAssistant, setup: Setup) -> None:
@@ -277,7 +286,7 @@ async def test_group_survives_a_restart(
     await _add(hass, entry, _group())
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
-    assert _state(hass, GROUP) == STATE_OFF
+    assert state_of(hass, GROUP) == STATE_OFF
 
 
 def _group_issue(hass: HomeAssistant, entry: MockConfigEntry) -> ir.IssueEntry | None:
@@ -305,12 +314,12 @@ async def test_member_zone_gone(
         "name": "Alarmanlage",
     }
     # the remaining member decides
-    assert _state(hass, GROUP) == STATE_OFF
+    assert state_of(hass, GROUP) == STATE_OFF
     attributes = hass.states.get(GROUP).attributes  # type: ignore[union-attr]
     assert attributes["missing_zones"] == ["204"]
     fake_panel.open_zone("203")
     await coordinator_of(entry).async_refresh()
-    assert _state(hass, GROUP) == STATE_ON
+    assert state_of(hass, GROUP) == STATE_ON
 
     # listed again: the issue goes away
     fake_panel.partitions[1].zone_ids.append("204")
@@ -327,7 +336,7 @@ async def test_all_member_zones_gone(
     fake_panel.partitions[1].zone_ids.remove("203")
     fake_panel.partitions[1].zone_ids.remove("204")
     await coordinator_of(entry).async_refresh()
-    assert _state(hass, GROUP) == "unavailable"
+    assert state_of(hass, GROUP) == "unavailable"
     assert _group_issue(hass, entry) is not None
 
 

@@ -13,20 +13,12 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest.commands import CommandError
 
-from .common import ROUND, Setup, coordinator_of
+from .common import CODE, PANEL, ROUND, Setup, call_panel, coordinator_of, state_of
 from .fake_panel import FakePanel, Injection
 
-PANEL = "alarm_control_panel.alarmanlage_teilber_1"
 PUT = ("PUT", "/system/partitions-1/")
-CODE = "4711"
 # the fresh read before deciding the sequence
 READ = ("GET", "/system/partitions/")
-
-
-def _state(hass: HomeAssistant, entity_id: str) -> str:
-    state = hass.states.get(entity_id)
-    assert state is not None
-    return state.state
 
 
 async def _alarm(fake_panel: FakePanel, entry: MockConfigEntry) -> None:
@@ -42,13 +34,8 @@ async def test_disarm_during_alarm(
     entry = await setup(code=CODE)
     await _alarm(fake_panel, entry)
     sent = len(fake_panel.stats.requests)
-    await hass.services.async_call(
-        "alarm_control_panel",
-        "alarm_disarm",
-        {"entity_id": PANEL, "code": CODE},
-        blocking=True,
-    )
-    assert _state(hass, PANEL) == AlarmControlPanelState.DISARMED
+    await call_panel(hass, "alarm_disarm")
+    assert state_of(hass, PANEL) == AlarmControlPanelState.DISARMED
     assert fake_panel.stats.requests[sent:] == [READ, PUT, *ROUND, PUT, *ROUND]
     # the fake panel would record a violation for unset during an alarm
 
@@ -63,13 +50,8 @@ async def test_disarm_from_acknowledged(
     fake_panel.partitions[1].state = "acknowledged"
     await coordinator_of(entry).async_refresh()
     sent = len(fake_panel.stats.requests)
-    await hass.services.async_call(
-        "alarm_control_panel",
-        "alarm_disarm",
-        {"entity_id": PANEL, "code": CODE},
-        blocking=True,
-    )
-    assert _state(hass, PANEL) == AlarmControlPanelState.DISARMED
+    await call_panel(hass, "alarm_disarm")
+    assert state_of(hass, PANEL) == AlarmControlPanelState.DISARMED
     assert fake_panel.stats.requests[sent:] == [READ, PUT, *ROUND]
 
 
@@ -81,15 +63,10 @@ async def test_acknowledging_first_fails(
     await _alarm(fake_panel, entry)
     fake_panel.inject(Injection("PUT", "/system/partitions-1/", "status", status=500))
     with pytest.raises(CommandError) as err:
-        await hass.services.async_call(
-            "alarm_control_panel",
-            "alarm_disarm",
-            {"entity_id": PANEL, "code": CODE},
-            blocking=True,
-        )
+        await call_panel(hass, "alarm_disarm")
     assert err.value.translation_key == "acknowledge_first_failed_error"
     assert "acknowledging the alarm first failed" in str(err.value)
-    assert _state(hass, PANEL) == AlarmControlPanelState.TRIGGERED
+    assert state_of(hass, PANEL) == AlarmControlPanelState.TRIGGERED
     assert fake_panel.stats.requests.count(PUT) == 1
 
 
