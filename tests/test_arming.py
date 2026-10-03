@@ -5,7 +5,7 @@ from pathlib import Path
 from homeassistant.components.alarm_control_panel.const import (
     AlarmControlPanelState,
 )
-from homeassistant.core import Context, HomeAssistant
+from homeassistant.core import Context, HomeAssistant, callback
 import pytest
 from pytest_homeassistant_custom_component.common import MockUser
 
@@ -326,12 +326,15 @@ async def test_switch_modes(
     await setup(code=CODE)
     await call_panel(hass, "alarm_arm_away")
     shown: list[str] = []
+    # a callback, so the states are collected in order in the event loop
     hass.bus.async_listen(
         "state_changed",
-        lambda event: (
-            shown.append(event.data["new_state"].state)
-            if event.data["entity_id"] == PANEL
-            else None
+        callback(
+            lambda event: (
+                shown.append(event.data["new_state"].state)
+                if event.data["entity_id"] == PANEL
+                else None
+            )
         ),
     )
     sent = len(fake_panel.stats.requests)

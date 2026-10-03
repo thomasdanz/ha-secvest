@@ -4,7 +4,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Any
 
-from homeassistant.core import Event, HomeAssistant
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import async_capture_events
 
@@ -21,6 +21,7 @@ def _changes(hass: HomeAssistant) -> list[Event[Any]]:
     """Collect the log entity's state changes, i.e. its events."""
     changes: list[Event[Any]] = []
 
+    @callback
     def _collect(event: Event[Any]) -> None:
         if event.data["entity_id"] == LOG:
             changes.append(event)
