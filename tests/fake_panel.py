@@ -34,6 +34,9 @@ ARMED = {"set", "partset"}
 IN_ALARM = {"set-alarm", "partset-alarm", "unset-alarm"}
 REQUESTABLE = {"set", "partset", "unset", "acknowledged"}
 PARTITION_STATES = REQUESTABLE | IN_ALARM
+# FakePanel.split_partitions(): partition 2's own zones and the shared one
+SPLIT_ZONES = ("217", "218")
+SHARED_ZONE = "209"
 
 
 def _fixture(name: str) -> bytes:
@@ -250,6 +253,18 @@ class FakePanel:
         """Close a zone."""
         with self._lock:
             self.zones[zone_id].state = "closed"
+
+    def split_partitions(self) -> None:
+        """Give partition 2 zones of its own and one shared with partition 1.
+
+        The reference installation has all zones in partition 1. Here 217
+        and 218 move to partition 2, and 209 belongs to both; rights per
+        partition stay available through `rights`.
+        """
+        with self._lock:
+            first, second = self.partitions[1], self.partitions[2]
+            first.zone_ids = [z for z in first.zone_ids if z not in SPLIT_ZONES]
+            second.zone_ids = [SHARED_ZONE, *SPLIT_ZONES]
 
     def trigger_alarm(
         self, partition: int, zone_id: str, alarm_type: str = "4"
