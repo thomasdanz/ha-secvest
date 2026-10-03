@@ -2,6 +2,7 @@
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
+from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
@@ -9,6 +10,7 @@ from homeassistant.util import slugify
 from .api.models import Zone
 from .const import DOMAIN, MANUFACTURER, PANEL_MODEL
 from .coordinator import SecvestCoordinator
+from .groups import ZoneGroup
 
 
 def panel_device_info(entry: ConfigEntry) -> DeviceInfo:
@@ -138,3 +140,49 @@ class SecvestZoneEntity(SecvestEntity):
     def available(self) -> bool:
         """Unavailable while the zone isn't reported."""
         return super().available and self.zone is not None
+
+
+class SecvestGroupEntity(SecvestEntity):
+    """An entity on the device of a zone group.
+
+    The group is a Home Assistant concept: its own device, not attributed to
+    ABUS, and the member zones keep their devices.
+    """
+
+    # the platform of the subclass, for the suggested entity id
+    platform_domain: Platform
+
+    def __init__(
+        self,
+        coordinator: SecvestCoordinator,
+        group: ZoneGroup,
+        key: str,
+        *,
+        suffix: str = "",
+    ) -> None:
+        """Suggest <installation>_<group>[_<suffix>] as the entity id."""
+        super().__init__(coordinator, f"group_{group.subentry_id}_{key}")
+        self.zone_group = group
+        entry = coordinator.config_entry
+        object_id = "_".join(
+            part for part in (slugify(entry.title), slugify(group.name), suffix) if part
+        )
+        self.entity_id = f"{self.platform_domain}.{object_id}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{entry.entry_id}_group_{group.subentry_id}")},
+            model=zone_model("zone_group", coordinator.hass.config.language),
+            translation_key="zone_group",
+            translation_placeholders={"name": group.name},
+            via_device_id=coordinator.panel_device_id,
+        )
+        # used only when the device is created; afterwards the device page
+        # (or reconfiguring the group) decides
+        if group.area_id and (
+            area := ar.async_get(coordinator.hass).async_get_area(group.area_id)
+        ):
+            self._attr_device_info["suggested_area"] = area.name
+
+    def listed_members(self) -> list[str]:
+        """Return the members the selected partitions still list."""
+        listed = self.coordinator.listed_zone_ids()
+        return [z for z in self.zone_group.zone_ids if z in listed]

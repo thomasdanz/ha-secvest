@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- An **Omit** switch per zone group (on the group's device) omits or includes all omittable zones of the group with one action, one zone after the other, each verified; zones that can't be omitted are listed, and a failure names the zones not changed (#136).
+
 ### Fixed
 
 - `changed_by` of the alarm panel is cleared when the partition's state changes without a command from this entity (keypad, app, alarm), instead of naming the last Home Assistant user (#144).
