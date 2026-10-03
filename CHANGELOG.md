@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.2.9] - 2026-10-03
+
+### Changed
+
+- Arming into the mode a partition is already in, or disarming a disarmed partition, sends nothing to the panel: the state read right before is shown, the command succeeds, and `changed_by` doesn't change. Like the official app, the integration no longer sends a state the partition already has (#142).
+
 ## [0.2.8] - 2026-10-03
 
 ### Added
@@ -211,7 +217,8 @@ First version, read-only: the state of partitions, zones and faults.
 - README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
 - Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
 
-[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.8...HEAD
+[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.9...HEAD
+[0.2.9]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.8...v0.2.9
 [0.2.8]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.5...v0.2.6
