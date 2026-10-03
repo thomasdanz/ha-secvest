@@ -52,7 +52,7 @@ from .api.errors import (
 )
 from .api.models import Partition, Zone
 from .api.transport import Transport
-from .codes import CODE_PATTERN, codes, hash_code, matches
+from .codes import CODE_PATTERN, async_prepare, codes
 from .const import (
     CONF_ADVANCED,
     CONF_AREA_ID,
@@ -675,15 +675,17 @@ class CodeFlow(ConfigSubentryFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
         """Add a code."""
-        return self._form("user", user_input, None)
+        return await self._form("user", user_input, None)
 
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
         """Change a user's name or code."""
-        return self._form("reconfigure", user_input, self._get_reconfigure_subentry())
+        return await self._form(
+            "reconfigure", user_input, self._get_reconfigure_subentry()
+        )
 
-    def _form(
+    async def _form(
         self,
         step_id: str,
         user_input: dict[str, Any] | None,
@@ -693,6 +695,7 @@ class CodeFlow(ConfigSubentryFlow):
         own = subentry.subentry_id if subentry is not None else None
         others = [c for c in codes(entry) if c.subentry_id != own]
         errors: dict[str, str] = {}
+        stored: dict[str, Any] | None = None
         if user_input is not None:
             name = user_input[CONF_NAME].strip()
             code = (user_input.get(CONF_CODE) or "").strip()
@@ -702,12 +705,16 @@ class CodeFlow(ConfigSubentryFlow):
                 errors[CONF_NAME] = "name_exists"
             elif (subentry is None or code) and not CODE_PATTERN.fullmatch(code):
                 errors[CONF_CODE] = "invalid_code"
-            elif code and any(matches(other, code) for other in others):
+            # the comparison and the hash run in the executor (#139)
+            elif (
+                code
+                and (stored := await async_prepare(self.hass, others, code)) is None
+            ):
                 errors[CONF_CODE] = "code_exists"
             else:
                 data: dict[str, Any] = {CONF_NAME: name}
-                if code:
-                    data.update(hash_code(code))
+                if stored is not None:
+                    data.update(stored)
                 elif subentry is not None:
                     # an empty code keeps the current one
                     data.update(

@@ -1,7 +1,9 @@
 """Tests for the codes for arming and disarming (#116)."""
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
+import hashlib
 import json
+import threading
 from typing import Any
 
 from homeassistant.components.alarm_control_panel.const import (
@@ -15,7 +17,14 @@ from homeassistant.exceptions import ServiceValidationError
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry, flush_store
 
-from custom_components.secvest.codes import CONF_HASH, CONF_SALT, find, hash_code
+from custom_components.secvest.codes import (
+    CONF_HASH,
+    CONF_KDF,
+    CONF_SALT,
+    KDF,
+    async_find,
+    hash_code,
+)
 from custom_components.secvest.const import SUBENTRY_CODE
 
 from .common import ROUND, Setup, call_panel, get_state
@@ -110,7 +119,7 @@ async def test_add_code(hass: HomeAssistant, setup: Setup) -> None:
     assert subentry.title == "Anna"
     assert subentry.data[CONF_NAME] == "Anna"
     _assert_hashed(subentry.data, "2468")
-    user = find(entry, "2468")
+    user = await async_find(hass, entry, "2468")
     assert user is not None
     assert user.name == "Anna"
     await call_panel(hass, "alarm_arm_away", code="2468")
@@ -162,22 +171,24 @@ async def test_change_code(hass: HomeAssistant, setup: Setup) -> None:
 
     result = await reconfigure({CONF_NAME: "Renamed"}, "Tester")
     assert result["reason"] == "reconfigure_successful"
-    user = find(entry, "4711")
+    user = await async_find(hass, entry, "4711")
     assert user is not None
     assert user.name == "Renamed"
     await reconfigure({CONF_NAME: "Renamed", CONF_CODE: "1357"}, "Renamed")
-    assert find(entry, "4711") is None
-    assert find(entry, "1357") is not None
+    assert await async_find(hass, entry, "4711") is None
+    assert await async_find(hass, entry, "1357") is not None
     _assert_hashed(entry.subentries[subentry_id].data, "1357")
 
 
 def _assert_hashed(data: Mapping[str, Any], code: str) -> None:
-    """Only the name, a salt and the PBKDF2 hash are stored, never the code.
+    """Only the name, a salt, the PBKDF2 hash and its parameters, never the code.
 
     Compared field by field: a substring check could match the hex of a
     random salt by chance.
     """
-    assert set(data) == {CONF_NAME, CONF_SALT, CONF_HASH}
+    assert set(data) == {CONF_NAME, CONF_SALT, CONF_HASH, CONF_KDF}
+    # the parameters are stored, so they can change later (#139)
+    assert data[CONF_KDF] == KDF
     assert code not in data.values()
     assert len(data[CONF_SALT]) == 32
     assert data[CONF_HASH] == hash_code(code, data[CONF_SALT])[CONF_HASH]
@@ -200,3 +211,72 @@ async def test_salted_and_never_stored(
     assert CONF_HASH in stored
     assert '"2468"' not in stored
     assert '"1357"' not in stored
+
+
+async def test_hashed_off_the_event_loop(
+    hass: HomeAssistant,
+    fake_panel: FakePanel,
+    setup: Setup,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """PBKDF2 never runs in the event loop: arming and the code flow (#139)."""
+    entry = await setup(code="4711")
+    threads: list[threading.Thread] = []
+    pbkdf2 = hashlib.pbkdf2_hmac
+
+    def recording(*args: Any) -> bytes:
+        threads.append(threading.current_thread())
+        return pbkdf2(*args)
+
+    # codes.py looks it up at each call
+    monkeypatch.setattr(hashlib, "pbkdf2_hmac", recording)
+    await call_panel(hass, "alarm_arm_away", code="4711")
+    await _add(hass, entry, {CONF_NAME: "Anna", CONF_CODE: "2468"})
+    assert threads
+    assert threading.main_thread() not in threads
+
+
+@pytest.mark.parametrize(
+    "stored",
+    [
+        # stored before 0.3: no parameters, today's are meant
+        lambda code: {k: v for k, v in hash_code(code).items() if k != CONF_KDF},
+        # other parameters are read back and used
+        lambda code: {
+            CONF_SALT: "00" * 16,
+            CONF_HASH: hashlib.pbkdf2_hmac(
+                "sha256", code.encode(), bytes(16), 1000
+            ).hex(),
+            CONF_KDF: "pbkdf2-sha256-1000",
+        },
+    ],
+    ids=["without_parameters", "other_iterations"],
+)
+async def test_stored_parameters(
+    hass: HomeAssistant,
+    setup: Setup,
+    stored: Callable[[str], dict[str, Any]],
+) -> None:
+    """A code matches with the parameters it was stored with."""
+    entry = await setup(code="4711")
+    (subentry,) = entry.subentries.values()
+    hass.config_entries.async_update_subentry(
+        entry, subentry, data={CONF_NAME: "Tester", **stored("1357")}
+    )
+    await hass.async_block_till_done()
+    user = await async_find(hass, entry, "1357")
+    assert user is not None
+    assert await async_find(hass, entry, "4711") is None
+
+
+async def test_unknown_parameters_never_match(
+    hass: HomeAssistant, setup: Setup
+) -> None:
+    """A code stored with unknown parameters isn't guessed at."""
+    entry = await setup(code="4711")
+    (subentry,) = entry.subentries.values()
+    hass.config_entries.async_update_subentry(
+        entry, subentry, data={**subentry.data, CONF_KDF: "argon2id-x"}
+    )
+    await hass.async_block_till_done()
+    assert await async_find(hass, entry, "4711") is None

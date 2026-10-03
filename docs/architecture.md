@@ -76,7 +76,7 @@ The API client is a self-contained Python package without any Home Assistant dep
 | `sensor.py` | Faults count with details. |
 | `event.py` | Planned (#34): log entries as events. |
 | `config_flow.py` | Setup, partition/zone selection, options, zone groups (subentry flow), reauthentication. |
-| `codes.py` | Codes for arming and disarming (config subentries, #116): user name plus a salted hash (PBKDF2) of a four-digit code; lookup by code. Home Assistant's own: they can't be checked against the panel (no API, and failed logins must be avoided). |
+| `codes.py` | Codes for arming and disarming (config subentries, #116): user name plus a salted hash (PBKDF2) of a four-digit code and its parameters (`kdf`; missing means `pbkdf2-sha256-100000`, as stored before 0.3); lookup by code, hashing all stored codes in one executor job so the event loop isn't blocked (#139). The hash protects against casual reading of the configuration only: four digits are 10,000 candidates. Home Assistant's own: they can't be checked against the panel (no API, and failed logins must be avoided). |
 | `groups.py` | Zone groups as stored in their subentries; what a change of which reloads the entry. |
 | `diagnostics.py` | Planned (#43): redacted diagnostics download. |
 | `translations/` | `en.json`, `de.json`. |

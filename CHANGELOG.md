@@ -11,6 +11,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Checking a code for arming or disarming no longer blocks Home Assistant (about 70 ms per stored code): the hashing runs in the executor, also in the code flow. Codes store their hash parameters; codes stored before keep working (#139).
 - `changed_by` of the alarm panel is cleared when the partition's state changes without a command from this entity (keypad, app, alarm), instead of naming the last Home Assistant user (#144).
 
 ## [0.2.9] - 2026-10-03
