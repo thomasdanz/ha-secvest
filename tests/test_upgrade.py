@@ -18,12 +18,14 @@ from custom_components.secvest.const import (
     DOMAIN,
 )
 
-from .common import ROUND
+from .common import ROUND, coordinator_of
 from .fake_panel import FakePanel
 
 STORED = json.loads(
     (Path(__file__).parent / "upgrade" / "stored_entries.json").read_text()
 )
+# fixed, so the stored log state can be keyed by it
+ENTRY_ID = "01JUPGRADE0000000000000000"
 MANIFEST = Path(__file__).parent.parent / "custom_components/secvest/manifest.json"
 
 
@@ -70,6 +72,8 @@ def _domain(unique_id: str) -> str:
         return "switch"
     if unique_id == "faults" or unique_id.endswith("_open_zones"):
         return "sensor"
+    if unique_id == "log":
+        return "event"
     return "binary_sensor"
 
 
@@ -81,10 +85,21 @@ def test_current_version_is_covered() -> None:
 
 @pytest.mark.parametrize("stored", _cases())
 async def test_update_keeps_the_entry_and_its_entities(
-    hass: HomeAssistant, fake_panel: FakePanel, stored: dict[str, Any]
+    hass: HomeAssistant,
+    hass_storage: dict[str, Any],
+    fake_panel: FakePanel,
+    stored: dict[str, Any],
 ) -> None:
     """An entry stored by an older version loads and keeps every entity."""
+    if "log_store" in stored:
+        hass_storage[f"{DOMAIN}.log.{ENTRY_ID}"] = {
+            "version": 1,
+            "minor_version": 1,
+            "key": f"{DOMAIN}.log.{ENTRY_ID}",
+            "data": stored["log_store"],
+        }
     entry = MockConfigEntry(
+        entry_id=ENTRY_ID,
         domain=DOMAIN,
         title=fake_panel.name,
         version=1,
@@ -113,7 +128,7 @@ async def test_update_keeps_the_entry_and_its_entities(
         for key in stored["unique_ids"].get("groups", []):
             unique_id = f"group_{subentry['subentry_id']}_{key}"
             entity_ids[unique_id] = registry.async_get_or_create(
-                "binary_sensor",
+                _domain(unique_id),
                 DOMAIN,
                 f"{entry.entry_id}_{unique_id}",
                 config_entry=entry,
@@ -142,6 +157,12 @@ async def test_update_keeps_the_entry_and_its_entities(
         assert hass.states.get(entity_id) is not None, unique_id
     # nothing but a normal round was sent
     assert fake_panel.stats.requests == ROUND
+    # the stored log state is used, so nothing is replayed (#11)
+    if "log_store" in stored:
+        log = coordinator_of(entry).log
+        assert log.newest == stored["log_store"]["newest"]
+        known = sorted(item["id"] for item in log.as_dict()["known"])
+        assert known == sorted(item["id"] for item in stored["log_store"]["known"])
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

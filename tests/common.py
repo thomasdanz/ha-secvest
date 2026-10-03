@@ -4,7 +4,10 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from homeassistant.core import Event, HomeAssistant, State
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_capture_events,
+)
 
 from custom_components.secvest.commands import EVENT_ARMING_FAILED
 from custom_components.secvest.coordinator import SecvestCoordinator
@@ -65,6 +68,6 @@ async def call_panel(
 
 def arming_failed_events(hass: HomeAssistant) -> list[Event[Any]]:
     """Collect the arming_failed events from now on."""
-    events: list[Event[Any]] = []
-    hass.bus.async_listen(EVENT_ARMING_FAILED, events.append)
+    # a callback, so the events are collected in order in the event loop
+    events: list[Event[Any]] = async_capture_events(hass, EVENT_ARMING_FAILED)
     return events

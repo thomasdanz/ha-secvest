@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-03
+
 ### Added
 
 - The panel's log is read incrementally: once in full as the baseline, then every 5 minutes only the entries since an hour before the newest known one, recognised by their content and stored across restarts. The log interval is a new option (at least 2 minutes). New entries become visible with the log event entity (#11).
@@ -16,6 +18,12 @@ All notable changes to this project are documented in this file. The format is b
 
 - Checking a code for arming or disarming no longer blocks Home Assistant (about 70 ms per stored code): the hashing runs in the executor, also in the code flow. Codes store their hash parameters; codes stored before keep working (#139).
 - `changed_by` of the alarm panel is cleared when the partition's state changes without a command from this entity (keypad, app, alarm), instead of naming the last Home Assistant user (#144).
+
+### Upgrade notes
+
+- The new entities (**Log** on the panel device, **Omit** on each zone group's device) appear by themselves; nothing has to be set up again.
+- The panel's log is now read every 5 minutes, one filtered request that takes the panel about 6 seconds; the log interval can be changed in the options. The first read after the update fetches the full log once as the baseline and fires nothing.
+- Log times are read in Home Assistant's time zone: set it to the panel's.
 
 ## [0.2.9] - 2026-10-03
 
@@ -230,7 +238,8 @@ First version, read-only: the state of partitions, zones and faults.
 - README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
 - Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
 
-[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.9...HEAD
+[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.9...v0.3.0
 [0.2.9]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.8...v0.2.9
 [0.2.8]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.6...v0.2.7
