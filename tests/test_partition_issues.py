@@ -6,6 +6,7 @@ import pytest
 
 from custom_components.secvest.const import (
     CONF_ADVANCED,
+    CONF_LOG_INTERVAL,
     CONF_PARTITIONS,
     CONF_SCAN_INTERVAL,
     CONF_USER_AGENT,
@@ -109,6 +110,7 @@ async def test_deselecting_removes_the_issue(
         {
             CONF_PARTITIONS: ["1"],
             CONF_SCAN_INTERVAL: 30,
+            CONF_LOG_INTERVAL: 300,
             CONF_ADVANCED: {CONF_USER_AGENT: ""},
         },
     )

@@ -23,20 +23,25 @@ from .api.errors import (
     InstallerLockedError,
     SecvestError,
 )
-from .api.models import FaultType, PanelEvent, Partition, Zone, ZoneState
+from .api.models import FaultType, LogEntry, PanelEvent, Partition, Zone, ZoneState
 from .const import (
     BACKOFF_MAX,
     CONF_AUTH_FAILED,
+    CONF_LOG_INTERVAL,
     CONF_PARTITIONS,
     CONF_SCAN_INTERVAL,
+    DEFAULT_LOG_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    FIRST_LOG_DELAY,
+    MIN_LOG_INTERVAL,
     MIN_SCAN_INTERVAL,
     PAUSE,
     PAUSE_AFTER,
     UNAVAILABLE_AFTER,
 )
 from .groups import zone_groups
+from .log import LogTracker, log_store
 
 if TYPE_CHECKING:
     from . import SecvestConfigEntry
@@ -158,6 +163,13 @@ class Backoff:
         }
 
 
+def log_interval(options: Mapping[str, object]) -> float:
+    """Return the configured log interval in seconds, never below the minimum."""
+    value = options.get(CONF_LOG_INTERVAL, DEFAULT_LOG_INTERVAL)
+    seconds = value if isinstance(value, int | float) else DEFAULT_LOG_INTERVAL
+    return float(max(seconds, MIN_LOG_INTERVAL))
+
+
 def _partition_issue_id(entry_id: str, number: int) -> str:
     return f"partition_{entry_id}_{number}"
 
@@ -255,6 +267,13 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         self.panel_device_id = ""
         # the availability the entities last showed
         self._shown_available = True
+        # the log, read with a regular round once its interval is due (#11)
+        self.log = LogTracker()
+        self._log_store = log_store(hass, entry.entry_id)
+        self._log_interval = log_interval(entry.options)
+        self._log_due = time.monotonic() + FIRST_LOG_DELAY
+        self._log_failed = False
+        self._log_listeners: list[Callable[[list[LogEntry]], None]] = []
 
     @property
     def available(self) -> bool:
@@ -302,6 +321,8 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         starts[entry_id] = time.monotonic()
         generation = self._generation
         try:
+            # the slow log first, so the state the round publishes is fresh
+            await self._poll_log()
             state = await self._round()
         except AuthenticationError as err:
             self._remember_auth_failed()
@@ -333,6 +354,56 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
             return self.data
         self._accept(state)
         return state
+
+    async def async_load_log(self) -> None:
+        """Restore the log state of the last run, so nothing is replayed."""
+        data = await self._log_store.async_load()
+        if data is not None:
+            self.log = LogTracker.from_dict(data)
+
+    @callback
+    def async_add_log_listener(
+        self, listener: Callable[[list[LogEntry]], None]
+    ) -> Callable[[], None]:
+        """Call the listener with each batch of new log entries, oldest first."""
+        self._log_listeners.append(listener)
+        return lambda: self._log_listeners.remove(listener)
+
+    async def _poll_log(self) -> None:
+        """Read the log at the start of a round, if its interval is due.
+
+        Before the round's reads, on the same connection, so it never runs in
+        parallel to them and the state the round publishes isn't held back
+        by the slow log read. A failure doesn't fail the round: the state is
+        read as usual, and the log is read again after the next interval. A
+        401 and the installer lock end the round, like any request.
+        """
+        if time.monotonic() < self._log_due:
+            return
+        self._log_due = time.monotonic() + self._log_interval
+        try:
+            if self.log.has_baseline:
+                new = self.log.take(await self.client.get_log_since(self.log.since()))
+            else:
+                # once, as the baseline; it fires nothing
+                self.log.baseline(await self.client.get_log())
+                new = None
+        except AuthenticationError, InstallerLockedError:
+            raise
+        except SecvestError as err:
+            if not self._log_failed:
+                self._log_failed = True
+                _LOGGER.warning("Reading the log failed, trying again later: %s", err)
+            return
+        if self._log_failed:
+            self._log_failed = False
+            _LOGGER.info("Reading the log works again")
+        if new == []:
+            return
+        await self._log_store.async_save(self.log.as_dict())
+        if new:
+            for listener in list(self._log_listeners):
+                listener(new)
 
     def _accept(self, state: PanelState) -> None:
         """Take a successful round's result into account."""

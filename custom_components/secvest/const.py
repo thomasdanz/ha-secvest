@@ -14,6 +14,7 @@ CONF_ADVANCED = "advanced"
 CONF_AUTH_FAILED = "auth_failed"
 CONF_PARTITIONS = "partitions"
 CONF_SCAN_INTERVAL = "scan_interval"
+CONF_LOG_INTERVAL = "log_interval"
 # device class per zone id and zones without entities; set in the options
 CONF_ZONE_DEVICE_CLASSES = "zone_device_classes"
 CONF_EXCLUDED_ZONES = "excluded_zones"
@@ -48,6 +49,13 @@ DEFAULT_PORT = 4433
 DEFAULT_SCAN_INTERVAL = 30
 MIN_SCAN_INTERVAL = 24
 MAX_SCAN_INTERVAL = 3600
+# log interval in seconds; reading the log takes the panel several seconds,
+# so it is read rarely and incrementally (#11)
+DEFAULT_LOG_INTERVAL = 300
+MIN_LOG_INTERVAL = 120
+MAX_LOG_INTERVAL = 3600
+# the first log read after setup comes with a later round, not the first
+FIRST_LOG_DELAY = 60
 
 # after failed rounds: the delay doubles up to BACKOFF_MAX; after
 # PAUSE_AFTER failures in a row polling pauses for PAUSE (seconds)

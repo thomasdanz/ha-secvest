@@ -282,11 +282,13 @@
         "description": "Änderungen laden die Integration neu. Hier wird nichts an die Zentrale gesendet; die Auswahl stammt aus dem letzten Abruf.",
         "data": {
           "partitions": "Teilbereiche",
-          "scan_interval": "Abrufintervall"
+          "scan_interval": "Abrufintervall",
+          "log_interval": "Logbuch-Intervall"
         },
         "data_description": {
           "partitions": "Die Teilbereiche, die Home Assistant anzeigt und bedient; ihre Zonen werden automatisch übernommen.",
-          "scan_interval": "Wie oft die Zentrale abgefragt wird, in Sekunden. Nie unter 24 Sekunden, dem Takt der offiziellen App."
+          "scan_interval": "Wie oft die Zentrale abgefragt wird, in Sekunden. Nie unter 24 Sekunden, dem Takt der offiziellen App.",
+          "log_interval": "Wie oft neue Einträge aus dem Logbuch der Zentrale gelesen werden, in Sekunden. Mindestens 120 Sekunden: Das Lesen des Logbuchs dauert bei der Zentrale mehrere Sekunden."
         },
         "sections": {
           "advanced": {
