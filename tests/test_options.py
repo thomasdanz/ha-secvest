@@ -13,6 +13,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.secvest.const import (
     CONF_ADVANCED,
     CONF_AUTH_FAILED,
+    CONF_CODES,
     CONF_EXCLUDED_ZONES,
     CONF_LOG_INTERVAL,
     CONF_PARTITIONS,
@@ -21,7 +22,7 @@ from custom_components.secvest.const import (
     CONF_ZONE_DEVICE_CLASSES,
 )
 
-from .common import Setup, coordinator_of
+from .common import Setup, coordinator_of, options_settings
 from .fake_panel import FakePanel
 
 
@@ -62,9 +63,9 @@ async def test_change_options(
     """Partitions, interval, zones and User-Agent change; the entry reloads."""
     entry = await setup()
     sent = len(fake_panel.stats.requests)
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await options_settings(hass, entry)
     assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "init"
+    assert result["step_id"] == "settings"
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], _init_input(["1", "2"], 60, " Proxy/2 ", 600)
     )
@@ -86,6 +87,7 @@ async def test_change_options(
         CONF_LOG_INTERVAL: 600,
         CONF_EXCLUDED_ZONES: ["201"],
         CONF_ZONE_DEVICE_CLASSES: {"209": "door"},
+        CONF_CODES: [],
     }
     assert entry.data[CONF_USER_AGENT] == "Proxy/2"
     coordinator = coordinator_of(entry)
@@ -113,7 +115,7 @@ async def test_form_shows_the_current_options(
             CONF_ZONE_DEVICE_CLASSES: {"209": "window"},
         }
     )
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await options_settings(hass, entry)
     suggested = {
         str(key): (key.description or {}).get("suggested_value")
         for key in _schema(result)
@@ -135,7 +137,7 @@ async def test_user_agent_reset(
 ) -> None:
     """Clearing the override goes back to ha-secvest/<version>."""
     entry = await setup(data={CONF_USER_AGENT: "Proxy/1"})
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await options_settings(hass, entry)
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], _init_input(["1"], user_agent="")
     )
@@ -149,7 +151,7 @@ async def test_user_agent_reset(
 async def test_no_partition(hass: HomeAssistant, setup: Setup) -> None:
     """At least one partition has to stay selected."""
     entry = await setup()
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await options_settings(hass, entry)
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], _init_input([])
     )
@@ -161,7 +163,7 @@ async def test_zone_settings_of_hidden_zones_are_kept(
 ) -> None:
     """Deselecting a partition keeps its zones' device classes."""
     entry = await setup(**{CONF_ZONE_DEVICE_CLASSES: {"209": "door"}})
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await options_settings(hass, entry)
     # partition 2 has no zones, so the zones step is skipped
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], _init_input(["2"])
@@ -176,6 +178,6 @@ async def test_zone_settings_of_hidden_zones_are_kept(
 async def test_not_loaded(hass: HomeAssistant, setup: Setup) -> None:
     """Without a loaded entry there is nothing to choose from."""
     entry = await setup(data={CONF_AUTH_FAILED: True})
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await options_settings(hass, entry)
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "not_loaded"

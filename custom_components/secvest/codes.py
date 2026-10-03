@@ -1,4 +1,4 @@
-"""Codes for arming and disarming, configured as subentries.
+"""Codes for arming and disarming, kept in the options (#141).
 
 They are Home Assistant's own: the panel's API can't check a keypad code,
 and trying codes against the panel would risk a code tamper alarm. A code
@@ -9,7 +9,7 @@ storage: four digits are 10,000 candidates.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 import hashlib
 import hmac
@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant.const import CONF_NAME
 
-from .const import SUBENTRY_CODE
+from .const import CONF_CODES
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -39,9 +39,8 @@ _PBKDF2 = re.compile(r"pbkdf2-sha256-([1-9][0-9]*)")
 
 @dataclass(frozen=True, slots=True)
 class Code:
-    """One user's code as stored in its subentry."""
+    """One user's code as stored in the options."""
 
-    subentry_id: str
     name: str
     salt: str
     hash: str
@@ -75,19 +74,19 @@ def hash_code(code: str, salt: str | None = None) -> dict[str, Any]:
     }
 
 
+def code_of(stored: Mapping[str, Any]) -> Code:
+    """Return a code as stored in the options."""
+    return Code(
+        stored[CONF_NAME],
+        stored[CONF_SALT],
+        stored[CONF_HASH],
+        stored.get(CONF_KDF, KDF),
+    )
+
+
 def codes(entry: ConfigEntry) -> list[Code]:
     """Return the configured codes."""
-    return [
-        Code(
-            subentry.subentry_id,
-            subentry.data[CONF_NAME],
-            subentry.data[CONF_SALT],
-            subentry.data[CONF_HASH],
-            subentry.data.get(CONF_KDF, KDF),
-        )
-        for subentry in entry.subentries.values()
-        if subentry.subentry_type == SUBENTRY_CODE
-    ]
+    return [code_of(stored) for stored in entry.options.get(CONF_CODES, [])]
 
 
 def matches(stored: Code, code: str) -> bool:

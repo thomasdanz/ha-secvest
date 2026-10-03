@@ -1,5 +1,5 @@
 {
-  "_comment": "Config entries as released versions stored them, for the update test (#103). Placeholders: {url}, {user_code}, {password}; zones stand for every zone of the fake panel's partition 1 that isn't excluded, omittable_zones for the omittable ones only. Add the new version to an entry on every release, or add an entry when the stored data or the entities change. log_store is the stored log state (Store secvest.log.<entry id>, version 1).",
+  "_comment": "Config entries as released versions stored them, for the update test (#103). Placeholders: {url}, {user_code}, {password}; zones stand for every zone of the fake panel's partition 1 that isn't excluded, omittable_zones for the omittable ones only. Add the new version to an entry on every release, or add an entry when the stored data or the entities change. log_store is the stored log state (Store secvest.log.<entry id>, version 1). code is the plain code of the stored code subentry, for the test only.",
   "entries": [
     {
       "name": "after setup",
@@ -357,7 +357,8 @@
         "groups": [
           "open"
         ]
-      }
+      },
+      "code": "0000"
     },
     {
       "name": "with a zone group, a code with its hash parameters, the log, v0.3 entities",
@@ -560,7 +561,8 @@
             ]
           }
         ]
-      }
+      },
+      "code": "4711"
     }
   ]
 }

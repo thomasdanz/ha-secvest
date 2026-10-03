@@ -17,6 +17,7 @@ from custom_components.secvest.api.errors import CommunicationError
 from custom_components.secvest.config_flow import normalize_address
 from custom_components.secvest.const import (
     CONF_ADVANCED,
+    CONF_CODES,
     CONF_EXCLUDED_ZONES,
     CONF_PARTITIONS,
     CONF_USER_AGENT,
@@ -104,6 +105,7 @@ async def test_create_entry(hass: HomeAssistant, fake_panel: FakePanel) -> None:
         CONF_PARTITIONS: [1],
         CONF_EXCLUDED_ZONES: [],
         CONF_ZONE_DEVICE_CLASSES: {},
+        CONF_CODES: [],
     }
     assert result["result"].unique_id == f"{fake_panel.host}:{fake_panel.port}"
     # the reads share one connection; the selection and zones steps send nothing
@@ -309,6 +311,7 @@ async def test_zone_types_during_setup(
         CONF_PARTITIONS: [1],
         CONF_EXCLUDED_ZONES: ["201"],
         CONF_ZONE_DEVICE_CLASSES: {"209": "window"},
+        CONF_CODES: [],
     }
 
 

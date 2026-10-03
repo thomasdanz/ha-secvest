@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 import pytest
@@ -12,13 +13,14 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest.config_flow import SecvestConfigFlow
 from custom_components.secvest.const import (
+    CONF_CODES,
     CONF_EXCLUDED_ZONES,
     CONF_PARTITIONS,
     CONF_ZONE_DEVICE_CLASSES,
     DOMAIN,
 )
 
-from .common import ROUND, coordinator_of
+from .common import ROUND, call_panel, coordinator_of
 from .fake_panel import FakePanel
 
 STORED = json.loads(
@@ -157,6 +159,21 @@ async def test_update_keeps_the_entry_and_its_entities(
         assert hass.states.get(entity_id) is not None, unique_id
     # nothing but a normal round was sent
     assert fake_panel.stats.requests == ROUND
+    # codes moved from their subentries into the options (1.3, #141)
+    stored_codes = [
+        subentry["data"]
+        for subentry in stored.get("subentries", [])
+        if subentry["subentry_type"] == "code"
+    ]
+    assert entry.options.get(CONF_CODES, []) == stored_codes
+    assert all(s.subentry_type != "code" for s in entry.subentries.values())
+    if code := stored.get("code"):
+        # and still arm, naming their user
+        panel = entity_ids["partition_1_alarm"]
+        await call_panel(hass, "alarm_arm_away", panel, code=code)
+        state = hass.states.get(panel)
+        assert state is not None
+        assert state.attributes["changed_by"] == stored_codes[0][CONF_NAME]
     # the stored log state is used, so nothing is replayed (#11)
     if "log_store" in stored:
         log = coordinator_of(entry).log

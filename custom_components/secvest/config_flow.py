@@ -52,11 +52,12 @@ from .api.errors import (
 )
 from .api.models import Partition, Zone
 from .api.transport import Transport
-from .codes import CODE_PATTERN, async_prepare, codes
+from .codes import CODE_PATTERN, async_prepare, code_of
 from .const import (
     CONF_ADVANCED,
     CONF_AREA_ID,
     CONF_AUTH_FAILED,
+    CONF_CODES,
     CONF_EXCLUDED_ZONES,
     CONF_HIDE_MEMBERS,
     CONF_LOG_INTERVAL,
@@ -74,7 +75,6 @@ from .const import (
     MAX_SCAN_INTERVAL,
     MIN_LOG_INTERVAL,
     MIN_SCAN_INTERVAL,
-    SUBENTRY_CODE,
     SUBENTRY_ZONE_GROUP,
     TESTED_FIRMWARE,
     TESTED_MODEL,
@@ -240,7 +240,7 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
     # stored data: VERSION changes break compatibility, MINOR_VERSION
     # changes don't; each step is migrated in async_migrate_entry
     VERSION = 1
-    MINOR_VERSION = 2
+    MINOR_VERSION = 3
 
     @staticmethod
     @callback
@@ -254,7 +254,7 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
         cls, config_entry: ConfigEntry
     ) -> dict[str, type[ConfigSubentryFlow]]:
         """Zone groups are subentries of the panel's entry."""
-        return {SUBENTRY_ZONE_GROUP: ZoneGroupFlow, SUBENTRY_CODE: CodeFlow}
+        return {SUBENTRY_ZONE_GROUP: ZoneGroupFlow}
 
     def __init__(self) -> None:
         """Start without a checked connection."""
@@ -342,6 +342,7 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_PARTITIONS: self._selected,
                     CONF_EXCLUDED_ZONES: excluded,
                     CONF_ZONE_DEVICE_CLASSES: classes,
+                    CONF_CODES: [],
                 },
             )
         return self.async_show_form(
@@ -435,18 +436,26 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class SecvestOptionsFlow(OptionsFlow):
-    """Change partitions, zones and settings; the entry reloads afterwards.
+    """Change partitions, zones and settings, or manage the codes.
 
-    Nothing is sent to the panel: the choices come from the last polling
-    round.
+    Settings reload the entry afterwards, codes don't (#141). Nothing is
+    sent to the panel: the choices come from the last polling round.
     """
 
     def __init__(self) -> None:
         """Start with the current options."""
         self._options: dict[str, Any] = {}
         self._user_agent: str | None = None
+        # the user whose code is being changed
+        self._code_name: str | None = None
 
     async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Choose between the settings and the codes."""
+        return self.async_show_menu(step_id="init", menu_options=["settings", "codes"])
+
+    async def async_step_settings(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Select the partitions and the polling interval."""
@@ -509,7 +518,7 @@ class SecvestOptionsFlow(OptionsFlow):
             CONF_ADVANCED: {CONF_USER_AGENT: entry.data.get(CONF_USER_AGENT, "")},
         }
         return self.async_show_form(
-            step_id="init",
+            step_id="settings",
             data_schema=self.add_suggested_values_to_schema(
                 schema, user_input or current
             ),
@@ -549,6 +558,132 @@ class SecvestOptionsFlow(OptionsFlow):
                 entry.options.get(CONF_ZONE_DEVICE_CLASSES, {}),
                 entry.options.get(CONF_EXCLUDED_ZONES, []),
             ),
+        )
+
+    # codes for arming and disarming (#116, #141): Home Assistant's own,
+    # nothing is sent to the panel; only a salted hash is stored
+
+    async def async_step_codes(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Add, change or remove a code."""
+        menu = ["add_code"]
+        if self.config_entry.options.get(CONF_CODES):
+            menu += ["change_code", "remove_code"]
+        return self.async_show_menu(step_id="codes", menu_options=menu)
+
+    async def async_step_add_code(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Add a user's code."""
+        return await self._code_form("add_code", user_input, None)
+
+    async def async_step_change_code(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Choose the user whose name or code changes."""
+        if user_input is not None:
+            self._code_name = user_input[CONF_NAME]
+            return await self.async_step_edit_code()
+        return self.async_show_form(
+            step_id="change_code", data_schema=self._user_schema()
+        )
+
+    async def async_step_edit_code(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Change the chosen user's name or code."""
+        return await self._code_form("edit_code", user_input, self._code_name)
+
+    async def async_step_remove_code(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Remove a user's code."""
+        if user_input is not None:
+            name = user_input[CONF_NAME]
+            return self._save_codes(
+                [c for c in self._stored_codes() if c[CONF_NAME] != name]
+            )
+        return self.async_show_form(
+            step_id="remove_code", data_schema=self._user_schema()
+        )
+
+    def _stored_codes(self) -> list[dict[str, Any]]:
+        return [dict(c) for c in self.config_entry.options.get(CONF_CODES, [])]
+
+    def _user_schema(self) -> vol.Schema:
+        names = [c[CONF_NAME] for c in self._stored_codes()]
+        return vol.Schema(
+            {
+                vol.Required(CONF_NAME): SelectSelector(
+                    SelectSelectorConfig(
+                        options=names, mode=SelectSelectorMode.DROPDOWN
+                    )
+                )
+            }
+        )
+
+    def _save_codes(self, stored: list[dict[str, Any]]) -> ConfigFlowResult:
+        """Store the codes; this doesn't reload the entry."""
+        return self.async_create_entry(
+            data={**self.config_entry.options, CONF_CODES: stored}
+        )
+
+    async def _code_form(
+        self, step_id: str, user_input: dict[str, Any] | None, name: str | None
+    ) -> ConfigFlowResult:
+        stored = self._stored_codes()
+        current = next((c for c in stored if c[CONF_NAME] == name), None)
+        others = [code_of(c) for c in stored if c is not current]
+        errors: dict[str, str] = {}
+        prepared: dict[str, Any] | None = None
+        if user_input is not None:
+            new_name = user_input[CONF_NAME].strip()
+            code = (user_input.get(CONF_CODE) or "").strip()
+            if not new_name:
+                errors[CONF_NAME] = "name_required"
+            elif new_name.casefold() in {c.name.casefold() for c in others}:
+                errors[CONF_NAME] = "name_exists"
+            elif (current is None or code) and not CODE_PATTERN.fullmatch(code):
+                errors[CONF_CODE] = "invalid_code"
+            # the comparison and the hash run in the executor (#139)
+            elif (
+                code
+                and (prepared := await async_prepare(self.hass, others, code)) is None
+            ):
+                errors[CONF_CODE] = "code_exists"
+            else:
+                # an empty code keeps the current one
+                changed = {
+                    **(current or {}),
+                    **(prepared or {}),
+                    CONF_NAME: new_name,
+                }
+                if current is None:
+                    return self._save_codes([*stored, changed])
+                return self._save_codes(
+                    [changed if c is current else c for c in stored]
+                )
+        code_field = (
+            vol.Required(CONF_CODE) if current is None else vol.Optional(CONF_CODE)
+        )
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_NAME): TextSelector(),
+                # when changing, an empty code keeps the current one
+                code_field: TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                ),
+            }
+        )
+        # the code is never suggested; it isn't stored
+        suggested = (user_input or current or {}).get(CONF_NAME)
+        return self.async_show_form(
+            step_id=step_id,
+            data_schema=self.add_suggested_values_to_schema(
+                schema, {CONF_NAME: suggested}
+            ),
+            errors=errors,
         )
 
 
@@ -679,85 +814,3 @@ def _group_device(
         if identifier in device.identifiers and isinstance(device, dr.DeviceEntry):
             return device
     return None
-
-
-class CodeFlow(ConfigSubentryFlow):
-    """Add or change a user's code for arming and disarming.
-
-    Home Assistant's own codes; nothing is sent to the panel. Only a salted
-    hash is stored.
-    """
-
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        """Add a code."""
-        return await self._form("user", user_input, None)
-
-    async def async_step_reconfigure(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        """Change a user's name or code."""
-        return await self._form(
-            "reconfigure", user_input, self._get_reconfigure_subentry()
-        )
-
-    async def _form(
-        self,
-        step_id: str,
-        user_input: dict[str, Any] | None,
-        subentry: ConfigSubentry | None,
-    ) -> SubentryFlowResult:
-        entry = self._get_entry()
-        own = subentry.subentry_id if subentry is not None else None
-        others = [c for c in codes(entry) if c.subentry_id != own]
-        errors: dict[str, str] = {}
-        stored: dict[str, Any] | None = None
-        if user_input is not None:
-            name = user_input[CONF_NAME].strip()
-            code = (user_input.get(CONF_CODE) or "").strip()
-            if not name:
-                errors[CONF_NAME] = "name_required"
-            elif name.casefold() in {c.name.casefold() for c in others}:
-                errors[CONF_NAME] = "name_exists"
-            elif (subentry is None or code) and not CODE_PATTERN.fullmatch(code):
-                errors[CONF_CODE] = "invalid_code"
-            # the comparison and the hash run in the executor (#139)
-            elif (
-                code
-                and (stored := await async_prepare(self.hass, others, code)) is None
-            ):
-                errors[CONF_CODE] = "code_exists"
-            else:
-                data: dict[str, Any] = {CONF_NAME: name}
-                if stored is not None:
-                    data.update(stored)
-                elif subentry is not None:
-                    # an empty code keeps the current one
-                    data.update(
-                        {k: v for k, v in subentry.data.items() if k != CONF_NAME}
-                    )
-                if subentry is None:
-                    return self.async_create_entry(title=name, data=data)
-                return self.async_update_and_abort(
-                    entry, subentry, title=name, data=data
-                )
-        code_field = (
-            vol.Required(CONF_CODE) if subentry is None else vol.Optional(CONF_CODE)
-        )
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_NAME): TextSelector(),
-                # when changing, an empty code keeps the current one
-                code_field: TextSelector(
-                    TextSelectorConfig(type=TextSelectorType.PASSWORD)
-                ),
-            }
-        )
-        # the code is never suggested; it isn't stored
-        name = (user_input or (subentry.data if subentry else {})).get(CONF_NAME)
-        return self.async_show_form(
-            step_id=step_id,
-            data_schema=self.add_suggested_values_to_schema(schema, {CONF_NAME: name}),
-            errors=errors,
-        )
