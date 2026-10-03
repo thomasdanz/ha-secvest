@@ -3,6 +3,7 @@
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.core import Event, HomeAssistant, State
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -38,6 +39,16 @@ async def poll_log_now(entry: MockConfigEntry) -> None:
     coordinator = coordinator_of(entry)
     coordinator._log_due = 0
     await coordinator.async_refresh()
+
+
+async def options_settings(
+    hass: HomeAssistant, entry: MockConfigEntry
+) -> ConfigFlowResult:
+    """Open the options and choose the settings (partitions, intervals, zones)."""
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    return await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "settings"}
+    )
 
 
 def get_state(hass: HomeAssistant, entity_id: str = PANEL) -> State:

@@ -49,7 +49,7 @@
       },
       "zones": {
         "title": "Zonen",
-        "description": "Wähle, was für ein Melder jede Zone ist; die Zentrale verrät es nicht. Ausgeschlossene Zonen bekommen keine Entitäten. Das lässt sich später in den Optionen der Integration ändern. Zonen, die zu einer Öffnung gehören, etwa die beiden Flügel eines Fensters, fasst du danach auf der Seite der Integration mit „Zonengruppe hinzufügen“ zusammen. Lege dort auch Codes zum Aktivieren und Deaktivieren an („Code hinzufügen“); ohne Code kann das Alarm-Panel nicht aktivieren oder deaktivieren.",
+        "description": "Wähle, was für ein Melder jede Zone ist; die Zentrale verrät es nicht. Ausgeschlossene Zonen bekommen keine Entitäten. Das lässt sich später in den Optionen der Integration ändern. Zonen, die zu einer Öffnung gehören, etwa die beiden Flügel eines Fensters, fasst du danach auf der Seite der Integration mit „Zonengruppe hinzufügen“ zusammen. Codes zum Aktivieren und Deaktivieren legst du in den Optionen der Integration an (Konfigurieren → Codes); ohne Code fragt das Alarm-Panel keinen ab.",
         "data": {
           "excluded_zones": "Ausgeschlossene Zonen"
         },
@@ -291,6 +291,13 @@
     "step": {
       "init": {
         "title": "Optionen",
+        "menu_options": {
+          "settings": "Teilbereiche, Intervalle und Zonen",
+          "codes": "Codes zum Aktivieren und Deaktivieren"
+        }
+      },
+      "settings": {
+        "title": "Optionen",
         "description": "Änderungen laden die Integration neu. Hier wird nichts an die Zentrale gesendet; die Auswahl stammt aus dem letzten Abruf.",
         "data": {
           "partitions": "Teilbereiche",
@@ -323,10 +330,61 @@
         "data_description": {
           "excluded_zones": "Diese Zonen werden mit ihrem Teilbereich weiter gelesen, bekommen aber keine Entitäten und kein Gerät."
         }
+      },
+      "codes": {
+        "title": "Codes",
+        "description": "Codes zum Aktivieren und Deaktivieren aus Home Assistant. Ohne Code fragen die Alarm-Panels keinen ab. Das Ändern von Codes lädt die Integration nicht neu.",
+        "menu_options": {
+          "add_code": "Code hinzufügen",
+          "change_code": "Code ändern",
+          "remove_code": "Code entfernen"
+        }
+      },
+      "add_code": {
+        "title": "Code hinzufügen",
+        "description": "Ein Code zum Aktivieren und Deaktivieren aus Home Assistant. Du kannst dieselben vierstelligen Codes wie am Bedienteil verwenden; Home Assistant kann sie nicht an der Zentrale prüfen, ein am Bedienteil geänderter Code muss also auch hier geändert werden.",
+        "data": {
+          "name": "Benutzer",
+          "code": "Code"
+        },
+        "data_description": {
+          "name": "Wird als derjenige angezeigt, der aktiviert oder deaktiviert hat.",
+          "code": "Vier Ziffern."
+        }
+      },
+      "change_code": {
+        "title": "Code ändern",
+        "description": "Wähle den Benutzer, dessen Name oder Code sich ändert.",
+        "data": {
+          "name": "Benutzer"
+        }
+      },
+      "edit_code": {
+        "title": "Code ändern",
+        "description": "Ändere Namen oder Code des Benutzers. Lass den Code leer, um ihn zu behalten.",
+        "data": {
+          "name": "Benutzer",
+          "code": "Neuer Code"
+        },
+        "data_description": {
+          "name": "Wird als derjenige angezeigt, der aktiviert oder deaktiviert hat.",
+          "code": "Vier Ziffern; leer behält den bisherigen Code."
+        }
+      },
+      "remove_code": {
+        "title": "Code entfernen",
+        "description": "Der Benutzer kann aus Home Assistant nicht mehr aktivieren oder deaktivieren. Ohne den letzten Code wird kein Code mehr abgefragt.",
+        "data": {
+          "name": "Benutzer"
+        }
       }
     },
     "error": {
-      "no_partitions": "Wähle mindestens einen Teilbereich aus."
+      "no_partitions": "Wähle mindestens einen Teilbereich aus.",
+      "name_required": "Gib einen Namen ein.",
+      "name_exists": "Für diesen Benutzer gibt es schon einen Code.",
+      "invalid_code": "Gib einen Code aus vier Ziffern ein.",
+      "code_exists": "Ein anderer Benutzer hat diesen Code schon."
     },
     "abort": {
       "not_loaded": "Die Integration ist nicht geladen. Behebe zuerst das angezeigte Problem (z. B. erneut anmelden) und ändere dann die Optionen."
@@ -435,48 +493,6 @@
       "abort": {
         "not_loaded": "Die Integration ist nicht geladen. Behebe zuerst das angezeigte Problem und ändere dann die Zonengruppen.",
         "reconfigure_successful": "Die Zonengruppe wurde geändert."
-      }
-    },
-    "code": {
-      "initiate_flow": {
-        "user": "Code hinzufügen",
-        "reconfigure": "Code ändern"
-      },
-      "entry_type": "Code",
-      "step": {
-        "user": {
-          "title": "Code hinzufügen",
-          "description": "Ein Code zum Aktivieren und Deaktivieren aus Home Assistant. Du kannst dieselben vierstelligen Codes wie am Bedienteil verwenden; Home Assistant kann sie nicht an der Zentrale prüfen, ein am Bedienteil geänderter Code muss also auch hier geändert werden.",
-          "data": {
-            "name": "Benutzer",
-            "code": "Code"
-          },
-          "data_description": {
-            "name": "Wird als derjenige angezeigt, der aktiviert oder deaktiviert hat.",
-            "code": "Vier Ziffern."
-          }
-        },
-        "reconfigure": {
-          "title": "Code ändern",
-          "description": "Ändere Namen oder Code des Benutzers. Lass den Code leer, um ihn zu behalten.",
-          "data": {
-            "name": "Benutzer",
-            "code": "Neuer Code"
-          },
-          "data_description": {
-            "name": "Wird als derjenige angezeigt, der aktiviert oder deaktiviert hat.",
-            "code": "Vier Ziffern; leer behält den bisherigen Code."
-          }
-        }
-      },
-      "error": {
-        "name_required": "Gib einen Namen ein.",
-        "name_exists": "Für diesen Benutzer gibt es schon einen Code.",
-        "invalid_code": "Gib einen Code aus vier Ziffern ein.",
-        "code_exists": "Ein anderer Benutzer hat diesen Code schon."
-      },
-      "abort": {
-        "reconfigure_successful": "Der Code wurde geändert."
       }
     }
   }

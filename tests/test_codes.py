@@ -9,7 +9,6 @@ from typing import Any
 from homeassistant.components.alarm_control_panel.const import (
     AlarmControlPanelState,
 )
-from homeassistant.config_entries import SOURCE_RECONFIGURE, SOURCE_USER
 from homeassistant.const import CONF_CODE, CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -25,23 +24,36 @@ from custom_components.secvest.codes import (
     async_find,
     hash_code,
 )
-from custom_components.secvest.const import SUBENTRY_CODE
+from custom_components.secvest.const import CONF_AUTH_FAILED, CONF_CODES
 
 from .common import ROUND, Setup, arming_failed_events, call_panel, get_state
 from .fake_panel import FakePanel
 
 
+async def _codes_step(hass: HomeAssistant, entry: MockConfigEntry, step: str) -> Any:
+    """Open the options, choose the codes, then one of their steps."""
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "codes"}
+    )
+    assert result["type"] is FlowResultType.MENU
+    return await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": step}
+    )
+
+
 async def _add(
     hass: HomeAssistant, entry: MockConfigEntry, data: dict[str, Any]
 ) -> Any:
-    result = await hass.config_entries.subentries.async_init(
-        (entry.entry_id, SUBENTRY_CODE), context={"source": SOURCE_USER}
-    )
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], data
-    )
+    result = await _codes_step(hass, entry, "add_code")
+    result = await hass.config_entries.options.async_configure(result["flow_id"], data)
     await hass.async_block_till_done()
     return result
+
+
+def _stored(entry: MockConfigEntry) -> list[dict[str, Any]]:
+    stored: list[dict[str, Any]] = entry.options[CONF_CODES]
+    return stored
 
 
 async def test_right_code(
@@ -118,9 +130,13 @@ async def test_removing_the_last_code(
 ) -> None:
     """Without its last code the panel asks for none any more."""
     entry = await setup(code="4711")
-    (subentry_id,) = entry.subentries
-    assert hass.config_entries.async_remove_subentry(entry, subentry_id)
+    result = await _codes_step(hass, entry, "remove_code")
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_NAME: "Tester"}
+    )
     await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert _stored(entry) == []
     assert get_state(hass).attributes["code_arm_required"] is False
     await call_panel(hass, "alarm_arm_home", code=None)
     assert get_state(hass).state == AlarmControlPanelState.ARMED_HOME
@@ -143,13 +159,16 @@ async def test_omitting_needs_no_code(
 async def test_add_code(hass: HomeAssistant, setup: Setup) -> None:
     """A code is stored only as a salted hash."""
     entry = await setup()
+    coordinator = entry.runtime_data
     assert get_state(hass).attributes["code_arm_required"] is False
     result = await _add(hass, entry, {CONF_NAME: " Anna ", CONF_CODE: "2468"})
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    (subentry,) = entry.subentries.values()
-    assert subentry.title == "Anna"
-    assert subentry.data[CONF_NAME] == "Anna"
-    _assert_hashed(subentry.data, "2468")
+    (stored,) = _stored(entry)
+    assert stored[CONF_NAME] == "Anna"
+    _assert_hashed(stored, "2468")
+    # stored in the options, no subentry, and the entry isn't reloaded
+    assert entry.subentries == {}
+    assert entry.runtime_data is coordinator
     user = await async_find(hass, entry, "2468")
     assert user is not None
     assert user.name == "Anna"
@@ -184,35 +203,61 @@ async def test_invalid_code_input(
 async def test_change_code(hass: HomeAssistant, setup: Setup) -> None:
     """An empty code keeps the current one; a new one replaces it."""
     entry = await setup(code="4711")
-    (subentry_id,) = entry.subentries
 
-    async def reconfigure(data: dict[str, str], shown: str) -> Any:
-        result = await hass.config_entries.subentries.async_init(
-            (entry.entry_id, SUBENTRY_CODE),
-            context={"source": SOURCE_RECONFIGURE, "subentry_id": subentry_id},
+    async def change(name: str, data: dict[str, str]) -> Any:
+        result = await _codes_step(hass, entry, "change_code")
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], {CONF_NAME: name}
         )
+        assert result["step_id"] == "edit_code"
         schema = result["data_schema"]
         assert schema is not None
         suggested = {
             str(k): (k.description or {}).get("suggested_value") for k in schema.schema
         }
         # the code is never shown
-        assert suggested == {CONF_NAME: shown, CONF_CODE: None}
-        result = await hass.config_entries.subentries.async_configure(
+        assert suggested == {CONF_NAME: name, CONF_CODE: None}
+        result = await hass.config_entries.options.async_configure(
             result["flow_id"], data
         )
         await hass.async_block_till_done()
         return result
 
-    result = await reconfigure({CONF_NAME: "Renamed"}, "Tester")
-    assert result["reason"] == "reconfigure_successful"
+    result = await change("Tester", {CONF_NAME: "Renamed"})
+    assert result["type"] is FlowResultType.CREATE_ENTRY
     user = await async_find(hass, entry, "4711")
     assert user is not None
     assert user.name == "Renamed"
-    await reconfigure({CONF_NAME: "Renamed", CONF_CODE: "1357"}, "Renamed")
+    await change("Renamed", {CONF_NAME: "Renamed", CONF_CODE: "1357"})
     assert await async_find(hass, entry, "4711") is None
     assert await async_find(hass, entry, "1357") is not None
-    _assert_hashed(entry.subentries[subentry_id].data, "1357")
+    (stored,) = _stored(entry)
+    _assert_hashed(stored, "1357")
+
+
+async def test_codes_menu(hass: HomeAssistant, setup: Setup) -> None:
+    """Changing and removing are offered once there is a code."""
+    entry = await setup()
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["menu_options"] == ["settings", "codes"]
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "codes"}
+    )
+    assert result["menu_options"] == ["add_code"]
+    await _add(hass, entry, {CONF_NAME: "Anna", CONF_CODE: "2468"})
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "codes"}
+    )
+    assert result["menu_options"] == ["add_code", "change_code", "remove_code"]
+
+
+async def test_codes_while_not_loaded(hass: HomeAssistant, setup: Setup) -> None:
+    """Codes can be managed while the entry isn't loaded, e.g. after a 401."""
+    entry = await setup(data={CONF_AUTH_FAILED: True})
+    result = await _add(hass, entry, {CONF_NAME: "Anna", CONF_CODE: "2468"})
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert [c[CONF_NAME] for c in _stored(entry)] == ["Anna"]
 
 
 def _assert_hashed(data: Mapping[str, Any], code: str) -> None:
@@ -238,7 +283,7 @@ async def test_salted_and_never_stored(
     entry = await setup()
     for name, code in (("Anna", "2468"), ("Ben", "1357")):
         await _add(hass, entry, {CONF_NAME: name, CONF_CODE: code})
-    first, second = (subentry.data for subentry in entry.subentries.values())
+    first, second = _stored(entry)
     assert first[CONF_SALT] != second[CONF_SALT]
     # what Home Assistant writes to .storage/core.config_entries
     await flush_store(hass.config_entries._store)
@@ -294,9 +339,12 @@ async def test_stored_parameters(
 ) -> None:
     """A code matches with the parameters it was stored with."""
     entry = await setup(code="4711")
-    (subentry,) = entry.subentries.values()
-    hass.config_entries.async_update_subentry(
-        entry, subentry, data={CONF_NAME: "Tester", **stored("1357")}
+    hass.config_entries.async_update_entry(
+        entry,
+        options={
+            **entry.options,
+            CONF_CODES: [{CONF_NAME: "Tester", **stored("1357")}],
+        },
     )
     await hass.async_block_till_done()
     user = await async_find(hass, entry, "1357")
@@ -309,9 +357,10 @@ async def test_unknown_parameters_never_match(
 ) -> None:
     """A code stored with unknown parameters isn't guessed at."""
     entry = await setup(code="4711")
-    (subentry,) = entry.subentries.values()
-    hass.config_entries.async_update_subentry(
-        entry, subentry, data={**subentry.data, CONF_KDF: "argon2id-x"}
+    (stored,) = _stored(entry)
+    hass.config_entries.async_update_entry(
+        entry,
+        options={**entry.options, CONF_CODES: [{**stored, CONF_KDF: "argon2id-x"}]},
     )
     await hass.async_block_till_done()
     assert await async_find(hass, entry, "4711") is None

@@ -21,7 +21,9 @@ CONF_EXCLUDED_ZONES = "excluded_zones"
 
 # zone groups: config subentries, a Home Assistant concept (#67)
 SUBENTRY_ZONE_GROUP = "zone_group"
-# codes for arming and disarming: subentries too
+# codes for arming and disarming: in the options (#141); subentries of this
+# type up to 0.3, moved by the migration to 1.3
+CONF_CODES = "codes"
 SUBENTRY_CODE = "code"
 CONF_ZONES = "zones"
 CONF_HIDE_MEMBERS = "hide_members"

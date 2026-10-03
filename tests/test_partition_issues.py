@@ -13,7 +13,7 @@ from custom_components.secvest.const import (
     DOMAIN,
 )
 
-from .common import ROUND, Setup, coordinator_of
+from .common import ROUND, Setup, coordinator_of, options_settings
 from .fake_panel import FakePanel, Injection
 
 
@@ -104,7 +104,7 @@ async def test_deselecting_removes_the_issue(
 ) -> None:
     """Deselecting the partition in the options removes the issue."""
     entry = await setup(**{CONF_PARTITIONS: [1, 2]})
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await options_settings(hass, entry)
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         {

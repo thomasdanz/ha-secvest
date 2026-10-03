@@ -8,10 +8,12 @@ All notable changes to this project are documented in this file. The format is b
 
 - Without any code configured, the alarm panel asks for none: arming and disarming work without a code (a code sent anyway, e.g. by HomeKit Bridge, is ignored), and no user is shown. With the first code added, codes are required as before. The reason `no_codes` of `secvest_arming_failed` is gone (#131).
 - README: arming without any code while codes are configured fires no `secvest_arming_failed` event, since Home Assistant refuses it before the integration is called (#143).
+- Codes for arming and disarming are managed in the integration's options (**Configure** → **Codes**: add, change, remove) instead of as entries on the integration's page, which showed an empty section per code. Changing codes no longer reloads the integration (#141).
 
 ### Upgrade notes
 
-- Installations without codes can arm and disarm without one after the update. Add a code on the integration's page if arming and disarming should stay restricted.
+- Installations without codes can arm and disarm without one after the update. Add a code under **Configure** → **Codes** if arming and disarming should stay restricted.
+- Existing codes move into the options by themselves at the first start (stored data 1.3) and keep working; they are now under **Configure** → **Codes**. Going back to 0.3.x afterwards finds no codes there, so arming and disarming fail until they are added again.
 
 ## [0.3.1] - 2026-10-03
 

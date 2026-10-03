@@ -19,11 +19,11 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.secvest import coordinator as coordinator_module
 from custom_components.secvest.codes import hash_code
 from custom_components.secvest.const import (
+    CONF_CODES,
     CONF_PARTITIONS,
     CONF_USER_AGENT,
     CONF_USER_CODE,
     DOMAIN,
-    SUBENTRY_CODE,
 )
 
 from .common import Setup
@@ -124,18 +124,12 @@ async def setup(hass: HomeAssistant, fake_panel: FakePanel) -> AsyncIterator[Set
                 CONF_USER_AGENT: "",
                 **(data or {}),
             },
-            options={CONF_PARTITIONS: [1], **options},
-            # a user's code for arming and disarming, if the test needs one
-            subentries_data=[
-                {
-                    "subentry_type": SUBENTRY_CODE,
-                    "title": "Tester",
-                    "unique_id": None,
-                    "data": {CONF_NAME: "Tester", **hash_code(code)},
-                }
-            ]
-            if code
-            else [],
+            options={
+                CONF_PARTITIONS: [1],
+                # a user's code for arming and disarming, if the test needs one
+                CONF_CODES: [{CONF_NAME: "Tester", **hash_code(code)}] if code else [],
+                **options,
+            },
         )
         entry.add_to_hass(hass)
         entries.append(entry)

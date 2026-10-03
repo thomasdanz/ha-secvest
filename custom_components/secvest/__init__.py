@@ -14,11 +14,13 @@ from .api.transport import Transport
 from .config_flow import default_user_agent
 from .const import (
     CONF_AUTH_FAILED,
+    CONF_CODES,
     CONF_EXCLUDED_ZONES,
     CONF_USER_AGENT,
     CONF_USER_CODE,
     CONF_ZONE_DEVICE_CLASSES,
     DOMAIN,
+    SUBENTRY_CODE,
 )
 from .coordinator import SecvestCoordinator, clear_issues, forget_rounds
 from .entity import panel_device_info
@@ -80,6 +82,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> b
     # does a reauthentication, which clears the flag a 401 set
     snapshot = reload_snapshot(entry)
     auth_failed = [bool(entry.data.get(CONF_AUTH_FAILED))]
+    stored_codes = [entry.options.get(CONF_CODES, [])]
 
     async def _reload_on_change(hass: HomeAssistant, entry: SecvestConfigEntry) -> None:
         now_failed = bool(entry.data.get(CONF_AUTH_FAILED))
@@ -87,6 +90,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> b
         auth_failed[0] = now_failed
         if reauthenticated or reload_snapshot(entry) != snapshot:
             hass.config_entries.async_schedule_reload(entry.entry_id)
+        elif (now_codes := entry.options.get(CONF_CODES, [])) != stored_codes[0]:
+            # no reload: the alarm panels only show whether they ask for a
+            # code now (#131, #141)
+            stored_codes[0] = now_codes
+            coordinator.async_update_listeners()
 
     entry.async_on_unload(entry.add_update_listener(_reload_on_change))
     return True
@@ -141,6 +149,24 @@ async def async_migrate_entry(hass: HomeAssistant, entry: SecvestConfigEntry) ->
             **entry.options,
         }
         hass.config_entries.async_update_entry(entry, options=options, minor_version=2)
+    if entry.minor_version < 3:
+        # 1.3: codes move from their subentries into the options, so they
+        # no longer show as empty sections on the integration's page (#141)
+        subentries = [
+            subentry
+            for subentry in entry.subentries.values()
+            if subentry.subentry_type == SUBENTRY_CODE
+        ]
+        options = {
+            **entry.options,
+            CONF_CODES: [
+                *entry.options.get(CONF_CODES, []),
+                *(dict(subentry.data) for subentry in subentries),
+            ],
+        }
+        hass.config_entries.async_update_entry(entry, options=options, minor_version=3)
+        for subentry in subentries:
+            hass.config_entries.async_remove_subentry(entry, subentry.subentry_id)
     return True
 
 

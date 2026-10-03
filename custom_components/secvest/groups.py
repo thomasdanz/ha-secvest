@@ -14,6 +14,7 @@ from homeassistant.helpers import entity_registry as er
 
 from .const import (
     CONF_AREA_ID,
+    CONF_CODES,
     CONF_HIDE_MEMBERS,
     CONF_USER_AGENT,
     CONF_ZONES,
@@ -62,10 +63,11 @@ def reload_snapshot(entry: ConfigEntry) -> object:
     """Return the settings a change of which reloads the entry.
 
     Options, zone groups and the User-Agent. Credentials are left out: the
-    reauthentication reloads by itself, and a 401 only sets a flag.
+    reauthentication reloads by itself, and a 401 only sets a flag. Codes
+    are left out too: the alarm panels read them at each command (#141).
     """
     return (
-        dict(entry.options),
+        {key: value for key, value in entry.options.items() if key != CONF_CODES},
         {
             subentry_id: (subentry.title, dict(subentry.data))
             for subentry_id, subentry in entry.subentries.items()

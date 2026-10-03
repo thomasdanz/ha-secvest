@@ -49,7 +49,7 @@
       },
       "zones": {
         "title": "Zones",
-        "description": "Choose what kind of detector each zone is; the panel doesn't tell. Excluded zones get no entities. You can change this later in the integration's options. Zones that belong to one opening, such as the two wings of a window, can be combined afterwards with \"Add zone group\" on the integration's page. Add codes for arming and disarming there too (\"Add code\"); without one, the alarm panel can't arm or disarm.",
+        "description": "Choose what kind of detector each zone is; the panel doesn't tell. Excluded zones get no entities. You can change this later in the integration's options. Zones that belong to one opening, such as the two wings of a window, can be combined afterwards with \"Add zone group\" on the integration's page. Codes for arming and disarming are added in the integration's options (Configure → Codes); without any, the alarm panel asks for none.",
         "data": {
           "excluded_zones": "Excluded zones"
         },
@@ -291,6 +291,13 @@
     "step": {
       "init": {
         "title": "Options",
+        "menu_options": {
+          "settings": "Partitions, intervals and zones",
+          "codes": "Codes for arming and disarming"
+        }
+      },
+      "settings": {
+        "title": "Options",
         "description": "Changes reload the integration. Nothing is sent to the panel here; the choices come from the last polling round.",
         "data": {
           "partitions": "Partitions",
@@ -323,10 +330,61 @@
         "data_description": {
           "excluded_zones": "These zones are still read with their partition but get no entities or device."
         }
+      },
+      "codes": {
+        "title": "Codes",
+        "description": "Codes for arming and disarming from Home Assistant. Without any code, the alarm panels ask for none. Changing codes doesn't reload the integration.",
+        "menu_options": {
+          "add_code": "Add code",
+          "change_code": "Change code",
+          "remove_code": "Remove code"
+        }
+      },
+      "add_code": {
+        "title": "Add code",
+        "description": "A code for arming and disarming from Home Assistant. You may use the same four-digit codes as at the keypad; Home Assistant can't check them against the panel, so a code changed at the keypad has to be changed here too.",
+        "data": {
+          "name": "User",
+          "code": "Code"
+        },
+        "data_description": {
+          "name": "Shown as the one who armed or disarmed.",
+          "code": "Four digits."
+        }
+      },
+      "change_code": {
+        "title": "Change code",
+        "description": "Choose the user whose name or code changes.",
+        "data": {
+          "name": "User"
+        }
+      },
+      "edit_code": {
+        "title": "Change code",
+        "description": "Change the user's name or code. Leave the code empty to keep it.",
+        "data": {
+          "name": "User",
+          "code": "New code"
+        },
+        "data_description": {
+          "name": "Shown as the one who armed or disarmed.",
+          "code": "Four digits; empty keeps the current code."
+        }
+      },
+      "remove_code": {
+        "title": "Remove code",
+        "description": "The user can no longer arm or disarm from Home Assistant. Removing the last code means no code is asked for any more.",
+        "data": {
+          "name": "User"
+        }
       }
     },
     "error": {
-      "no_partitions": "Select at least one partition."
+      "no_partitions": "Select at least one partition.",
+      "name_required": "Enter a name.",
+      "name_exists": "A code for this user exists already.",
+      "invalid_code": "Enter a code of four digits.",
+      "code_exists": "Another user has this code already."
     },
     "abort": {
       "not_loaded": "The integration isn't loaded. Fix the problem shown for it first (for example reauthenticate), then change the options."
@@ -435,48 +493,6 @@
       "abort": {
         "not_loaded": "The integration isn't loaded. Fix the problem shown for it first, then change the zone groups.",
         "reconfigure_successful": "The zone group was changed."
-      }
-    },
-    "code": {
-      "initiate_flow": {
-        "user": "Add code",
-        "reconfigure": "Change code"
-      },
-      "entry_type": "Code",
-      "step": {
-        "user": {
-          "title": "Add code",
-          "description": "A code for arming and disarming from Home Assistant. You may use the same four-digit codes as at the keypad; Home Assistant can't check them against the panel, so a code changed at the keypad has to be changed here too.",
-          "data": {
-            "name": "User",
-            "code": "Code"
-          },
-          "data_description": {
-            "name": "Shown as the one who armed or disarmed.",
-            "code": "Four digits."
-          }
-        },
-        "reconfigure": {
-          "title": "Change code",
-          "description": "Change the user's name or code. Leave the code empty to keep it.",
-          "data": {
-            "name": "User",
-            "code": "New code"
-          },
-          "data_description": {
-            "name": "Shown as the one who armed or disarmed.",
-            "code": "Four digits; empty keeps the current code."
-          }
-        }
-      },
-      "error": {
-        "name_required": "Enter a name.",
-        "name_exists": "A code for this user exists already.",
-        "invalid_code": "Enter a code of four digits.",
-        "code_exists": "Another user has this code already."
-      },
-      "abort": {
-        "reconfigure_successful": "The code was changed."
       }
     }
   }
