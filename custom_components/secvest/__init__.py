@@ -30,6 +30,7 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS = [
     Platform.ALARM_CONTROL_PANEL,
     Platform.BINARY_SENSOR,
+    Platform.EVENT,
     Platform.SENSOR,
     Platform.SWITCH,
 ]
@@ -146,7 +147,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: SecvestConfigEntry) ->
 # the kinds of entities this version provides, by unique id after the entry
 # id; registry entries of other kinds come from an older version
 _ENTITY_KINDS = re.compile(
-    r"(installer_lock|problem|faults"
+    r"(installer_lock|problem|faults|log"
     r"|partition_\d+_(alarm|arming_blocked|open_zones)"
     r"|zone_[^_]+_(open|problem|omit)"
     r"|group_[^_]+_(open|omit))"

@@ -136,6 +136,21 @@
       "omit": {
         "name": "Ausblenden"
       }
+    },
+    "event": {
+      "log": {
+        "name": "Logbuch",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "normal": "Normal",
+              "alarm": "Alarm",
+              "trouble": "Störung",
+              "unknown": "Unbekannt"
+            }
+          }
+        }
+      }
     }
   },
   "exceptions": {

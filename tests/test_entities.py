@@ -32,6 +32,7 @@ async def test_entity_registry(
         "partition_1_open_zones": ("sensor.alarmanlage_teilber_1_open_zones", None),
         "problem": ("binary_sensor.alarmanlage_problem", None),
         "faults": ("sensor.alarmanlage_faults", None),
+        "log": ("event.alarmanlage_log", None),
         "installer_lock": (
             "binary_sensor.alarmanlage_installer_lock",
             EntityCategory.DIAGNOSTIC,

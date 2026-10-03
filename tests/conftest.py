@@ -97,6 +97,12 @@ def short_spacing(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
+def log_now(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Read the log with the first round instead of a minute later."""
+    monkeypatch.setattr(coordinator_module, "FIRST_LOG_DELAY", 0)
+
+
+@pytest.fixture
 async def setup(hass: HomeAssistant, fake_panel: FakePanel) -> AsyncIterator[Setup]:
     """Set up an entry for the fake panel; unload it afterwards."""
     entries: list[MockConfigEntry] = []

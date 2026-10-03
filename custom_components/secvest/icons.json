@@ -29,6 +29,11 @@
           "on": "mdi:eye-off-outline"
         }
       }
+    },
+    "event": {
+      "log": {
+        "default": "mdi:text-box-outline"
+      }
     }
   }
 }
