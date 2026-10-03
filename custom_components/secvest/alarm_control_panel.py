@@ -167,12 +167,14 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
             raise ServiceValidationError(
                 translation_domain=DOMAIN, translation_key=reason
             )
-        await async_set_partition_state(
+        sent = await async_set_partition_state(
             self.coordinator,
             self.number,
             target,
             user=user.name,
             context=self._context,
         )
-        self._attr_changed_by = user.name
-        self.async_write_ha_state()
+        if sent:
+            # nobody changed anything when the target was already reached
+            self._attr_changed_by = user.name
+            self.async_write_ha_state()

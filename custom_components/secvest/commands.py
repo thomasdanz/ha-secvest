@@ -12,6 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from functools import partial
 import logging
+from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 from homeassistant.core import Context
@@ -26,7 +27,7 @@ from .api.errors import (
     NotAllowedError,
     SecvestError,
 )
-from .api.models import PartitionState
+from .api.models import Partition, PartitionState
 from .const import DOMAIN
 
 if TYPE_CHECKING:
@@ -234,10 +235,8 @@ def _reaches(number: int, target: PartitionState) -> Callable[[PanelState], bool
     return reached
 
 
-async def _read_current(
-    coordinator: SecvestCoordinator, number: int
-) -> PartitionState | str:
-    """Read the partition's state right before deciding a sequence.
+async def _read_current(coordinator: SecvestCoordinator) -> dict[int, Partition]:
+    """Read the partitions right before deciding a sequence.
 
     The last round can be up to an interval old; what to send first depends
     on the real state. One request, within the caller's hold.
@@ -254,10 +253,7 @@ async def _read_current(
     except SecvestError as err:
         coordinator.note_panel_error(err)
         raise _panel_error(err) from err
-    for partition in partitions:
-        if partition.number == number:
-            return partition.state
-    return ""
+    return {partition.number: partition for partition in partitions}
 
 
 async def async_set_partition_state(
@@ -267,7 +263,7 @@ async def async_set_partition_state(
     *,
     user: str | None = None,
     context: Context | None = None,
-) -> None:
+) -> bool:
     """Arm, arm internally or disarm a partition, verified.
 
     The panel ignores a direct switch between the armed modes, so that
@@ -277,11 +273,12 @@ async def async_set_partition_state(
     keeps its previous state until it ends. Raises CommandError if the
     partition isn't in the target state afterwards, whatever the panel
     answered; a failed intermediate step stops the sequence and is named.
-    Every failure fires the arming_failed event once.
+    Every failure fires the arming_failed event once. Returns False if the
+    partition already was in the target state, so nothing was sent.
     """
     request = Request(number, target, _action(target), user, context)
     try:
-        await _set_partition_state(coordinator, request)
+        return await _set_partition_state(coordinator, request)
     except CommandError as err:
         if not err.reported:
             # the reasons without a verified state are the error's key
@@ -293,11 +290,20 @@ async def async_set_partition_state(
 
 async def _set_partition_state(
     coordinator: SecvestCoordinator, request: Request
-) -> None:
+) -> bool:
     number, target = request.number, request.target
     _refuse_while_locked(coordinator)
     async with coordinator.client.hold(priority=True):
-        current = await _read_current(coordinator, number)
+        fresh = await _read_current(coordinator)
+        current = fresh[number].state if number in fresh else ""
+        if current == target:
+            # the app never sends a state the partition is already in (#142);
+            # the entities show the state just read
+            _LOGGER.debug("Partition %s is already %s; nothing sent", number, target)
+            coordinator.async_set_updated_data(
+                replace(coordinator.data, partitions=MappingProxyType(fresh))
+            )
+            return False
         if target in ARMED and (
             current in IN_ALARM or current == PartitionState.ACKNOWLEDGED
         ):
@@ -314,6 +320,7 @@ async def _set_partition_state(
         elif current in ARMED and target in ARMED and current != target:
             steps.insert(0, (PartitionState.UNSET, "switch"))
         await _run(coordinator, request, steps)
+    return True
 
 
 async def _run(

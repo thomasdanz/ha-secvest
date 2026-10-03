@@ -27,6 +27,7 @@ from .common import (
     arming_failed_events,
     call_panel,
     coordinator_of,
+    get_state,
     state_of,
 )
 from .fake_panel import FakePanel, Injection
@@ -341,15 +342,42 @@ async def test_switch_modes(
     assert AlarmControlPanelState.DISARMED not in shown
 
 
-async def test_same_mode_sends_it_once(
+async def test_same_mode_sends_nothing(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
-    """Arming into the current mode doesn't disarm first."""
+    """Arming into the current mode only reads the state (#142)."""
     await setup(code=CODE)
     await call_panel(hass, "alarm_arm_away")
     sent = len(fake_panel.stats.requests)
+    events = arming_failed_events(hass)
     await call_panel(hass, "alarm_arm_away")
-    assert fake_panel.stats.requests[sent:] == [READ, PUT, *ROUND]
+    assert fake_panel.stats.requests[sent:] == [READ]
+    assert state_of(hass) == AlarmControlPanelState.ARMED_AWAY
+    await hass.async_block_till_done()
+    assert events == []
+
+
+async def test_disarming_a_disarmed_partition_sends_nothing(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """Disarming a disarmed partition only reads the state (#142)."""
+    await setup(code=CODE)
+    await call_panel(hass, "alarm_disarm")
+    assert fake_panel.stats.requests[len(ROUND) :] == [READ]
+    assert state_of(hass) == AlarmControlPanelState.DISARMED
+
+
+async def test_target_reached_meanwhile(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """Armed at the keypad since the last round: shown, nobody changed it."""
+    await setup(code=CODE)
+    fake_panel.partitions[1].state = "set"
+    assert state_of(hass) == AlarmControlPanelState.DISARMED
+    await call_panel(hass, "alarm_arm_away")
+    assert fake_panel.stats.requests[len(ROUND) :] == [READ]
+    assert state_of(hass) == AlarmControlPanelState.ARMED_AWAY
+    assert get_state(hass).attributes["changed_by"] is None
 
 
 async def test_switch_fails_at_disarming(
