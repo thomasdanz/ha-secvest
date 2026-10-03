@@ -265,7 +265,7 @@ Users install new versions over their existing config entry; an update never req
 - **Unique ids are stable** (see "Unique ids"); the entity registry test catches accidental changes.
 - **Removed kinds of entities** are removed from the entity registry at setup, instead of staying as "no longer provided". The kinds are matched by unique id; entities of zones or partitions that are only temporarily missing are kept.
 - **Devices** get their name and model at every start, so such changes need no migration.
-- **Test set:** `tests/upgrade/stored_entries.json` holds the entry as each released version stored it, with the unique ids it registered. The update test loads each with the current code: it has to load, keep every entity and send nothing beyond a normal round.
+- **Test set:** `tests/upgrade/stored_entries.json` holds the entry as each released version stored it, with the unique ids it registered and, from 0.3.0, its stored log state. The update test loads each with the current code: it has to load, keep every entity, take over the log state (so nothing is replayed) and send nothing beyond a normal round.
 
 ## Testing
 
