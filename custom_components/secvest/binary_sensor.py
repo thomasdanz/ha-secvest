@@ -8,16 +8,13 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.const import EntityCategory, Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import area_registry as ar
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
-from homeassistant.util import slugify
 
 from . import SecvestConfigEntry
 from .api.models import FaultType, PanelEvent, Partition, Zone, ZoneState
-from .const import CONF_EXCLUDED_ZONES, CONF_ZONE_DEVICE_CLASSES, DOMAIN
+from .const import CONF_EXCLUDED_ZONES, CONF_ZONE_DEVICE_CLASSES
 from .coordinator import SecvestCoordinator
-from .entity import SecvestEntity, SecvestZoneEntity, zone_model
+from .entity import SecvestEntity, SecvestGroupEntity, SecvestZoneEntity
 from .groups import SAME_AS_ZONES, ZoneGroup, zone_groups, zones_device_class
 
 # the entities only read the coordinator's state
@@ -204,53 +201,28 @@ class ZoneProblemSensor(SecvestZoneEntity, BinarySensorEntity):
         ]
 
 
-class ZoneGroupSensor(SecvestEntity, BinarySensorEntity):
-    """On while any zone of a group is open; the group device's main entity.
-
-    The group is a Home Assistant concept: its own device, not attributed to
-    ABUS, and the member zones keep their devices.
-    """
+class ZoneGroupSensor(SecvestGroupEntity, BinarySensorEntity):
+    """On while any zone of a group is open; the group device's main entity."""
 
     # named after the device, i.e. the group
     _attr_name = None
+    platform_domain = Platform.BINARY_SENSOR
 
     def __init__(self, coordinator: SecvestCoordinator, group: ZoneGroup) -> None:
-        """Suggest <installation>_<group> as the entity id."""
-        super().__init__(coordinator, f"group_{group.subentry_id}_open")
-        self.zone_group = group
+        """Take the device class from the group, or from its zones."""
+        super().__init__(coordinator, group, "open")
         entry = coordinator.config_entry
-        self.entity_id = (
-            f"{Platform.BINARY_SENSOR}.{slugify(entry.title)}_{slugify(group.name)}"
-        )
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"{entry.entry_id}_group_{group.subentry_id}")},
-            model=zone_model("zone_group", coordinator.hass.config.language),
-            translation_key="zone_group",
-            translation_placeholders={"name": group.name},
-            via_device_id=coordinator.panel_device_id,
-        )
-        # used only when the device is created; afterwards the device page
-        # (or reconfiguring the group) decides
-        if group.area_id and (
-            area := ar.async_get(coordinator.hass).async_get_area(group.area_id)
-        ):
-            self._attr_device_info["suggested_area"] = area.name
         device_class: str | None = group.device_class
         if device_class == SAME_AS_ZONES:
             device_class = zones_device_class(coordinator.hass, entry, group.zone_ids)
         if device_class is not None and device_class in BinarySensorDeviceClass:
             self._attr_device_class = BinarySensorDeviceClass(device_class)
 
-    def _listed(self) -> list[str]:
-        """Return the members the selected partitions still list."""
-        listed = self.coordinator.listed_zone_ids()
-        return [z for z in self.zone_group.zone_ids if z in listed]
-
     @property
     def available(self) -> bool:
         """Unavailable while no member is listed or read."""
         zones = self.coordinator.data.zones
-        return super().available and any(z in zones for z in self._listed())
+        return super().available and any(z in zones for z in self.listed_members())
 
     @property
     def is_on(self) -> bool | None:
@@ -260,7 +232,7 @@ class ZoneGroupSensor(SecvestEntity, BinarySensorEntity):
         says so); a listed member not read right now makes it unknown.
         """
         zones = self.coordinator.data.zones
-        members = [zones.get(zone_id) for zone_id in self._listed()]
+        members = [zones.get(zone_id) for zone_id in self.listed_members()]
         if any(z is not None and z.state == ZoneState.OPEN for z in members):
             return True
         if all(z is not None and z.state == ZoneState.CLOSED for z in members):
@@ -271,7 +243,7 @@ class ZoneGroupSensor(SecvestEntity, BinarySensorEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         """List the member zones and the open ones."""
         zones = self.coordinator.data.zones
-        listed = self._listed()
+        listed = self.listed_members()
         return {
             "zones": list(self.zone_group.zone_ids),
             "open_zones": [

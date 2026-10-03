@@ -8,7 +8,7 @@ never from panel texts.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from functools import partial
 import logging
@@ -425,3 +425,49 @@ async def async_set_omitted(
         translation_key=f"{action}_failed_{reason}",
         translation_placeholders={"zone": name},
     )
+
+
+async def async_set_group_omitted(
+    coordinator: SecvestCoordinator,
+    group: str,
+    zone_ids: Sequence[str],
+    omitted: bool,
+) -> None:
+    """Omit or include the omittable zones of a group, one after another.
+
+    Each zone goes through the verified omit command; a zone already in the
+    target state gets nothing sent, and zones that can't be omitted are
+    never sent. A failure stops the sequence and names the zones not
+    changed; the zones changed before stay as they are, since undoing them
+    would be further commands. The queue is held for the whole sequence.
+    """
+    action = "omit" if omitted else "include"
+
+    def pending() -> list[str]:
+        # judged by the latest state, which each verification refreshes
+        zones = coordinator.data.zones
+        return [
+            zone_id
+            for zone_id in zone_ids
+            if (zone := zones.get(zone_id)) is not None
+            and zone.omittable
+            and zone.omitted != omitted
+        ]
+
+    _refuse_while_locked(coordinator)
+    async with coordinator.client.hold(priority=True):
+        for zone_id in zone_ids:
+            if zone_id not in pending():
+                continue
+            try:
+                await async_set_omitted(coordinator, zone_id, omitted)
+            except CommandError as err:
+                raise CommandError(
+                    translation_domain=DOMAIN,
+                    translation_key=f"group_{action}_failed",
+                    translation_placeholders={
+                        "group": group,
+                        "zones": _names(coordinator.data, pending()),
+                        "reason": str(err),
+                    },
+                ) from err

@@ -147,7 +147,7 @@ _ENTITY_KINDS = re.compile(
     r"(installer_lock|problem|faults"
     r"|partition_\d+_(alarm|arming_blocked|open_zones)"
     r"|zone_[^_]+_(open|problem|omit)"
-    r"|group_[^_]+_open)"
+    r"|group_[^_]+_(open|omit))"
 )
 
 

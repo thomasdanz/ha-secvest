@@ -267,6 +267,12 @@
     },
     "invalid_code": {
       "message": "Wrong code"
+    },
+    "group_omit_failed": {
+      "message": "Zone group {group}: {zones} not omitted. {reason}"
+    },
+    "group_include_failed": {
+      "message": "Zone group {group}: {zones} not included again. {reason}"
     }
   },
   "options": {

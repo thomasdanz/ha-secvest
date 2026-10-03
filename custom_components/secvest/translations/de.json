@@ -267,6 +267,12 @@
     },
     "invalid_code": {
       "message": "Falscher Code"
+    },
+    "group_omit_failed": {
+      "message": "Zonengruppe {group}: {zones} nicht ausgeblendet. {reason}"
+    },
+    "group_include_failed": {
+      "message": "Zonengruppe {group}: {zones} nicht wieder eingeblendet. {reason}"
     }
   },
   "options": {
