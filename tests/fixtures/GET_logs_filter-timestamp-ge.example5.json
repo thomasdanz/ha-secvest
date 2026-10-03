@@ -1,0 +1,94 @@
+[
+  {
+    "id": "458511129859",
+    "type": "normal",
+    "desc": "Ben053 Zone213 ausgeblendet ok ",
+    "events": [
+      {
+        "timestamp": "1791059101",
+        "zone": "213"
+      }
+    ]
+  },
+  {
+    "id": "458511129858",
+    "type": "normal",
+    "desc": "Ben053 Zone212 ausgeblendet ok ",
+    "events": [
+      {
+        "timestamp": "1791059101",
+        "zone": "212"
+      }
+    ]
+  },
+  {
+    "id": "458511129857",
+    "type": "normal",
+    "desc": "Ben053 Zone201 ausgeblendet ok ",
+    "events": [
+      {
+        "timestamp": "1791059101",
+        "zone": "201"
+      }
+    ]
+  },
+  {
+    "id": "458511129856",
+    "type": "normal",
+    "desc": "Ben 003 TB 1 deaktiv",
+    "events": [
+      {
+        "timestamp": "1791059101",
+        "partition": "0",
+        "user": "3",
+        "username": "REDACTED"
+      }
+    ]
+  },
+  {
+    "id": "458511128579",
+    "type": "normal",
+    "desc": "Ben003 TB 1 intern aktiv",
+    "events": [
+      {
+        "timestamp": "1791059096",
+        "partition": "0",
+        "user": "3",
+        "username": "REDACTED"
+      }
+    ]
+  },
+  {
+    "id": "458511128578",
+    "type": "normal",
+    "desc": "Ben003 Zone213 ausgeblendet",
+    "events": [
+      {
+        "timestamp": "1791059096",
+        "zone": "213"
+      }
+    ]
+  },
+  {
+    "id": "458511128577",
+    "type": "normal",
+    "desc": "Ben003 Zone212 ausgeblendet",
+    "events": [
+      {
+        "timestamp": "1791059096",
+        "zone": "212"
+      }
+    ]
+  },
+  {
+    "id": "458511128576",
+    "type": "normal",
+    "desc": "Ben003 Zone201 ausgeblendet",
+    "events": [
+      {
+        "timestamp": "1791059096",
+        "zone": "201"
+      }
+    ]
+  }
+]

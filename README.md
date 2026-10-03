@@ -163,7 +163,7 @@ If the panel later rejects the credentials (for example after the password was c
 - **Arming** (blocked/free) covers open zones and the faults the panel reports as preventing arming; the panel may still refuse arming for reasons it reports only when arming is requested.
 - **Faults:** the sensor shows the list the panel returns; whether the panel shortens very long lists is unknown.
 - **Omitting** goes through the first selected partition that lists the zone. If the panel user has no rights there, omitting fails with "no permission", even if the user may operate another selected partition with the same zone.
-- **Log:** the panel's log is read once in full and then only its new entries, every 5 minutes. Entries written after a panel restart before its clock is set (dated 1 January 2019), and more than 600 new entries between two reads, can be missed.
+- **Log:** the panel's log is read once in full and then only its new entries, every 5 minutes. Entries written after a panel restart before its clock is set (dated 1 January 2019), and more than 600 new entries between two reads, can be missed. The panel stores its local time without a time zone; the integration reads it in Home Assistant's time zone, so set both to the same one.
 - **Entities are tied to the config entry:** the API reports no serial number, so removing and re-adding the integration creates new entities. Their entity ids can be renamed back in Home Assistant.
 
 ## Documentation
