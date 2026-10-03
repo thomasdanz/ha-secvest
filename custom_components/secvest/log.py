@@ -13,12 +13,15 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict
+from datetime import datetime
 import logging
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.helpers.storage import Store
+from homeassistant.util import dt as dt_util
 
 from .api.models import LogEntry, LogEvent, LogType
+from .api.parsing import panel_time
 from .const import DOMAIN
 
 if TYPE_CHECKING:
@@ -38,6 +41,18 @@ def log_store(hass: HomeAssistant, entry_id: str) -> Store[dict[str, Any]]:
 
 def _timestamp(entry: LogEntry) -> int | None:
     return entry.events[0].timestamp if entry.events else None
+
+
+def entry_time(entry: LogEntry) -> datetime | None:
+    """Return when a log entry was written, None if it has no timestamp.
+
+    The panel's timestamps are its local wall-clock time; the panel is
+    assumed to run in Home Assistant's time zone (#8).
+    """
+    timestamp = _timestamp(entry)
+    if timestamp is None:
+        return None
+    return panel_time(timestamp, dt_util.get_default_time_zone())
 
 
 class LogTracker:

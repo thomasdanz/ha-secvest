@@ -1,15 +1,17 @@
 """Incremental log polling without gaps (#11)."""
 
+from datetime import timedelta
 import logging
 from typing import Any
 
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest import coordinator as coordinator_module
 from custom_components.secvest.api.models import LogEntry, LogEvent, LogType
-from custom_components.secvest.log import OVERLAP, LogTracker
+from custom_components.secvest.log import OVERLAP, LogTracker, entry_time
 
 from .common import ROUND, Setup, coordinator_of
 from .fake_panel import FakePanel, Injection
@@ -103,6 +105,15 @@ def test_stored_state_round_trip() -> None:
     assert not LogTracker.from_dict({"known": []}).has_baseline
 
 
+# the time of an entry (#8)
+
+
+async def test_entry_time_without_timestamp(hass: HomeAssistant) -> None:
+    """An entry without events has no time."""
+    entry = LogEntry(id="1", type=LogType.NORMAL, text="x", events=())
+    assert entry_time(entry) is None
+
+
 # with the fake panel
 
 
@@ -149,6 +160,24 @@ async def test_baseline_then_incremental(
     # read again: nothing new, nothing fired
     await _poll_now(entry)
     assert len(batches) == 1
+
+
+async def test_entry_time_is_real_time(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup, log_now: None
+) -> None:
+    """A panel clock in Home Assistant's time zone gives the real time (#8)."""
+    now = dt_util.now()
+    offset = now.utcoffset()
+    assert offset  # the tests' default time zone isn't UTC
+    fake_panel.clock_offset = int(offset.total_seconds())
+    entry = await setup()
+    batches = _batches(entry)
+    fake_panel.add_log_entry("Ben 003 TB 1 aktiv")
+    await _poll_now(entry)
+    (new,) = batches[0]
+    written = entry_time(new)
+    assert written is not None
+    assert abs(written - dt_util.utcnow()) < timedelta(seconds=5)
 
 
 async def test_log_interval(
