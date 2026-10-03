@@ -16,8 +16,9 @@ A Home Assistant custom integration for the ABUS Secvest alarm panel. It talks t
 
 - The panel is security equipment in an inhabited building. Test automations that use it carefully.
 - **Use a separate panel user** for Home Assistant: the level "normal user" is enough, with rights for exactly the partitions Home Assistant should operate. Every user sees all partitions, but the panel refuses commands on the others.
-- **Polling limits:** the integration never polls more often than every 24 seconds, the official app's own cycle, and backs off when the panel doesn't answer. An overloaded panel can stop responding and may need a power cycle.
+- **Polling limits:** the integration never polls more often than every 24 seconds, the official app's own cycle, and backs off when the panel doesn't answer. It keeps one connection, sends one request at a time and resumes TLS sessions, since a full handshake takes the panel about 6.5 seconds. More load than the official app's was deliberately not tested.
 - **One rejected login stops everything:** failed logins may count towards a code tamper alarm, so the integration never causes a second one. After the first `401 Unauthorized` it sends nothing more with these credentials — no retry, no polling, also not after a restart of Home Assistant — its entities are unavailable, and Home Assistant asks you to reauthenticate (Settings → Devices & services). Only new credentials, checked with a single request, start it again. This holds for every 401, also one a reverse proxy in front of the panel answers.
+- **Set up each panel once.** The API reports no serial number, so the integration can't tell that two addresses (e.g. directly and through a reverse proxy) lead to the same panel; set up twice, it is polled twice.
 - **Don't expose the panel's API to the internet unprotected.** The panel neither noticed nor limited failed logins at its REST API in tests (see [`secvest-api`](https://github.com/thomasdanz/secvest-api)).
 
 ## Installation
@@ -70,7 +71,7 @@ Zones that belong to one opening, such as the two wings of a window, can be comb
 ## Entities
 
 - **Alarm panel** per selected partition, named after the partition: disarmed, armed home (internally armed), armed away or triggered. An acknowledged alarm is still shown as triggered, with the attribute `acknowledged`; the attribute `panel_state` holds the panel's own state. While the panel reports an alarm, `alarm_type` names its kind in the panel's own terms (burglar alarm, fire alarm, hold-up alarm, …) and `alarm_zones` the zones that raised it; the alarm is detected from the partition's state itself, so it shows even if these details can't be read. You can arm (away or home, i.e. internally) and disarm it; see "Arming and disarming".
-- **Zones:** each zone of the selected partitions is its own device below the panel device, named with its kind (e.g. "Wireless zone Cellar", in German "Funkzone Keller"; the kind is also shown as the model), so you can assign it to an area. Its binary sensor is on while the zone is open; other zone states (such as tamper) show as unknown, with the panel's value in the attribute `zone_state`. The API doesn't tell detector types apart, so the sensors have no device class until you choose one per zone in the options. An **Omit** switch per omittable zone omits it for one arming cycle ("ausblenden"); the panel includes it again at the next disarm, and the switch follows. A diagnostic **Problem** sensor per zone is on for such other states or while a fault (other than "zone open") affects the zone.
+- **Zones:** each zone of the selected partitions is its own device below the panel device, named with its kind (e.g. "Wireless zone Cellar", in German "Funkzone Keller"; the kind is also shown as the model), so you can assign it to an area. Its binary sensor is on while the zone is open; other zone states (such as tamper) show as unknown, with the panel's value in the attribute `zone_state`. The API doesn't tell detector types apart, so the sensors have no device class until you choose one per zone in the options. An **Omit** switch per omittable zone omits it for one arming cycle ("ausblenden"); the panel includes it again at the next disarm, and the switch follows. A diagnostic **Problem** sensor per zone is on for such other states or while a fault (other than "zone open") affects the zone; its attribute `faults` lists those faults.
 - **Faults** on the panel device: the number of current faults, all of them in the attribute `faults` and a readable list in `summary` (one line per fault). This includes faults of components the API doesn't list otherwise, such as a repeater's low battery. Open zones, which the panel also reports as faults (even when disarmed), are left out here and counted by **Open zones**.
 - **Problem** on the panel device: on while **Faults** is above 0.
 - **Open zones** per selected partition: the number of the partition's zones that are open and not omitted, listed in the attributes.
@@ -145,7 +146,7 @@ The panel's API reports no transitional states, so the alarm panel never shows `
 - **Arming at the keypad** with an exit time: the partition reports disarmed until the exit time is over, then armed. Home Assistant shows the same.
 - **Entry delay:** when an entry door opens while armed, the partition keeps reporting its armed state until it is disarmed or the alarm goes off. Home Assistant can't tell that an entry delay is running.
 
-The panel's log does record the start of an entry delay. An optional "pending" state based on it is planned for a later version; it will depend on the panel's language, since the log only has texts there.
+The panel's log does record the start of an entry delay, but a "pending" state based on it isn't planned: the entry time is typically well under a minute, while the log is read only every few minutes and a log request takes about 6 seconds, so the state would almost always show up too late.
 
 ## How it works
 
@@ -161,6 +162,7 @@ If the panel later rejects the credentials (for example after the password was c
 - **No exit or entry delay states:** see "Exit and entry delays".
 - **Arming** (blocked/free) covers open zones and the faults the panel reports as preventing arming; the panel may still refuse arming for reasons it reports only when arming is requested.
 - **Faults:** the sensor shows the list the panel returns; whether the panel shortens very long lists is unknown.
+- **Omitting** goes through the first selected partition that lists the zone. If the panel user has no rights there, omitting fails with "no permission", even if the user may operate another selected partition with the same zone.
 - **Entities are tied to the config entry:** the API reports no serial number, so removing and re-adding the integration creates new entities. Their entity ids can be renamed back in Home Assistant.
 
 ## Documentation

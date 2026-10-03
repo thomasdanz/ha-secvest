@@ -116,9 +116,10 @@ def scan_interval(options: Mapping[str, object]) -> timedelta:
 class Backoff:
     """Consecutive failed rounds and the delay they cause.
 
-    The panel may need a power cycle when overloaded, so failures never make
-    the integration poll harder: each failure doubles the delay up to
-    BACKOFF_MAX, and after PAUSE_AFTER failures in a row polling pauses.
+    More load than the official app's was never tested on the panel, so
+    failures never make the integration poll harder: each failure doubles
+    the delay up to BACKOFF_MAX, and after PAUSE_AFTER failures in a row
+    polling pauses.
     """
 
     failures: int = 0

@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-10-03
+
+### Added
+
+- The problem sensor of a zone lists the faults affecting the zone in its attribute `faults`, so the problem is readable without the panel's faults sensor (#146).
+
+### Changed
+
+- README: limitations name omitting through the first selected partition that lists the zone; the safety notes advise setting up each panel only once (the API has no serial number to detect a second address) and describe the panel's load limits with measured facts. The planned "pending" state from the log was dropped (#36). Architecture documentation corrected (#146).
+- Test fixtures follow the specification, whose example zone names were redacted (#146).
+
 ## [0.2.7] - 2026-10-03
 
 ### Fixed
@@ -200,7 +211,8 @@ First version, read-only: the state of partitions, zones and faults.
 - README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
 - Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
 
-[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.7...HEAD
+[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.8...HEAD
+[0.2.8]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.4...v0.2.5

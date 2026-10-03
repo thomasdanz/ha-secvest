@@ -157,11 +157,13 @@ async def test_zone_problem(
     assert state is not None
     assert state.state == STATE_OFF
     assert state.attributes[ATTR_DEVICE_CLASS] == BinarySensorDeviceClass.PROBLEM
+    assert state.attributes["faults"] == []
 
     # an open zone is no problem, although the panel lists it as a fault
     fake_panel.open_zone("209")
     await coordinator.async_refresh()
     assert hass.states.get(PROBLEM).state == STATE_OFF  # type: ignore[union-attr]
+    assert hass.states.get(PROBLEM).attributes["faults"] == []  # type: ignore[union-attr]
 
     fake_panel.zones["209"].state = "tamper"
     await coordinator.async_refresh()
@@ -180,11 +182,28 @@ async def test_zone_problem(
             "is-rf-warning": True,
         }
     )
+    # without a text, type and id stand in
+    fake_panel.static_faults.append(
+        {
+            "type": "1235",
+            "id": "43",
+            "affects-partition": ["1"],
+            "affects-zone": "209",
+            "prevents-set": False,
+            "prevents-reset": False,
+            "is-rf-warning": False,
+        }
+    )
     await coordinator.async_refresh()
-    assert hass.states.get(PROBLEM).state == STATE_ON  # type: ignore[union-attr]
+    state = hass.states.get(PROBLEM)
+    assert state is not None
+    assert state.state == STATE_ON
+    # readable without the panel's faults sensor (#146)
+    assert state.attributes["faults"] == ["Z209 battery", "1235/43"]
     other = hass.states.get("binary_sensor.alarmanlage_room_1_problem")
     assert other is not None
     assert other.state == STATE_OFF
+    assert other.attributes["faults"] == []
 
 
 @pytest.mark.parametrize(

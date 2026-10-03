@@ -14,7 +14,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import slugify
 
 from . import SecvestConfigEntry
-from .api.models import FaultType, Partition, Zone, ZoneState
+from .api.models import FaultType, PanelEvent, Partition, Zone, ZoneState
 from .const import CONF_EXCLUDED_ZONES, CONF_ZONE_DEVICE_CLASSES, DOMAIN
 from .coordinator import SecvestCoordinator
 from .entity import SecvestEntity, SecvestZoneEntity, zone_model
@@ -187,12 +187,21 @@ class ZoneProblemSensor(SecvestZoneEntity, BinarySensorEntity):
             return None
         if zone.state not in (ZoneState.OPEN, ZoneState.CLOSED):
             return True
+        return bool(self._faults())
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """List the zone's faults, readable without the faults sensor."""
+        return {"faults": [f.text or f"{f.type}/{f.id}" for f in self._faults()]}
+
+    def _faults(self) -> list[PanelEvent]:
         # "zone open" appears for every open omittable zone, even when
         # disarmed; the zone sensor already shows it
-        return any(
-            fault.zone_id == zone.id and fault.type != FaultType.ZONE_OPEN
+        return [
+            fault
             for fault in self.coordinator.data.faults
-        )
+            if fault.zone_id == self.zone_id and fault.type != FaultType.ZONE_OPEN
+        ]
 
 
 class ZoneGroupSensor(SecvestEntity, BinarySensorEntity):
