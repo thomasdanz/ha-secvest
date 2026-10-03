@@ -8,8 +8,9 @@ from homeassistant.helpers import entity_registry as er
 import pytest
 
 from custom_components.secvest.commands import CommandError, async_set_omitted
+from custom_components.secvest.const import CONF_EXCLUDED_ZONES
 
-from .common import ROUND, Setup, coordinator_of, state_of
+from .common import ROUND, Setup, coordinator_of, get_state, state_of
 from .fake_panel import FakePanel, Injection
 
 SWITCH = "switch.alarmanlage_room_6_l_omit"
@@ -182,3 +183,20 @@ async def test_known_installer_lock_sends_nothing(
     assert len(fake_panel.stats.requests) == sent
     # the switch keeps its last state
     assert state_of(hass, SWITCH) == STATE_OFF
+
+
+async def test_omitted_zones_on_the_alarm_panel(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """The alarm panel lists omitted zones, however they were omitted (#119)."""
+    entry = await setup(**{CONF_EXCLUDED_ZONES: ["210"]})
+    assert get_state(hass).attributes["omitted_zones"] == []
+    await _switch(hass, "turn_on")
+    # at the keypad, also an excluded zone, which has no switch here
+    fake_panel.zones["203"].omitted = True
+    fake_panel.zones["210"].omitted = True
+    sent = len(fake_panel.stats.requests)
+    await coordinator_of(entry).async_refresh()
+    assert get_state(hass).attributes["omitted_zones"] == ["203", "209", "210"]
+    # read with the round, no extra request
+    assert fake_panel.stats.requests[sent:] == ROUND

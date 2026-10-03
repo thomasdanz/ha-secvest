@@ -147,6 +147,14 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
             # the first alarm's type, translated; unknown codes stay raw
             "alarm_type": _alarm_type(alarms[0]) if alarms else None,
             "alarm_zones": [alarm.zone_id for alarm in alarms if alarm.zone_id],
+            # however omitted: switch, keypad, app or forced arming; also
+            # excluded zones, which the panel omits all the same (#119)
+            "omitted_zones": [
+                zone_id
+                for zone_id in partition.zone_ids
+                if (zone := self.coordinator.data.zones.get(zone_id)) is not None
+                and zone.omitted
+            ],
         }
 
     def _alarms(self) -> list[PanelEvent]:

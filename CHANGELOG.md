@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- The alarm panel's attribute `omitted_zones` lists the partition's omitted zones, however they were omitted, so it shows which zones aren't guarded (#119).
 - An **Omit** switch per zone group (on the group's device) omits or includes all omittable zones of the group with one action, one zone after the other, each verified; zones that can't be omitted are listed, and a failure names the zones not changed (#136).
 
 ### Fixed
