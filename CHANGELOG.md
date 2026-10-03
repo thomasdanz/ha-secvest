@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- The logbook shows the text of each new log entry with the panel's time again; in 0.3.0 these rows were missing and the log had "Error with secvest describe event" for each entry (#167).
+
 ## [0.3.0] - 2026-10-03
 
 ### Added
