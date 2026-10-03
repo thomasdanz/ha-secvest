@@ -1,8 +1,9 @@
 """The log as an event entity, and its entries in the logbook (#34)."""
 
 from collections.abc import Callable
-from datetime import datetime, timedelta
-from typing import Any
+from datetime import timedelta
+from types import SimpleNamespace
+from typing import Any, cast
 
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.util import dt as dt_util
@@ -130,6 +131,11 @@ async def test_restart_keeps_the_last_event(
 # the logbook
 
 
+def _partial(data: dict[str, Any]) -> Event[Any]:
+    """Return an event as the logbook passes it: only its type and data."""
+    return cast(Event[Any], SimpleNamespace(event_type=EVENT_LOG_ENTRY, data=data))
+
+
 def _describer(hass: HomeAssistant) -> Callable[[Event[Any]], dict[str, str | None]]:
     described: dict[str, Callable[[Event[Any]], dict[str, str | None]]] = {}
 
@@ -143,30 +149,22 @@ def _describer(hass: HomeAssistant) -> Callable[[Event[Any]], dict[str, str | No
     return described[EVENT_LOG_ENTRY]
 
 
-def _log_entry_event(time: str | None, fired: datetime) -> Event[Any]:
-    return Event(
-        EVENT_LOG_ENTRY,
-        {"entity_id": LOG, "text": "Ben 003 TB 1 aktiv", "time": time},
-        time_fired_timestamp=fired.timestamp(),
-    )
-
-
-async def test_logbook_shows_text_and_panel_time(
+async def test_logbook_message(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
-    """The logbook row names the log entity and shows text and panel time."""
+    """Text and panel time; the date when it isn't today; text alone."""
     await setup()
     describe = _describer(hass)
-    fired = dt_util.now().replace(hour=10, minute=5, second=0, microsecond=0)
-    written = fired.replace(minute=1, second=23)
-    assert describe(_log_entry_event(written.isoformat(), fired)) == {
+    written = dt_util.now().replace(microsecond=0)
+    data = {"entity_id": LOG, "text": "Ben 003 TB 1 aktiv"}
+    assert describe(_partial(data | {"time": written.isoformat()})) == {
         "name": "Alarmanlage Log",
-        "message": "Ben 003 TB 1 aktiv (10:01:23)",
+        "message": f"Ben 003 TB 1 aktiv ({written:%H:%M:%S})",
         "entity_id": LOG,
     }
     # written on another day, e.g. read after an outage: with the date
     yesterday = written - timedelta(days=1)
-    message = describe(_log_entry_event(yesterday.isoformat(), fired))["message"]
-    assert message == f"Ben 003 TB 1 aktiv ({yesterday:%Y-%m-%d} 10:01:23)"
+    message = describe(_partial(data | {"time": yesterday.isoformat()}))["message"]
+    assert message == f"Ben 003 TB 1 aktiv ({yesterday:%Y-%m-%d %H:%M:%S})"
     # without a time, the text alone
-    assert describe(_log_entry_event(None, fired))["message"] == "Ben 003 TB 1 aktiv"
+    assert describe(_partial(data | {"time": None}))["message"] == "Ben 003 TB 1 aktiv"

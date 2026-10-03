@@ -45,14 +45,15 @@ def _message(event: Event) -> str:
     """Return the entry's text with the panel's time of it.
 
     The log is read every few minutes, so the logbook row comes later than
-    the entry; the date is added when it isn't the row's.
+    the entry; the date is added when it isn't today. Only the event's data
+    is used: the logbook passes a partial event read from the database,
+    without the time it was fired (#167).
     """
     text = str(event.data.get("text") or "")
     if (written := dt_util.parse_datetime(event.data.get("time") or "")) is None:
         return text
     written = dt_util.as_local(written)
-    fired = dt_util.as_local(dt_util.utc_from_timestamp(event.time_fired_timestamp))
     stamp = f"{written:%H:%M:%S}"
-    if written.date() != fired.date():
+    if written.date() != dt_util.now().date():
         stamp = f"{written:%Y-%m-%d} {stamp}"
     return f"{text} ({stamp})"
