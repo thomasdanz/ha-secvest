@@ -81,7 +81,7 @@
   },
   {
     "id": "211",
-    "name": "Haustür",
+    "name": "Entry door 1",
     "state": "closed",
     "inner": true,
     "omittable": false,
@@ -145,7 +145,7 @@
   },
   {
     "id": "219",
-    "name": "Garagentür",
+    "name": "Entry door 2",
     "state": "open",
     "inner": true,
     "omittable": false,

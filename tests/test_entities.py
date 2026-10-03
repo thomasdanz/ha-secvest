@@ -69,7 +69,7 @@ async def test_entity_ids_follow_installation_and_names(
     # the setup fixture titles the entry like the config flow: system name
     fake_panel.name = "Butterkeks"
     fake_panel.partitions[1].name = "Krümelmonster"
-    fake_panel.zones["209"].name = "Haustür"
+    fake_panel.zones["209"].name = "Flügeltür"
     entry = await setup()
     ids = {
         entity.unique_id.removeprefix(f"{entry.entry_id}_"): entity.entity_id
@@ -82,5 +82,5 @@ async def test_entity_ids_follow_installation_and_names(
         "binary_sensor.butterkeks_krumelmonster_arming"
     )
     assert ids["faults"] == "sensor.butterkeks_faults"
-    assert ids["zone_209_open"] == "binary_sensor.butterkeks_haustur"
-    assert ids["zone_209_problem"] == "binary_sensor.butterkeks_haustur_problem"
+    assert ids["zone_209_open"] == "binary_sensor.butterkeks_flugeltur"
+    assert ids["zone_209_problem"] == "binary_sensor.butterkeks_flugeltur_problem"

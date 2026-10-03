@@ -10,10 +10,10 @@ Terms follow the manufacturer's wording, see the [glossary](glossary.md).
 
 ## Guiding principles
 
-1. **The panel is fragile.** It has a slow TLS handshake, copes badly with parallel requests, and can hang under load. Every design decision puts the panel's stability first: one connection, strictly sequential requests, never more load than the official app, and back off on trouble.
+1. **The panel's stability comes first.** A full TLS handshake takes the panel about 6.5 s, it closes idle connections after 10 to 30 s, and parallel requests have not been shown to be safe (through a proxy, when the app sent four or more requests at once, the extra ones took about 3.4 s each). Every design decision puts the panel's stability first: one connection, strictly sequential requests, never more load than the official app, and back off on trouble.
 2. **Verify, don't assume.** The panel's behaviour depends on its configuration. The same command can succeed, be silently ignored (200 with the old state) or be rejected (409, 403). The integration therefore never infers the outcome from a status code alone: after every command — also after an error response — it first reads the real state, and only then reports success or an error.
 3. **Fail safe on authentication.** Failed logins at the panel's web interface and at the keypad are known to raise a code tamper alarm. At the REST API, three failed authentications in a row raised no alarm on the reference panel; whether more count is unknown and deliberately not tested. As a precaution, a failed authentication stops all requests until the user provides new credentials — the integration never causes several failed logins in a row.
-4. **Logic never relies on texts.** Texts from the panel (`desc`, `ui-string`, zone and partition names) come from its language pack and user settings; they are only displayed. Logic uses structured fields such as `type`, `id` and states. The single, documented exception is the optional entry delay detection, whose text pattern is configurable.
+4. **Logic never relies on texts.** Texts from the panel (`desc`, `ui-string`, zone and partition names) come from its language pack and user settings; they are only displayed. Logic uses structured fields such as `type`, `id` and states, without exception (the entry delay detection from the log, the one planned exception, was dropped: #36).
 5. **No surprises for users.** Everything is configured in the UI. Every failure explains itself in the UI, in English or German.
 
 ## Layers
@@ -23,8 +23,8 @@ Terms follow the manufacturer's wording, see the [glossary](glossary.md).
 │ Home Assistant                                                │
 │                                                               │
 │  config_flow.py      alarm_control_panel.py  binary_sensor.py │
-│  diagnostics.py      switch.py  sensor.py  event.py           │
-│  repairs.py                   │                               │
+│  diagnostics.py*     switch.py  sensor.py  event.py*          │
+│                               │                               │
 │        │                      ▼                               │
 │        │               entity.py (base classes)               │
 │        │                      │                               │
@@ -45,6 +45,8 @@ Terms follow the manufacturer's wording, see the [glossary](glossary.md).
                                ▼
                          Secvest panel
 ```
+
+`*` planned (#43, #34). Repair issues are raised by the coordinator itself.
 
 ### API client
 
@@ -72,13 +74,11 @@ The API client is a self-contained Python package without any Home Assistant dep
 | `binary_sensor.py` | Zone open/closed, zone problem, arming blocked per partition, installer lock. |
 | `switch.py` | Omit switch per omittable zone. |
 | `sensor.py` | Faults count with details. |
-| `event.py` | Log entries as events. |
+| `event.py` | Planned (#34): log entries as events. |
 | `config_flow.py` | Setup, partition/zone selection, options, zone groups (subentry flow), reauthentication. |
 | `codes.py` | Codes for arming and disarming (config subentries, #116): user name plus a salted hash (PBKDF2) of a four-digit code; lookup by code. Home Assistant's own: they can't be checked against the panel (no API, and failed logins must be avoided). |
 | `groups.py` | Zone groups as stored in their subentries; what a change of which reloads the entry. |
-| `repairs.py` | Repair issues for maintenance faults and for selected partitions that are empty or missing. |
-| `diagnostics.py` | Redacted diagnostics download. |
-| `log_patterns.py` | Text patterns for the optional entry delay detection, one per panel language, plus the user's custom pattern. The only place where logic depends on panel texts (see principle 4). |
+| `diagnostics.py` | Planned (#43): redacted diagnostics download. |
 | `translations/` | `en.json`, `de.json`. |
 | `brand/` | `icon.png` and `icon@2x.png`, rendered from `assets/icon.svg` by `scripts/render_icon.py`; Home Assistant (2026.8 and later) serves them itself and falls back to the icon for the logo and dark mode. Own design, not ABUS artwork. |
 
@@ -189,7 +189,7 @@ Only the reason differs:
 | `ArmingBlockedError` | Command fails; the message lists the blocking faults and zones. |
 | `NotAllowedError` | Command fails. The panel gives the same empty 403 for a zone that isn't omittable and for a partition the user may not operate (omitting zones and changing the partition state); for zones the message tells the two apart by the zone's `omittable`. |
 | `InvalidRequestError`, `NotFoundError` | Indicate a bug or a panel that differs from the specification. The command fails, the response is logged; during polling they are handled like a `CommunicationError`. |
-| `CommunicationError` | Backoff: after each failed round the delay before the next one doubles, starting from the status interval, up to 5 minutes; after 5 failed rounds in a row polling pauses for 15 minutes (one round per pause). The last state is kept through single failures, so entities don't flap; from the 3rd failed round in a row (about 3 minutes with the default interval) they are unavailable, since a stale state of an alarm panel misleads (#128). A manual refresh doesn't shorten the delay. A successful round resets everything. The backoff state is part of the diagnostics. A failed first round at setup uses Home Assistant's setup retry instead (its own growing delay), with the same minimum spacing. |
+| `CommunicationError` | Backoff: after each failed round the delay before the next one is the status interval times two to the power of the failures in a row, up to 5 minutes (60, 120, 240, 300 s with the default interval); after 5 failed rounds in a row polling pauses for 15 minutes (one round per pause). The last state is kept through single failures, so entities don't flap; from the 3rd failed round in a row (about 3 minutes with the default interval) they are unavailable, since a stale state of an alarm panel misleads (#128). A manual refresh doesn't shorten the delay. A successful round resets everything. The backoff state is part of the diagnostics. A failed first round at setup uses Home Assistant's setup retry instead (its own growing delay), with the same minimum spacing. |
 | Unknown values in responses | Kept raw, logged once, shown as attributes; never crash. |
 
 ## Entity model
@@ -219,7 +219,7 @@ The panel's partitions are independent of each other, so everything that belongs
 | Entity | Platform | Content |
 |---|---|---|
 | Zone | binary_sensor | Open / closed, unknown for any other zone state; the device's main entity (named after the zone); device class from the options (`zone_device_classes`: door, window, garage door, motion, smoke, …), none by default since the API has no detector type; attributes: zone id, raw zone state, all partitions the zone belongs to, `omittable`, `omitted`, `inner` |
-| Zone problem | binary_sensor (problem, diagnostic) | On for any zone state other than open/closed (tamper, fault, …) or a fault affecting the zone; "zone open" faults (type 5000) are ignored, since they appear for every open omittable zone and the zone sensor already shows them |
+| Zone problem | binary_sensor (problem, diagnostic) | On for any zone state other than open/closed (tamper, fault, …) or a fault affecting the zone; "zone open" faults (type 5000) are ignored, since they appear for every open omittable zone and the zone sensor already shows them; attribute `faults`: the zone's other faults as displayed (type/id without a text) |
 | Omit zone | switch | Only for omittable zones (and not excluded ones); on = omitted; turns off by itself when the panel includes the zone again at disarm. Sent through the first selected partition that lists the zone; verified by the zone read afterwards; after an empty 403 the fresh `omittable` decides between "can't be omitted" and "no permission". Hidden with the other entities of grouped zones |
 
 **Zone groups** (optional, configured manually as config subentries, #67): several zones that belong to one opening, e.g. the two wings of a window. A zone group is a Home Assistant concept, not one of the panel, so it stays separate: the group gets its own device "Zone group <name>" / "Zonengruppe <name>" (model "Zone group" in Home Assistant's language, no manufacturer, linked to the panel device), and the member zones keep their devices, entities and names.

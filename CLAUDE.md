@@ -23,7 +23,7 @@ The panel is security equipment and fragile. These rules are not negotiable:
 - **Verify, don't assume:** after every command, also after an error response, first read the real state, then report success or the error. Arming can fail with 409, 403 or silently with 200; all are the same failure for the user.
 - **No automatic retries of commands**, except the one documented case in the architecture.
 - **No guessed requests:** only calls documented in the specification.
-- **Logic never relies on panel texts** (`desc`, `ui-string`, names), except the documented entry delay detection.
+- **Logic never relies on panel texts** (`desc`, `ui-string`, names).
 - **The API client subpackage imports nothing from Home Assistant** (ADR 0002); a test enforces this.
 - Unknown values from the panel are kept raw and logged once, never a crash.
 
