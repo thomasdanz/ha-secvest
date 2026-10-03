@@ -78,9 +78,6 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
         AlarmControlPanelEntityFeature.ARM_HOME
         | AlarmControlPanelEntityFeature.ARM_AWAY
     )
-    # four-digit codes like at the keypad, for arming and disarming (#116)
-    _attr_code_format = CodeFormat.NUMBER
-    _attr_code_arm_required = True
 
     def __init__(self, coordinator: SecvestCoordinator, partition: Partition) -> None:
         """Name the entity after the partition."""
@@ -104,6 +101,23 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
                 self._attr_changed_by = None
             self._shown_state = partition.state
         super()._handle_coordinator_update()
+
+    @property
+    def code_format(self) -> CodeFormat | None:
+        """Four digits like at the keypad, while codes are configured (#116).
+
+        Without any code, none is asked for (#131).
+        """
+        return CodeFormat.NUMBER if codes(self.coordinator.config_entry) else None
+
+    @property
+    def code_arm_required(self) -> bool:
+        """Whether arming asks for a code too: while codes are configured.
+
+        Home Assistant itself then refuses arming without a code, before this
+        entity sees it, so no arming_failed event is fired for it (#143).
+        """
+        return bool(codes(self.coordinator.config_entry))
 
     @property
     def _partition(self) -> Partition | None:
@@ -177,20 +191,25 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
         await self._command(code, PartitionState.SET)
 
     async def _command(self, code: str | None, target: PartitionState) -> None:
-        """Check the code, then send the command; nothing is sent otherwise."""
+        """Check the code, then send the command; nothing is sent otherwise.
+
+        Without any configured code, none is checked: a code passed anyway
+        (e.g. by HomeKit Bridge) is ignored, and no user is named (#131).
+        """
         entry = self.coordinator.config_entry
-        user = await async_find(self.hass, entry, code)
-        if user is None:
-            reason = "invalid_code" if codes(entry) else "no_codes"
-            if reason == "invalid_code":
+        name: str | None = None
+        if codes(entry):
+            user = await async_find(self.hass, entry, code)
+            if user is None:
                 _LOGGER.warning("Wrong code for partition %s", self.number)
-            # the event too, so a notification reaches e.g. HomeKit users
-            action = "disarm" if target == PartitionState.UNSET else "arm"
-            request = Request(self.number, target, action, context=self._context)
-            fire_arming_failed(self.coordinator, request, Failure(reason))
-            raise ServiceValidationError(
-                translation_domain=DOMAIN, translation_key=reason
-            )
+                # the event too, so a notification reaches e.g. HomeKit users
+                action = "disarm" if target == PartitionState.UNSET else "arm"
+                request = Request(self.number, target, action, context=self._context)
+                fire_arming_failed(self.coordinator, request, Failure("invalid_code"))
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN, translation_key="invalid_code"
+                )
+            name = user.name
         before = self._shown_state
         self._commanding = True
         try:
@@ -198,7 +217,7 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
                 self.coordinator,
                 self.number,
                 target,
-                user=user.name,
+                user=name,
                 context=self._context,
             )
         finally:
@@ -206,7 +225,7 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
             if (partition := self._partition) is not None:
                 self._shown_state = partition.state
         if sent:
-            self._attr_changed_by = user.name
+            self._attr_changed_by = name
         elif self._shown_state != before:
             # already reached, but changed elsewhere since it was last shown
             self._attr_changed_by = None

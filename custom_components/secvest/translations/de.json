@@ -277,9 +277,6 @@
     "include_failed_unknown": {
       "message": "Zone {zone} wurde nicht wieder eingeblendet. Die Zentrale hat sie nicht geändert; Grund unbekannt"
     },
-    "no_codes": {
-      "message": "Es ist kein Code hinterlegt, deshalb ist Aktivieren und Deaktivieren nicht möglich. Lege einen Code auf der Seite der Integration an"
-    },
     "invalid_code": {
       "message": "Falscher Code"
     },

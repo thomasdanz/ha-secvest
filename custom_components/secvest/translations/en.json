@@ -277,9 +277,6 @@
     "include_failed_unknown": {
       "message": "Zone {zone} was not included again: the panel didn't change it; reason unknown"
     },
-    "no_codes": {
-      "message": "No code is configured, so arming and disarming aren't possible. Add a code on the integration's page"
-    },
     "invalid_code": {
       "message": "Wrong code"
     },

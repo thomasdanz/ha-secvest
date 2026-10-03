@@ -133,12 +133,3 @@ async def test_wrong_code(
     assert data["requested"] == "unset"
     assert data["user"] is None
     assert "1234" not in str(data)
-
-
-async def test_no_codes(
-    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
-) -> None:
-    """No code configured at all."""
-    await setup()
-    data = await _failed(hass, "alarm_arm_away", "1234")
-    assert data["reason"] == "no_codes"

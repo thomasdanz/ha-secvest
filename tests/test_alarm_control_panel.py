@@ -37,8 +37,9 @@ async def test_one_panel_per_selected_partition(
         AlarmControlPanelEntityFeature.ARM_HOME
         | AlarmControlPanelEntityFeature.ARM_AWAY
     )
-    assert state.attributes["code_arm_required"] is True
-    assert state.attributes["code_format"] == "number"
+    # no code configured: none asked for (#131)
+    assert state.attributes["code_arm_required"] is False
+    assert state.attributes["code_format"] is None
     assert state.attributes["friendly_name"] == "Alarmanlage Teilber. 1"
     assert hass.states.get("alarm_control_panel.alarmanlage_teilber_3") is not None
 
