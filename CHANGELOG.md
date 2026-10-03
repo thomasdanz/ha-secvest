@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- The panel's log is read incrementally: once in full as the baseline, then every 5 minutes only the entries since an hour before the newest known one, recognised by their content and stored across restarts. The log interval is a new option (at least 2 minutes). New entries become visible with the log event entity (#34) (#11).
 - The alarm panel's attribute `omitted_zones` lists the partition's omitted zones, however they were omitted, so it shows which zones aren't guarded (#119).
 - An **Omit** switch per zone group (on the group's device) omits or includes all omittable zones of the group with one action, one zone after the other, each verified; zones that can't be omitted are listed, and a failure names the zones not changed (#136).
 

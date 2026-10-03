@@ -14,6 +14,7 @@ from custom_components.secvest.const import (
     CONF_ADVANCED,
     CONF_AUTH_FAILED,
     CONF_EXCLUDED_ZONES,
+    CONF_LOG_INTERVAL,
     CONF_PARTITIONS,
     CONF_SCAN_INTERVAL,
     CONF_USER_AGENT,
@@ -25,11 +26,15 @@ from .fake_panel import FakePanel
 
 
 def _init_input(
-    partitions: list[str], interval: int = 30, user_agent: str = ""
+    partitions: list[str],
+    interval: int = 30,
+    user_agent: str = "",
+    log_interval: int = 300,
 ) -> dict[str, Any]:
     return {
         CONF_PARTITIONS: partitions,
         CONF_SCAN_INTERVAL: interval,
+        CONF_LOG_INTERVAL: log_interval,
         CONF_ADVANCED: {CONF_USER_AGENT: user_agent},
     }
 
@@ -61,7 +66,7 @@ async def test_change_options(
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "init"
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], _init_input(["1", "2"], 60, " Proxy/2 ")
+        result["flow_id"], _init_input(["1", "2"], 60, " Proxy/2 ", 600)
     )
     assert result["step_id"] == "zones"
     # nothing is sent while the options are changed
@@ -78,12 +83,14 @@ async def test_change_options(
     assert entry.options == {
         CONF_PARTITIONS: [1, 2],
         CONF_SCAN_INTERVAL: 60,
+        CONF_LOG_INTERVAL: 600,
         CONF_EXCLUDED_ZONES: ["201"],
         CONF_ZONE_DEVICE_CLASSES: {"209": "door"},
     }
     assert entry.data[CONF_USER_AGENT] == "Proxy/2"
     coordinator = coordinator_of(entry)
     assert coordinator.update_interval == timedelta(seconds=60)
+    assert coordinator._log_interval == 600
     assert coordinator.selected_partitions == (1, 2)
     assert fake_panel.stats.user_agents[-1] == "Proxy/2"
     state = hass.states.get("binary_sensor.alarmanlage_room_6_l")
@@ -113,6 +120,8 @@ async def test_form_shows_the_current_options(
     }
     assert suggested[CONF_PARTITIONS] == ["1"]
     assert suggested[CONF_SCAN_INTERVAL] == 45
+    # not stored yet: the default
+    assert suggested[CONF_LOG_INTERVAL] == 300
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], _init_input(["1"], 45)
     )

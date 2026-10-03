@@ -76,6 +76,7 @@ The API client is a self-contained Python package without any Home Assistant dep
 | `sensor.py` | Faults count with details. |
 | `event.py` | Planned (#34): log entries as events. |
 | `config_flow.py` | Setup, partition/zone selection, options, zone groups (subentry flow), reauthentication. |
+| `log.py` | The log state (#11): the baseline, the entries of the overlap window, de-duplication by content and the stored state. |
 | `codes.py` | Codes for arming and disarming (config subentries, #116): user name plus a salted hash (PBKDF2) of a four-digit code and its parameters (`kdf`; missing means `pbkdf2-sha256-100000`, as stored before 0.3); lookup by code, hashing all stored codes in one executor job so the event loop isn't blocked (#139). The hash protects against casual reading of the configuration only: four digits are 10,000 candidates. Home Assistant's own: they can't be checked against the panel (no API, and failed logins must be avoided). |
 | `groups.py` | Zone groups as stored in their subentries; what a change of which reloads the entry. |
 | `diagnostics.py` | Planned (#43): redacted diagnostics download. |
@@ -113,7 +114,7 @@ Other Secvest integrations were reviewed for this design. These patterns load th
 ```text
 every status interval (default 30 s, minimum 24 s):
     partitions → alarms → faults → zones of each selected partition
-every log interval (default 5 min):
+every log interval (default 5 min, minimum 2 min), at the start of the next round:
     log entries from one hour before the newest known one
 ```
 
@@ -122,7 +123,8 @@ every log interval (default 5 min):
 - **Baseline:** on the first start, and whenever the stored log state is missing, the full log (up to 600 entries) is fetched once. Its newest entry is the baseline; these entries fire no events. This doesn't depend on the panel clock matching Home Assistant's.
 - **Increments:** `$filter=timestamp ge <newest known timestamp − 1 h>`. The overlap returns already known entries again on purpose: it covers entries written later within the same second, and the hour the panel's local clock repeats when daylight saving time ends.
 - **De-duplication by content:** an entry counts as known if `id`, timestamp, text and event fields all match. The `id` alone isn't enough, since it seems to be derived from the timestamp and could repeat when the clock goes back.
-- **Persistence:** the newest timestamp and the entries of the overlap window are stored, so a Home Assistant restart neither replays nor skips entries.
+- **Persistence:** the newest timestamp and the entries of the overlap window are stored (a Home Assistant `Store` per entry, removed with the entry), so a Home Assistant restart neither replays nor skips entries.
+- **Schedule:** the log is read at the start of a regular round once the log interval is due (before the state, so the state the round publishes isn't delayed by the slow log read), on the round's connection, so it never runs in parallel to it and follows its backoff, the installer lock and the 401 gate. The first read comes about a minute after setup, so setup doesn't wait for the slow log. A failed log read doesn't fail the round (logged once); the log is read again after the next interval. Verification rounds after commands don't read the log. New entries go to listeners, oldest first (#11; the event entity follows in #34).
 - **Limits (documented):** entries written after a panel restart before its clock is set (dated 2019-01-01), and more than 600 new entries between two log polls, can be missed.
 
 The partition state alone tells whether a partition is in alarm, so an alarm is detected even if `/alarms/` fails. `/alarms/` is still part of the round for the alarm type and other details.
@@ -240,7 +242,7 @@ A group has a name (unique), at least two zones of the selected partitions (none
 | Stored in | Content |
 |---|---|
 | Config entry data | Address, user code, password, certificate verification, User-Agent override (advanced; empty = `ha-secvest/<version>`), `auth_failed` after a 401 |
-| Config entry options | Selected partitions (`partitions`), status interval (`scan_interval`), excluded zones (`excluded_zones`), device class per zone (`zone_device_classes`); later the log interval and optional features |
+| Config entry options | Selected partitions (`partitions`), status interval (`scan_interval`), excluded zones (`excluded_zones`), device class per zone (`zone_device_classes`), log interval (`log_interval`); later optional features |
 | Config subentries | Zone groups (`zone_group`, #67) and codes for arming and disarming (`code`, #116: user name, salt and hash) |
 
 **Address:** stored normalised as `https://host:port[/path]`. Without a scheme the panel's own port 4433 applies unless one is given; an https URL without a port means 443 (e.g. a reverse proxy). The normalised address (host, port and path) is the entry's unique id, since the API reports no serial number. Setup validates the credentials with exactly one request (`GET /system/`) and takes the entry's title from the installation name. Only once the credentials are accepted, it reads the partitions (`GET /system/partitions/`) and the zone lists of the partitions that have zones, on the same connection, for the selection and the zones step; nothing else is sent during setup.
@@ -249,7 +251,7 @@ The user selects **partitions**, not zones. The zones are derived from the selec
 
 **Panel user:** a separate panel user of level "normal user" is enough — with rights for a partition, it reads, omits zones, arms and disarms like an administrator. The panel's partition rights are not visible in reads (every user sees all partitions), so the flow can't hide partitions the user may not operate; a command there fails with an empty 403 and is reported as "no permission". The documentation recommends giving the Home Assistant user rights for exactly the partitions it should operate.
 
-Changing options or zone groups reloads the entry: one update listener compares the options, the subentries and the User-Agent with the state at setup (Home Assistant doesn't allow its reloading options flow together with an update listener). The options flow sends nothing to the panel: it offers what the last polling round returned (zones of a newly selected partition are listed by id until the next round). It has two steps: partitions, status interval and (advanced) the User-Agent override, which is stored in the entry data; then the zones: excluded zones and a device class per zone (none by default). Setup ends with the same zones step (shared code), so zone types can be set right away; Home Assistant's own "Show as" still overrides the device class per entity. Device classes of zones that aren't shown, e.g. of a partition deselected for now, are kept.
+Changing options or zone groups reloads the entry: one update listener compares the options, the subentries and the User-Agent with the state at setup (Home Assistant doesn't allow its reloading options flow together with an update listener). The options flow sends nothing to the panel: it offers what the last polling round returned (zones of a newly selected partition are listed by id until the next round). It has two steps: partitions, status interval, log interval and (advanced) the User-Agent override, which is stored in the entry data; then the zones: excluded zones and a device class per zone (none by default). Setup ends with the same zones step (shared code), so zone types can be set right away; Home Assistant's own "Show as" still overrides the device class per entity. Device classes of zones that aren't shown, e.g. of a partition deselected for now, are kept.
 
 Devices follow the configuration: at setup, zone devices that are no longer selected or are excluded are removed. This is decided from the partitions' zone lists, not from the zones read, so a zone the panel briefly doesn't report keeps its device and settings. Zone groups are never changed automatically: a member zone that is no longer listed raises a repair issue (see "Zone groups").
 

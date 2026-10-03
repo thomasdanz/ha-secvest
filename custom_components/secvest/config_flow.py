@@ -59,16 +59,20 @@ from .const import (
     CONF_AUTH_FAILED,
     CONF_EXCLUDED_ZONES,
     CONF_HIDE_MEMBERS,
+    CONF_LOG_INTERVAL,
     CONF_PARTITIONS,
     CONF_SCAN_INTERVAL,
     CONF_USER_AGENT,
     CONF_USER_CODE,
     CONF_ZONE_DEVICE_CLASSES,
     CONF_ZONES,
+    DEFAULT_LOG_INTERVAL,
     DEFAULT_PORT,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    MAX_LOG_INTERVAL,
     MAX_SCAN_INTERVAL,
+    MIN_LOG_INTERVAL,
     MIN_SCAN_INTERVAL,
     SUBENTRY_CODE,
     SUBENTRY_ZONE_GROUP,
@@ -458,6 +462,7 @@ class SecvestOptionsFlow(OptionsFlow):
                     **entry.options,
                     CONF_PARTITIONS: selected,
                     CONF_SCAN_INTERVAL: int(user_input[CONF_SCAN_INTERVAL]),
+                    CONF_LOG_INTERVAL: int(user_input[CONF_LOG_INTERVAL]),
                 }
                 user_agent = user_input[CONF_ADVANCED].get(CONF_USER_AGENT, "").strip()
                 if user_agent != entry.data.get(CONF_USER_AGENT, ""):
@@ -478,6 +483,15 @@ class SecvestOptionsFlow(OptionsFlow):
                         mode=NumberSelectorMode.BOX,
                     )
                 ),
+                vol.Required(CONF_LOG_INTERVAL): NumberSelector(
+                    NumberSelectorConfig(
+                        min=MIN_LOG_INTERVAL,
+                        max=MAX_LOG_INTERVAL,
+                        step=1,
+                        unit_of_measurement="s",
+                        mode=NumberSelectorMode.BOX,
+                    )
+                ),
                 vol.Required(CONF_ADVANCED): section(
                     vol.Schema({vol.Optional(CONF_USER_AGENT): TextSelector()}),
                     {"collapsed": True},
@@ -488,6 +502,9 @@ class SecvestOptionsFlow(OptionsFlow):
             CONF_PARTITIONS: [str(n) for n in entry.options.get(CONF_PARTITIONS, [])],
             CONF_SCAN_INTERVAL: entry.options.get(
                 CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+            ),
+            CONF_LOG_INTERVAL: entry.options.get(
+                CONF_LOG_INTERVAL, DEFAULT_LOG_INTERVAL
             ),
             CONF_ADVANCED: {CONF_USER_AGENT: entry.data.get(CONF_USER_AGENT, "")},
         }

@@ -23,6 +23,7 @@ from .const import (
 from .coordinator import SecvestCoordinator, clear_issues, forget_rounds
 from .entity import panel_device_info
 from .groups import reload_snapshot, zone_groups
+from .log import log_store
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,6 +54,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> b
         user_agent=data[CONF_USER_AGENT] or await default_user_agent(hass),
     )
     coordinator = SecvestCoordinator(hass, entry, Client(transport))
+    await coordinator.async_load_log()
     # after a reload shortly after a round, its result is taken instead of
     # waiting for the minimum spacing
     if not coordinator.reuse_recent_round():
@@ -201,9 +203,10 @@ def _remove_orphaned_devices(
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> None:
-    """Remove the repair issues and the kept rounds of a deleted entry."""
+    """Remove the repair issues, the kept rounds and the log state."""
     clear_issues(hass, entry.entry_id, keep=())
     forget_rounds(hass, entry.entry_id)
+    await log_store(hass, entry.entry_id).async_remove()
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> bool:

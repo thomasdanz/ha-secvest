@@ -282,11 +282,13 @@
         "description": "Changes reload the integration. Nothing is sent to the panel here; the choices come from the last polling round.",
         "data": {
           "partitions": "Partitions",
-          "scan_interval": "Status interval"
+          "scan_interval": "Status interval",
+          "log_interval": "Log interval"
         },
         "data_description": {
           "partitions": "The partitions Home Assistant shows and operates; their zones are added automatically.",
-          "scan_interval": "How often the panel is polled, in seconds. Never below 24 seconds, the official app's own cycle."
+          "scan_interval": "How often the panel is polled, in seconds. Never below 24 seconds, the official app's own cycle.",
+          "log_interval": "How often new entries of the panel's log are read, in seconds. At least 120 seconds: reading the log takes the panel several seconds."
         },
         "sections": {
           "advanced": {

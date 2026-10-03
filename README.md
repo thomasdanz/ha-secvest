@@ -60,7 +60,7 @@ Finally choose what kind of detector each **zone** is (door, window, garage door
 
 ## Options
 
-In the integration's options (Settings → Devices & services → ABUS Secvest → Configure) you can change the selected partitions, the status interval (at least 24 seconds) and, under Advanced, the User-Agent. The second step lists the zones of the selected partitions: choose a device class per zone (door, window, motion, …; the panel doesn't tell detector types apart) and exclude zones you don't want in Home Assistant. Saving reloads the integration; nothing is sent to the panel while you change the options.
+In the integration's options (Settings → Devices & services → ABUS Secvest → Configure) you can change the selected partitions, the status interval (at least 24 seconds), the log interval (how often new entries of the panel's log are read; 5 minutes by default, at least 2 minutes) and, under Advanced, the User-Agent. The second step lists the zones of the selected partitions: choose a device class per zone (door, window, motion, …; the panel doesn't tell detector types apart) and exclude zones you don't want in Home Assistant. Saving reloads the integration; nothing is sent to the panel while you change the options.
 
 If a selected partition has no zones anymore (for example after the installer moved its detectors to another partition), a repair issue suggests deselecting it in the options; ignore it if the partition is meant to be empty. It goes away by itself once the partition has zones again.
 
@@ -163,6 +163,7 @@ If the panel later rejects the credentials (for example after the password was c
 - **Arming** (blocked/free) covers open zones and the faults the panel reports as preventing arming; the panel may still refuse arming for reasons it reports only when arming is requested.
 - **Faults:** the sensor shows the list the panel returns; whether the panel shortens very long lists is unknown.
 - **Omitting** goes through the first selected partition that lists the zone. If the panel user has no rights there, omitting fails with "no permission", even if the user may operate another selected partition with the same zone.
+- **Log:** the panel's log is read once in full and then only its new entries, every 5 minutes. Entries written after a panel restart before its clock is set (dated 1 January 2019), and more than 600 new entries between two reads, can be missed.
 - **Entities are tied to the config entry:** the API reports no serial number, so removing and re-adding the integration creates new entities. Their entity ids can be renamed back in Home Assistant.
 
 ## Documentation
