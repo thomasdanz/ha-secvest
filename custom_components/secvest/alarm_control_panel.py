@@ -15,7 +15,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import SecvestConfigEntry
 from .api.models import AlarmType, PanelEvent, Partition, PartitionState
-from .codes import codes, find
+from .codes import async_find, codes
 from .commands import (
     Failure,
     Request,
@@ -179,7 +179,7 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
     async def _command(self, code: str | None, target: PartitionState) -> None:
         """Check the code, then send the command; nothing is sent otherwise."""
         entry = self.coordinator.config_entry
-        user = find(entry, code)
+        user = await async_find(self.hass, entry, code)
         if user is None:
             reason = "invalid_code" if codes(entry) else "no_codes"
             if reason == "invalid_code":
