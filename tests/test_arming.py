@@ -380,6 +380,47 @@ async def test_target_reached_meanwhile(
     assert get_state(hass).attributes["changed_by"] is None
 
 
+async def test_changed_by_cleared_by_a_change_elsewhere(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """changed_by names the user only while their command is the last change."""
+    entry = await setup(code=CODE)
+    await call_panel(hass, "alarm_arm_away")
+    assert get_state(hass).attributes["changed_by"] == "Tester"
+    # the verification and later rounds without a change keep it
+    await coordinator_of(entry).async_refresh()
+    assert get_state(hass).attributes["changed_by"] == "Tester"
+    # disarmed at the keypad
+    fake_panel.partitions[1].state = "unset"
+    await coordinator_of(entry).async_refresh()
+    assert state_of(hass) == AlarmControlPanelState.DISARMED
+    assert get_state(hass).attributes["changed_by"] is None
+
+
+async def test_changed_by_kept_for_repeated_commands(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """Arming twice from Home Assistant keeps the user (#144)."""
+    await setup(code=CODE)
+    await call_panel(hass, "alarm_arm_away")
+    await call_panel(hass, "alarm_arm_away")
+    assert get_state(hass).attributes["changed_by"] == "Tester"
+
+
+async def test_changed_by_cleared_when_reached_elsewhere(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """Disarmed and armed again at the keypad between two rounds (#144)."""
+    entry = await setup(code=CODE)
+    await call_panel(hass, "alarm_arm_away")
+    fake_panel.partitions[1].state = "unset"
+    await coordinator_of(entry).async_refresh()
+    fake_panel.partitions[1].state = "set"
+    # nothing is sent, but the state shown changed meanwhile
+    await call_panel(hass, "alarm_arm_away")
+    assert get_state(hass).attributes["changed_by"] is None
+
+
 async def test_switch_fails_at_disarming(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:

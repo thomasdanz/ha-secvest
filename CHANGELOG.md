@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- `changed_by` of the alarm panel is cleared when the partition's state changes without a command from this entity (keypad, app, alarm), instead of naming the last Home Assistant user (#144).
+
 ## [0.2.9] - 2026-10-03
 
 ### Changed

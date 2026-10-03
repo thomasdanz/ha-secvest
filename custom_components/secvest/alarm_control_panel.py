@@ -9,7 +9,7 @@ from homeassistant.components.alarm_control_panel.const import (
     AlarmControlPanelState,
     CodeFormat,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -88,6 +88,22 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
         self.number = partition.number
         self._attr_name = partition.name
         self._alarm_warned = False
+        # the partition state last shown, and whether a command of this
+        # entity runs; changed_by names a user only while that user's
+        # command made the last change (#144)
+        self._shown_state: PartitionState | str = partition.state
+        self._commanding = False
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Forget the user once the state changed without this entity."""
+        partition = self._partition
+        if partition is not None and not self._commanding:
+            if partition.state != self._shown_state:
+                # keypad, app, an alarm or another Home Assistant user
+                self._attr_changed_by = None
+            self._shown_state = partition.state
+        super()._handle_coordinator_update()
 
     @property
     def _partition(self) -> Partition | None:
@@ -167,14 +183,23 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
             raise ServiceValidationError(
                 translation_domain=DOMAIN, translation_key=reason
             )
-        sent = await async_set_partition_state(
-            self.coordinator,
-            self.number,
-            target,
-            user=user.name,
-            context=self._context,
-        )
+        before = self._shown_state
+        self._commanding = True
+        try:
+            sent = await async_set_partition_state(
+                self.coordinator,
+                self.number,
+                target,
+                user=user.name,
+                context=self._context,
+            )
+        finally:
+            self._commanding = False
+            if (partition := self._partition) is not None:
+                self._shown_state = partition.state
         if sent:
-            # nobody changed anything when the target was already reached
             self._attr_changed_by = user.name
-            self.async_write_ha_state()
+        elif self._shown_state != before:
+            # already reached, but changed elsewhere since it was last shown
+            self._attr_changed_by = None
+        self.async_write_ha_state()
