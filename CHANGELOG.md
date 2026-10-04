@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- Names follow renames at the panel: a renamed partition or zone shows its new name after the next polling round (alarm panel, partition sensors, zone devices and entities), without another request. **Configure** → **Take over names from the panel** reads the installation's name once and names the panel device after it. Entity ids, the entry's title and names set in Home Assistant stay (#137).
+
 ### Changed
 
 - Without any code configured, the alarm panel asks for none: arming and disarming work without a code (a code sent anyway, e.g. by HomeKit Bridge, is ignored), and no user is shown. With the first code added, codes are required as before. The reason `no_codes` of `secvest_arming_failed` is gone (#131).

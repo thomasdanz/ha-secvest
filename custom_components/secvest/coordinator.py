@@ -274,6 +274,9 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         self._log_due = time.monotonic() + FIRST_LOG_DELAY
         self._log_failed = False
         self._log_listeners: list[Callable[[list[LogEntry]], None]] = []
+        # the names of the partitions and zones at setup, by id, so that a
+        # rename at the panel is noticed (#137)
+        self._names: dict[tuple[str, str], str] | None = None
 
     @property
     def available(self) -> bool:
@@ -353,7 +356,48 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
             _LOGGER.debug("Discarding a round that a command overtook")
             return self.data
         self._accept(state)
+        # only in a regular round, so a reload never falls into a command
+        self._check_renames(state)
         return state
+
+    def _check_renames(self, state: PanelState) -> None:
+        """Reload once a partition or zone was renamed at the panel (#137).
+
+        Matched by partition number and zone id, never by name. The reload
+        takes this round's result, so nothing more is sent; it gives the
+        entities and zone devices their new names, while names set in Home
+        Assistant and all ids stay.
+        """
+        names = _names(state, self.selected_partitions)
+        if self._names is None:
+            self._names = names
+            return
+        renamed = sorted(
+            f"{kind} {item}"
+            for (kind, item), name in names.items()
+            if self._names.get((kind, item), name) != name
+        )
+        if renamed:
+            _LOGGER.info(
+                "Renamed at the panel: %s; reloading to show the new names",
+                ", ".join(renamed),
+            )
+            # once: the new coordinator starts from the new names
+            self._names = names
+            self.hass.config_entries.async_schedule_reload(self.config_entry.entry_id)
+
+    async def async_read_installation_name(self) -> str:
+        """Read the installation's name once, like the app at its start.
+
+        GET /system/ isn't part of a round; the options read it on request
+        (#137). A 401 or the installer lock count as in a round.
+        """
+        try:
+            system = await self.client.get_system()
+        except (AuthenticationError, InstallerLockedError) as err:
+            self.note_panel_error(err)
+            raise
+        return system.name
 
     async def async_load_log(self) -> None:
         """Restore the log state of the last run, so nothing is replayed."""
@@ -529,6 +573,7 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         self.installer_locked = last.installer_locked
         self.backoff = last.backoff
         self._check_issues(last.state)
+        self._names = _names(last.state, self.selected_partitions)
         self.data = last.state
         self.last_update_success = True
         self._shown_available = self.available
@@ -667,3 +712,14 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
             faults=tuple(faults),
             zones=MappingProxyType(zones),
         )
+
+
+def _names(state: PanelState, partitions: Iterable[int]) -> dict[tuple[str, str], str]:
+    """Return the names of the selected partitions and of the zones, by id."""
+    names = {
+        ("partition", str(number)): partition.name
+        for number in partitions
+        if (partition := state.partitions.get(number)) is not None
+    }
+    names.update({("zone", zone.id): zone.name for zone in state.zones.values()})
+    return names

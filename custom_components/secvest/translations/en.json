@@ -293,7 +293,8 @@
         "title": "Options",
         "menu_options": {
           "settings": "Partitions, intervals and zones",
-          "codes": "Codes for arming and disarming"
+          "codes": "Codes for arming and disarming",
+          "names": "Take over names from the panel"
         }
       },
       "settings": {
@@ -377,6 +378,10 @@
         "data": {
           "name": "User"
         }
+      },
+      "names": {
+        "title": "Take over names from the panel",
+        "description": "Names of partitions and zones renamed at the panel follow by themselves within one polling round. This also reads the installation's name from the panel once and names the panel device after it, then reloads the integration. Entity ids, the entry's title and names you set in Home Assistant stay."
       }
     },
     "error": {
@@ -384,10 +389,13 @@
       "name_required": "Enter a name.",
       "name_exists": "A code for this user exists already.",
       "invalid_code": "Enter a code of four digits.",
-      "code_exists": "Another user has this code already."
+      "code_exists": "Another user has this code already.",
+      "installer_locked": "The installer is logged in at the panel, which locks the API. Try again after the installer has logged out.",
+      "cannot_connect": "The panel could not be reached. Try again later."
     },
     "abort": {
-      "not_loaded": "The integration isn't loaded. Fix the problem shown for it first (for example reauthenticate), then change the options."
+      "not_loaded": "The integration isn't loaded. Fix the problem shown for it first (for example reauthenticate), then change the options.",
+      "auth_failed": "The panel rejected the credentials. Reauthenticate first (Settings → Devices & services)."
     }
   },
   "selector": {

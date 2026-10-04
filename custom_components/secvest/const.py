@@ -12,6 +12,9 @@ CONF_ADVANCED = "advanced"
 # set after a 401; nothing is sent with the stored credentials until
 # a reauthentication succeeds (#6, #41)
 CONF_AUTH_FAILED = "auth_failed"
+# the installation's name as last read on request in the options; names the
+# panel device (missing: the entry's title, from setup) (#137)
+CONF_INSTALLATION_NAME = "installation_name"
 CONF_PARTITIONS = "partitions"
 CONF_SCAN_INTERVAL = "scan_interval"
 CONF_LOG_INTERVAL = "log_interval"
