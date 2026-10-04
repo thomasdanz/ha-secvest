@@ -77,6 +77,7 @@ Zones that belong to one opening, such as the two wings of a window, can be comb
 - **Open zones** per selected partition: the number of the partition's zones that are open and not omitted, listed in the attributes.
 - **Arming** per selected partition (e.g. "House arming"): "Blocked" while **Open zones** is above 0 or a fault prevents arming the partition, "Free" otherwise; the attributes name the open zones and those faults. Open entry doors count too, since arming via the API fails while one is open, although the panel doesn't report it as a fault.
 - **Installer lock** (diagnostic) on the panel device.
+- **Polling and connection** (diagnostic) on the panel device: **Round duration** (how long the last polling round's reads took, without the log), **Failed rounds** (failed rounds in a row, 0 while polling works; attributes `paused` and `last_error`), and, disabled by default, **Connection setup** (the last connection's setup time: about 0.013 s when the TLS session is resumed, about 6.5 s for a full handshake) and **Full handshakes** (connection setups without session resumption since the start). Durations are in seconds with two significant digits; you can show them in ms in the entity's settings. They stay available while the panel isn't reachable and cost no extra request.
 - **Log** on the panel device: an event entity that fires once for each new entry of the panel's log, with the event type `normal`, `alarm` or `trouble` and the attributes `text` (the panel's own text), `time` (when the panel wrote the entry), `user` and `user_name`, `partition` and `zone` where the entry names them. The log is read every 5 minutes by default, so entries arrive up to that much later. The first read takes the existing log as known and fires nothing, and a restart doesn't repeat entries. Each entry also appears in Home Assistant's logbook with its text and the panel's time, so you can see who armed or disarmed at the keypad or in the app without an automation; the logbook entry comes from the event `secvest_log_entry`, which carries the same data and the entity id.
 
 Entity ids start with the installation's name, followed by the partition or zone, e.g. `alarm_control_panel.alarmanlage_ground_floor` or `binary_sensor.alarmanlage_front_door`; the kind of zone isn't part of them. They are set once when the entities are created, with entity names in Home Assistant's language at that time (e.g. `sensor.alarmanlage_faults` in English, `sensor.alarmanlage_storungen` in German); you can rename them in Home Assistant.
@@ -93,6 +94,20 @@ content: >
 ```
 
 Replace `sensor.alarmanlage_faults` with the entity id of your faults sensor (in German, for example, `sensor.alarmanlage_storungen`).
+
+Home Assistant keeps the mean, minimum and maximum of the round duration and the connection setup as long-term statistics. A statistics graph card shows them per day, for example:
+
+```yaml
+type: statistics-graph
+title: Polling the panel
+entities:
+  - sensor.alarmanlage_round_duration
+period: day
+stat_types: [mean, min, max]
+chart_type: line
+```
+
+For a value to use in automations (e.g. the mean of the last hour), add a statistics helper (Settings → Devices & services → Helpers → Statistics) with the round duration as its source.
 
 ## Arming and disarming
 

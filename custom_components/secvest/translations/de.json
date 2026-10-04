@@ -101,6 +101,26 @@
       },
       "open_zones": {
         "name": "{partition} offene Zonen"
+      },
+      "round_duration": {
+        "name": "Abrufdauer"
+      },
+      "connection_setup": {
+        "name": "Verbindungsaufbau"
+      },
+      "full_handshakes": {
+        "name": "Volle Handshakes"
+      },
+      "failed_rounds": {
+        "name": "Fehlgeschlagene Abrufe",
+        "state_attributes": {
+          "paused": {
+            "name": "Pausiert"
+          },
+          "last_error": {
+            "name": "Letzter Fehler"
+          }
+        }
       }
     },
     "alarm_control_panel": {

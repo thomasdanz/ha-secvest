@@ -33,6 +33,22 @@ async def test_entity_registry(
         "problem": ("binary_sensor.alarmanlage_problem", None),
         "faults": ("sensor.alarmanlage_faults", None),
         "log": ("event.alarmanlage_log", None),
+        "round_duration": (
+            "sensor.alarmanlage_round_duration",
+            EntityCategory.DIAGNOSTIC,
+        ),
+        "connection_setup": (
+            "sensor.alarmanlage_connection_setup",
+            EntityCategory.DIAGNOSTIC,
+        ),
+        "full_handshakes": (
+            "sensor.alarmanlage_full_handshakes",
+            EntityCategory.DIAGNOSTIC,
+        ),
+        "failed_rounds": (
+            "sensor.alarmanlage_failed_rounds",
+            EntityCategory.DIAGNOSTIC,
+        ),
         "installer_lock": (
             "binary_sensor.alarmanlage_installer_lock",
             EntityCategory.DIAGNOSTIC,

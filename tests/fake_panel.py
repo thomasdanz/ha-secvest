@@ -317,6 +317,11 @@ class FakePanel:
             del self.log[600:]
             return entry
 
+    def close_connections(self) -> None:
+        """Close the open connections, as the panel does after idling."""
+        if self._server is not None:
+            self._server.close_connections()
+
     def inject(self, injection: Injection) -> None:
         """Answer the next matching request(s) with an error."""
         with self._lock:
