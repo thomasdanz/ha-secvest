@@ -208,6 +208,7 @@ The panel's partitions are independent of each other, so everything that belongs
 | Faults | sensor | Number of current faults **except "zone open"** (the panel lists every open omittable zone as a fault, even when disarmed; those are counted per partition as open zones); list and readable summary of the same faults as attributes |
 | Problem | binary_sensor | On while the faults sensor is above 0, i.e. any fault other than an open zone is present |
 | Installer lock | binary_sensor (diagnostic) | On while the installer is logged in at the panel |
+| Round duration, connection setup, reconnects, failed rounds | sensor (diagnostic) | Planned (#176): duration of the last round, time of the last connection setup, reconnects since the start, consecutive failed rounds (backoff); connection setup and reconnects disabled by default; no extra request |
 | Log | event | One event per new log entry (#34): event type `normal`, `alarm`, `trouble` (`unknown` for a type the client doesn't know); attributes `text` (displayed only), `time` (#8), `user`, `user_name`, `partition` (one-based), `zone`. The baseline fires nothing, and the stored log state keeps a restart from replaying entries. Each entry also gets a logbook row with its text and the panel's time |
 
 **Per selected partition** (entities on the panel device, named after the partition)
