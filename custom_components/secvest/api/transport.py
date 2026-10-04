@@ -220,6 +220,9 @@ class Transport:
         self._ssl_context: ssl.SSLContext | None = None
         self.tls_session: ssl.SSLSession | None = None
         self.stats = TransportStats()
+        # the last answer to each read, for diagnostics (#43); the log is
+        # left out, it is large and names people
+        self.last_responses: dict[str, Any] = {}
         self._conn: _Connection | None = None
         self._last_used = 0.0
         self._queue = _RequestQueue()
@@ -345,7 +348,10 @@ class Transport:
                 "The panel rejected the credentials; no further requests are sent "
                 "until they are entered again"
             )
-        return check_response(status, payload)
+        result = check_response(status, payload)
+        if method == "GET" and not path.startswith("/logs/"):
+            self.last_responses[path] = result
+        return result
 
     def _attempt(
         self,

@@ -23,7 +23,7 @@ Terms follow the manufacturer's wording, see the [glossary](glossary.md).
 │ Home Assistant                                                │
 │                                                               │
 │  config_flow.py      alarm_control_panel.py  binary_sensor.py │
-│  diagnostics.py*     switch.py  sensor.py  event.py           │
+│  diagnostics.py      switch.py  sensor.py  event.py           │
 │  logbook.py                   │                               │
 │        │                      ▼                               │
 │        │               entity.py (base classes)               │
@@ -46,7 +46,7 @@ Terms follow the manufacturer's wording, see the [glossary](glossary.md).
                          Secvest panel
 ```
 
-`*` planned (#43). Repair issues are raised by the coordinator itself.
+Repair issues are raised by the coordinator itself.
 
 ### API client
 
@@ -80,7 +80,7 @@ The API client is a self-contained Python package without any Home Assistant dep
 | `log.py` | The log state (#11): the baseline, the entries of the overlap window, de-duplication by content and the stored state. |
 | `codes.py` | Codes for arming and disarming (in the options since 1.3, #141; config subentries before, #116): user name plus a salted hash (PBKDF2) of a four-digit code and its parameters (`kdf`; missing means `pbkdf2-sha256-100000`, as stored before 0.3); lookup by code, hashing all stored codes in one executor job so the event loop isn't blocked (#139). The hash protects against casual reading of the configuration only: four digits are 10,000 candidates. Home Assistant's own: they can't be checked against the panel (no API, and failed logins must be avoided). |
 | `groups.py` | Zone groups as stored in their subentries; what a change of which reloads the entry. |
-| `diagnostics.py` | Planned (#43): redacted diagnostics download. |
+| `diagnostics.py` | Diagnostics download (#43): the raw answers of the last round (the transport keeps the last answer to each read, not the log), connection counters (handshakes, resumptions, reconnects), polling and backoff state, the log state without its entries, the stored settings and the tested firmware (ADR 0005). Redacted: address, credentials, codes (only their number and hash parameters remain) and every name and text (installation, partitions, zones, zone groups, users, fault texts). Sends nothing. |
 | `translations/` | `en.json`, `de.json`. |
 | `brand/` | `icon.png` and `icon@2x.png`, rendered from `assets/icon.svg` by `scripts/render_icon.py`; Home Assistant (2026.8 and later) serves them itself and falls back to the icon for the logo and dark mode. Own design, not ABUS artwork. |
 
@@ -209,7 +209,6 @@ The panel's partitions are independent of each other, so everything that belongs
 | Problem | binary_sensor | On while the faults sensor is above 0, i.e. any fault other than an open zone is present |
 | Installer lock | binary_sensor (diagnostic) | On while the installer is logged in at the panel |
 | Log | event | One event per new log entry (#34): event type `normal`, `alarm`, `trouble` (`unknown` for a type the client doesn't know); attributes `text` (displayed only), `time` (#8), `user`, `user_name`, `partition` (one-based), `zone`. The baseline fires nothing, and the stored log state keeps a restart from replaying entries. Each entry also gets a logbook row with its text and the panel's time |
-| Diagnostics | sensor (diagnostic) | Last round duration, connection setup time, reconnects, backoff state |
 
 **Per selected partition** (entities on the panel device, named after the partition)
 

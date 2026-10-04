@@ -399,6 +399,16 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
             raise
         return system.name
 
+    @property
+    def log_interval(self) -> float:
+        """Return the log interval in seconds."""
+        return self._log_interval
+
+    @property
+    def log_read_failed(self) -> bool:
+        """Return whether the last log read failed."""
+        return self._log_failed
+
     async def async_load_log(self) -> None:
         """Restore the log state of the last run, so nothing is replayed."""
         data = await self._log_store.async_load()
