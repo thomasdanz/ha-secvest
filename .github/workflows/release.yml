@@ -1,0 +1,36 @@
+# A GitHub release for each version tag (#48).
+#
+# Pushing a tag vX.Y.Z creates the release, with the version's changelog
+# section as its notes; the tag has to match the version in the manifest and
+# pyproject.toml. Run it by hand to create the release of an existing tag
+# again (e.g. after deleting a broken one).
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag, e.g. v0.4.0
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: GitHub release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - run: uv run --no-project python scripts/release_notes.py "$TAG" > notes.md
+      - run: gh release create "$TAG" --verify-tag --title "${TAG#v}" --notes-file notes.md
