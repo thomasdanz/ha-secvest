@@ -52,4 +52,4 @@ uv run scripts/render_icon.py          # render the brand PNGs from assets/icon.
 
 The dev dependencies pin `pytest-homeassistant-custom-component` to the current Home Assistant release (ADR 0003); `uv.lock` is committed.
 
-CI (`.github/workflows/ci.yml`) runs the same checks, the tests against the current and the previous Home Assistant release, hassfest and the HACS validation; `beta.yml` tests weekly against the upcoming release. How to move the version window is described at the top of `ci.yml`.
+CI (`.github/workflows/ci.yml`) runs the same checks, the tests against the current and the previous Home Assistant release and the declared minimum (coverage of at least 95 % with the current one), hassfest and the HACS validation; actions are pinned by commit and Dependabot proposes updates weekly; `beta.yml` tests weekly against the upcoming release. How to move the version window is described at the top of `ci.yml`.
