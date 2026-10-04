@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- The minimum Home Assistant version is 2026.8.0 (declared 2026.3.0 before, but the zone devices need 2026.8; checked against every release from 2026.3 on). CI tests the minimum as a third version (#150).
 - Without any code configured, the alarm panel asks for none: arming and disarming work without a code (a code sent anyway, e.g. by HomeKit Bridge, is ignored), and no user is shown. With the first code added, codes are required as before. The reason `no_codes` of `secvest_arming_failed` is gone (#131).
 - README: arming without any code while codes are configured fires no `secvest_arming_failed` event, since Home Assistant refuses it before the integration is called (#143).
 - Codes for arming and disarming are managed in the integration's options (**Configure** → **Codes**: add, change, remove) instead of as entries on the integration's page, which showed an empty section per code. Changing codes no longer reloads the integration (#141).

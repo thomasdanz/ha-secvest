@@ -7,6 +7,9 @@
 #   2. Below: move the old current release to the "previous" entry, with the
 #      pytest-homeassistant-custom-component version it was pinned to.
 #   3. README ("Tested Home Assistant versions") and changelog.
+# The third test job guards the minimum declared in hacs.json (#150): it
+# stays when the window moves, and changes only with that minimum, which is
+# raised only when the code needs it.
 name: CI
 
 on:
@@ -43,6 +46,9 @@ jobs:
           # previous release
           - home-assistant: "2026.8"
             pytest-ha: "0.13.357"
+          # the minimum in hacs.json: DeviceInfo's via_device_id needs 2026.8
+          - home-assistant: "2026.8.0 (minimum)"
+            pytest-ha: "0.13.354"
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.2.0
