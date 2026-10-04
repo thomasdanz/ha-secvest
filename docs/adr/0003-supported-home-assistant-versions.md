@@ -24,7 +24,7 @@ Option 2:
 - When a new Home Assistant release comes out, the window moves on (current + previous); the change is noted in the changelog.
 - A scheduled CI run tests weekly against the upcoming Home Assistant beta, to see breaking changes before they are released. A failure there doesn't block anything but opens an issue.
 - Older versions are not tested, but compatibility with them is not broken on purpose: newer Home Assistant APIs are only adopted when there is a reason (a deprecation, a needed feature), not for their own sake. Users of older versions may find that the integration still works, without any promise.
-- Accordingly, the minimum declared in `hacs.json` is the oldest version the code actually needs, and it is raised only when a change requires it — not automatically with every release.
+- Accordingly, the minimum declared in `hacs.json` is the oldest version the code actually needs, and it is raised only when a change requires it — not automatically with every release. A third CI job tests that minimum (with the `pytest-homeassistant-custom-component` version for it), so the declaration stays true; it doesn't move with the window. Checked 2026-10-04 (#150): the declared 2026.3.0 didn't work (from 2026.3.1 to 2026.7.0, zone devices fail: `DeviceInfo` has `via_device_id` only since 2026.8, and the older `via_device` is deprecated), so the minimum is 2026.8.0.
 - The tested window can be widened later if users need it, as long as every supported version is tested.
 
 ## Consequences
