@@ -1,5 +1,9 @@
 # ABUS Secvest for Home Assistant
 
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories)
+[![Release](https://img.shields.io/github/v/release/thomasdanz/ha-secvest)](https://github.com/thomasdanz/ha-secvest/releases)
+[![CI](https://github.com/thomasdanz/ha-secvest/actions/workflows/ci.yml/badge.svg)](https://github.com/thomasdanz/ha-secvest/actions/workflows/ci.yml)
+
 A Home Assistant custom integration for the ABUS Secvest alarm panel. It talks to the panel's local REST API, the one the official app uses, as documented in [`secvest-api`](https://github.com/thomasdanz/secvest-api).
 
 > **Status:** v0.3: shows partitions, zones and faults, arms and disarms (acknowledging an alarm on the way), omits zones and zone groups, and shows the panel's log as events and in the logbook. The public release follows with v0.4 (see the [milestones](https://github.com/thomasdanz/ha-secvest/milestones)).
@@ -197,6 +201,8 @@ For a bug report, download the diagnostics: Settings → Devices & services → 
 - [Decision records](docs/adr/)
 - [Glossary](docs/glossary.md)
 - [Changelog](CHANGELOG.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
 
 ## License
 

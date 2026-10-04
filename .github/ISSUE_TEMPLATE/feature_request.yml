@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest something the integration should do.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The integration only uses what the panel's REST API offers, as documented in [secvest-api](https://github.com/thomasdanz/secvest-api), and never puts more load on the panel than the official app. **Never post credentials, codes, addresses or names of your installation.**
+  - type: textarea
+    id: problem
+    attributes:
+      label: What do you want to do?
+      description: The situation and what is missing, not only the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Your idea
+      description: How the integration could do it.
+  - type: input
+    id: panel
+    attributes:
+      label: Panel model and firmware
+      description: If it depends on your panel.
+      placeholder: "FUAA50500, v3.01.31"
