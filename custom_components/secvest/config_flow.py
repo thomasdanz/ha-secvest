@@ -60,6 +60,7 @@ from .const import (
     CONF_CODES,
     CONF_EXCLUDED_ZONES,
     CONF_HIDE_MEMBERS,
+    CONF_INSTALLATION_NAME,
     CONF_LOG_INTERVAL,
     CONF_PARTITIONS,
     CONF_SCAN_INTERVAL,
@@ -453,7 +454,42 @@ class SecvestOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Choose between the settings and the codes."""
-        return self.async_show_menu(step_id="init", menu_options=["settings", "codes"])
+        return self.async_show_menu(
+            step_id="init", menu_options=["settings", "codes", "names"]
+        )
+
+    async def async_step_names(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Take over the names from the panel, the installation's too (#137).
+
+        The one step of the options that sends something: GET /system/ once,
+        like the app at its start. Partitions and zones follow by themselves;
+        the reload afterwards shows all names at once.
+        """
+        entry = self.config_entry
+        if entry.state is not ConfigEntryState.LOADED:
+            return self.async_abort(reason="not_loaded")
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                name = await entry.runtime_data.async_read_installation_name()
+            except AuthenticationError:
+                # the reauthentication has started
+                return self.async_abort(reason="auth_failed")
+            except InstallerLockedError:
+                errors["base"] = "installer_locked"
+            except SecvestError:
+                errors["base"] = "cannot_connect"
+            else:
+                self.hass.config_entries.async_update_entry(
+                    entry, data={**entry.data, CONF_INSTALLATION_NAME: name}
+                )
+                self.hass.config_entries.async_schedule_reload(entry.entry_id)
+                return self.async_create_entry(data=dict(entry.options))
+        return self.async_show_form(
+            step_id="names", data_schema=vol.Schema({}), errors=errors
+        )
 
     async def async_step_settings(
         self, user_input: dict[str, Any] | None = None

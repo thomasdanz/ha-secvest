@@ -8,7 +8,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
 from .api.models import Zone
-from .const import DOMAIN, MANUFACTURER, PANEL_MODEL
+from .const import CONF_INSTALLATION_NAME, DOMAIN, MANUFACTURER, PANEL_MODEL
 from .coordinator import SecvestCoordinator
 from .groups import ZoneGroup
 
@@ -17,13 +17,14 @@ def panel_device_info(entry: ConfigEntry) -> DeviceInfo:
     """Return the panel device of a config entry.
 
     The API reports no serial number or model, so the entry identifies the
-    panel.
+    panel. Its name is the installation's, as read at setup (the entry's
+    title) or later on request in the options (#137).
     """
     return DeviceInfo(
         identifiers={(DOMAIN, entry.entry_id)},
         manufacturer=MANUFACTURER,
         model=PANEL_MODEL,
-        name=entry.title,
+        name=entry.data.get(CONF_INSTALLATION_NAME) or entry.title,
     )
 
 

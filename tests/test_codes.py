@@ -239,7 +239,7 @@ async def test_codes_menu(hass: HomeAssistant, setup: Setup) -> None:
     """Changing and removing are offered once there is a code."""
     entry = await setup()
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    assert result["menu_options"] == ["settings", "codes"]
+    assert result["menu_options"] == ["settings", "codes", "names"]
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {"next_step_id": "codes"}
     )

@@ -46,6 +46,11 @@ async def test_logbook_row_with_the_text(
     mock_component(hass, "frontend")
     assert await async_setup_component(hass, "http", {})
     assert await async_setup_component(hass, "logbook", {})
+    # the panel's clock runs in Home Assistant's time zone, so the entry is
+    # from today whatever the time of day (#8)
+    offset = dt_util.now().utcoffset()
+    assert offset is not None
+    fake_panel.clock_offset = int(offset.total_seconds())
     entry = await setup()
     start = dt_util.utcnow()
     fake_panel.add_log_entry("Ben 003 TB 1 aktiv", partition="0", user="3")

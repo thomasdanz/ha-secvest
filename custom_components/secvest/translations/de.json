@@ -293,7 +293,8 @@
         "title": "Optionen",
         "menu_options": {
           "settings": "Teilbereiche, Intervalle und Zonen",
-          "codes": "Codes zum Aktivieren und Deaktivieren"
+          "codes": "Codes zum Aktivieren und Deaktivieren",
+          "names": "Namen von der Zentrale übernehmen"
         }
       },
       "settings": {
@@ -377,6 +378,10 @@
         "data": {
           "name": "Benutzer"
         }
+      },
+      "names": {
+        "title": "Namen von der Zentrale übernehmen",
+        "description": "Namen von Teilbereichen und Zonen, die an der Zentrale umbenannt wurden, folgen innerhalb einer Abfragerunde von selbst. Hier wird zusätzlich einmal der Name der Anlage von der Zentrale gelesen und das Gerät der Zentrale danach benannt; danach lädt die Integration neu. Entity-IDs, der Titel des Eintrags und in Home Assistant vergebene Namen bleiben."
       }
     },
     "error": {
@@ -384,10 +389,13 @@
       "name_required": "Gib einen Namen ein.",
       "name_exists": "Für diesen Benutzer gibt es schon einen Code.",
       "invalid_code": "Gib einen Code aus vier Ziffern ein.",
-      "code_exists": "Ein anderer Benutzer hat diesen Code schon."
+      "code_exists": "Ein anderer Benutzer hat diesen Code schon.",
+      "installer_locked": "Der Errichter ist an der Zentrale angemeldet, was die API sperrt. Versuche es erneut, wenn er sich abgemeldet hat.",
+      "cannot_connect": "Die Zentrale ist nicht erreichbar. Versuche es später erneut."
     },
     "abort": {
-      "not_loaded": "Die Integration ist nicht geladen. Behebe zuerst das angezeigte Problem (z. B. erneut anmelden) und ändere dann die Optionen."
+      "not_loaded": "Die Integration ist nicht geladen. Behebe zuerst das angezeigte Problem (z. B. erneut anmelden) und ändere dann die Optionen.",
+      "auth_failed": "Die Zentrale hat die Zugangsdaten abgelehnt. Melde dich zuerst erneut an (Einstellungen → Geräte & Dienste)."
     }
   },
   "selector": {
