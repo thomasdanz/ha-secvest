@@ -10,6 +10,12 @@
 # The third test job guards the minimum declared in hacs.json (#150): it
 # stays when the window moves, and changes only with that minimum, which is
 # raised only when the code needs it.
+#
+# Actions are pinned by commit, with the version as a comment; Dependabot
+# (.github/dependabot.yml) proposes updates weekly, also for uv.lock. The
+# exception is hassfest@master, which upstream recommends as is (#151).
+# The current release's job measures coverage (lines and branches) and fails
+# below 95 %; the report is kept as an artifact.
 name: CI
 
 on:
@@ -26,8 +32,8 @@ jobs:
     name: Lint and type checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
@@ -43,6 +49,7 @@ jobs:
           # current release: the version pinned in pyproject.toml / uv.lock
           - home-assistant: "2026.9"
             pytest-ha: locked
+            coverage: true
           # previous release
           - home-assistant: "2026.8"
             pytest-ha: "0.13.357"
@@ -50,19 +57,30 @@ jobs:
           - home-assistant: "2026.8.0 (minimum)"
             pytest-ha: "0.13.354"
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - run: uv sync --locked
       - if: matrix.pytest-ha != 'locked'
         run: uv pip install "pytest-homeassistant-custom-component==${{ matrix.pytest-ha }}"
       - run: uv run --no-sync python -c "from homeassistant.const import __version__; print(__version__)"
-      - run: uv run --no-sync pytest
+      - if: ${{ !matrix.coverage }}
+        run: uv run --no-sync pytest
+      - if: ${{ matrix.coverage }}
+        run: >-
+          uv run --no-sync pytest
+          --cov=custom_components/secvest --cov-branch --cov-fail-under=95
+          --cov-report=term-missing:skip-covered --cov-report=html
+      - if: ${{ matrix.coverage && !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage
+          path: htmlcov/
 
   hassfest:
     name: hassfest
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: home-assistant/actions/hassfest@master
 
   # Validates the repository on GitHub (default branch and settings), not the
@@ -75,7 +93,7 @@ jobs:
     if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     steps:
-      - uses: hacs/action@22.5.0
+      - uses: hacs/action@d556e736723344f83838d08488c983a15381059a # 22.5.0
         with:
           category: integration
           # the integration is not listed in home-assistant/brands (yet)
