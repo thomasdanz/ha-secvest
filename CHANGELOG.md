@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-04
+
 ### Added
 
 - Security policy (`SECURITY.md`: private reporting, latest release only, the integration rather than the panel), contributing guide (`CONTRIBUTING.md`), issue forms for bugs and features, and README badges (#58, #59, #60, #62).
@@ -20,6 +22,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Upgrade notes
 
+- Requires Home Assistant 2026.8.0 or later.
+- New entities appear by themselves: the diagnostic sensors on the panel device (connection setup and full handshakes disabled by default).
 - Installations without codes can arm and disarm without one after the update. Add a code under **Configure** → **Codes** if arming and disarming should stay restricted.
 - Existing codes move into the options by themselves at the first start (stored data 1.3) and keep working; they are now under **Configure** → **Codes**. Going back to 0.3.x afterwards finds no codes there, so arming and disarming fail until they are added again.
 
@@ -263,7 +267,8 @@ First version, read-only: the state of partitions, zones and faults.
 - README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
 - Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
 
-[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/thomasdanz/ha-secvest/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/thomasdanz/ha-secvest/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.9...v0.3.0
 [0.2.9]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.8...v0.2.9

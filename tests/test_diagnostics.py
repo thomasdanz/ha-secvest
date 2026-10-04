@@ -107,3 +107,14 @@ async def test_not_loaded(hass: HomeAssistant, setup: Setup) -> None:
     diagnostics = await _diagnostics(hass, entry)
     assert set(diagnostics) == {"tested", "entry"}
     assert diagnostics["entry"]["data"]["password"] == "**REDACTED**"
+
+
+async def test_log_state(hass: HomeAssistant, setup: Setup, log_now: None) -> None:
+    """With a baseline: the newest timestamp, also in Home Assistant's time."""
+    entry = await setup()
+    log = (await _diagnostics(hass, entry))["log"]
+    assert log["has_baseline"] is True
+    assert log["known_entries"] >= 1
+    assert isinstance(log["newest_timestamp"], int)
+    assert log["newest_time"].startswith("20")
+    assert log["last_read_failed"] is False

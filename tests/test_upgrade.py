@@ -76,6 +76,13 @@ def _domain(unique_id: str) -> str:
         return "sensor"
     if unique_id == "log":
         return "event"
+    if unique_id in {
+        "round_duration",
+        "connection_setup",
+        "full_handshakes",
+        "failed_rounds",
+    }:
+        return "sensor"
     return "binary_sensor"
 
 
@@ -159,11 +166,15 @@ async def test_update_keeps_the_entry_and_its_entities(
         assert hass.states.get(entity_id) is not None, unique_id
     # nothing but a normal round was sent
     assert fake_panel.stats.requests == ROUND
-    # codes moved from their subentries into the options (1.3, #141)
+    # codes moved from their subentries into the options (1.3, #141), or
+    # stored there already
     stored_codes = [
-        subentry["data"]
-        for subentry in stored.get("subentries", [])
-        if subentry["subentry_type"] == "code"
+        *stored["options"].get(CONF_CODES, []),
+        *(
+            subentry["data"]
+            for subentry in stored.get("subentries", [])
+            if subentry["subentry_type"] == "code"
+        ),
     ]
     assert entry.options.get(CONF_CODES, []) == stored_codes
     assert all(s.subentry_type != "code" for s in entry.subentries.values())
