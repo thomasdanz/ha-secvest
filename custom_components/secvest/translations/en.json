@@ -101,6 +101,26 @@
       },
       "open_zones": {
         "name": "{partition} open zones"
+      },
+      "round_duration": {
+        "name": "Round duration"
+      },
+      "connection_setup": {
+        "name": "Connection setup"
+      },
+      "full_handshakes": {
+        "name": "Full handshakes"
+      },
+      "failed_rounds": {
+        "name": "Failed rounds",
+        "state_attributes": {
+          "paused": {
+            "name": "Paused"
+          },
+          "last_error": {
+            "name": "Last error"
+          }
+        }
       }
     },
     "alarm_control_panel": {

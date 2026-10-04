@@ -274,6 +274,11 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         self._log_due = time.monotonic() + FIRST_LOG_DELAY
         self._log_failed = False
         self._log_listeners: list[Callable[[list[LogEntry]], None]] = []
+        # seconds the state reads of the last regular round took (#176)
+        self.round_duration: float | None = None
+        # notified after every failed round; Home Assistant notifies all
+        # entities only at the first of a series (#176)
+        self._failure_listeners: list[Callable[[], None]] = []
         # the names of the partitions and zones at setup, by id, so that a
         # rename at the panel is noticed (#137)
         self._names: dict[tuple[str, str], str] | None = None
@@ -302,11 +307,17 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         pause); without this they would keep showing the stale state.
         """
         available = self.available
-        if available == self._shown_available:
-            return
+        changed = available != self._shown_available
         self._shown_available = available
-        if not self.last_update_success:
+        if self.last_update_success:
+            return
+        if changed:
             self.async_update_listeners()
+        elif self.backoff.failures > 1:
+            # only the diagnostic sensors, so the failed rounds count up;
+            # the others keep their state (#176)
+            for listener in list(self._failure_listeners):
+                listener()
 
     async def _async_update_data(self) -> PanelState:
         """Run one round, never sooner than the minimum after the last one."""
@@ -326,7 +337,10 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         try:
             # the slow log first, so the state the round publishes is fresh
             await self._poll_log()
+            # measured without the log read, which takes about 6 s (#176)
+            started = time.monotonic()
             state = await self._round()
+            duration = time.monotonic() - started
         except AuthenticationError as err:
             self._remember_auth_failed()
             raise ConfigEntryAuthFailed(
@@ -356,6 +370,7 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
             _LOGGER.debug("Discarding a round that a command overtook")
             return self.data
         self._accept(state)
+        self.round_duration = duration
         # only in a regular round, so a reload never falls into a command
         self._check_renames(state)
         return state
@@ -414,6 +429,14 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         data = await self._log_store.async_load()
         if data is not None:
             self.log = LogTracker.from_dict(data)
+
+    @callback
+    def async_add_failure_listener(
+        self, listener: Callable[[], None]
+    ) -> Callable[[], None]:
+        """Call the listener after every failed round, also the further ones."""
+        self._failure_listeners.append(listener)
+        return lambda: self._failure_listeners.remove(listener)
 
     @callback
     def async_add_log_listener(

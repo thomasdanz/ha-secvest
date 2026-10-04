@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Diagnostic sensors on the panel device: round duration, failed rounds and, disabled by default, connection setup and full handshakes. Their mean, minimum and maximum are in Home Assistant's statistics; the README shows a statistics graph card (#176).
 - Diagnostics download (Settings → Devices & services → ABUS Secvest → ⋮): the panel's answers of the last round, connection, polling and log state, settings and the tested firmware, with address, credentials, codes and all names and texts redacted (#43).
 - Names follow renames at the panel: a renamed partition or zone shows its new name after the next polling round (alarm panel, partition sensors, zone devices and entities), without another request. **Configure** → **Take over names from the panel** reads the installation's name once and names the panel device after it. Entity ids, the entry's title and names set in Home Assistant stay (#137).
 

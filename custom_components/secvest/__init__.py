@@ -174,6 +174,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: SecvestConfigEntry) ->
 # id; registry entries of other kinds come from an older version
 _ENTITY_KINDS = re.compile(
     r"(installer_lock|problem|faults|log"
+    r"|round_duration|connection_setup|full_handshakes|failed_rounds"
     r"|partition_\d+_(alarm|arming_blocked|open_zones)"
     r"|zone_[^_]+_(open|problem|omit)"
     r"|group_[^_]+_(open|omit))"

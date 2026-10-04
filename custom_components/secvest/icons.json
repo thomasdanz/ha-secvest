@@ -20,6 +20,18 @@
       },
       "open_zones": {
         "default": "mdi:window-open-variant"
+      },
+      "round_duration": {
+        "default": "mdi:timer-outline"
+      },
+      "connection_setup": {
+        "default": "mdi:lan-connect"
+      },
+      "full_handshakes": {
+        "default": "mdi:handshake-outline"
+      },
+      "failed_rounds": {
+        "default": "mdi:sync-alert"
       }
     },
     "switch": {
