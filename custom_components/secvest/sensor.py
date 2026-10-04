@@ -198,6 +198,13 @@ class DiagnosticSensor(SecvestEntity, SensorEntity):
         super().__init__(coordinator, description.key)
         self.entity_description = description
 
+    async def async_added_to_hass(self) -> None:
+        """Also update after further failed rounds, unlike the other entities."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            self.coordinator.async_add_failure_listener(self.async_write_ha_state)
+        )
+
     @property
     def available(self) -> bool:
         """Always: the values describe the connection, also a failing one."""

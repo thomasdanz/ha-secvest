@@ -15,6 +15,7 @@ ROUND_DURATION = "sensor.alarmanlage_round_duration"
 CONNECTION_SETUP = "sensor.alarmanlage_connection_setup"
 FULL_HANDSHAKES = "sensor.alarmanlage_full_handshakes"
 FAILED_ROUNDS = "sensor.alarmanlage_failed_rounds"
+FAULTS = "sensor.alarmanlage_faults"
 
 
 @pytest.mark.parametrize(
@@ -88,6 +89,7 @@ async def test_failed_rounds_count_up(
     fake_panel.inject(
         Injection("GET", "/system/partitions/", "status", status=500, times=3)
     )
+    reported = []
     for failures in (1, 2, 3):
         # the test doesn't wait out the backoff
         coordinator.backoff.not_before = 0
@@ -97,6 +99,10 @@ async def test_failed_rounds_count_up(
         assert state.state == str(failures)
         assert state.attributes["paused"] is False
         assert "500" in state.attributes["last_error"]
+        reported.append(get_state(hass, FAULTS).last_reported)
+    # the other entities aren't written again at the second failure; at the
+    # third they become unavailable
+    assert reported[1] == reported[0]
     # from the third the other entities are unavailable; these are not
     assert get_state(hass, PANEL).state == "unavailable"
     assert get_state(hass, ROUND_DURATION).state != "unavailable"
