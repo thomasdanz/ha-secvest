@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guidance for AI coding assistants working on this repository. Human contributors: see `CONTRIBUTING.md` once it exists.
+Guidance for AI coding assistants working on this repository. Human contributors: see `CONTRIBUTING.md`.
 
 ## What this is
 

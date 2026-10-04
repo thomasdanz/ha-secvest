@@ -1,0 +1,72 @@
+name: Bug report
+description: Something doesn't work as described.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Never post credentials, user codes, arming codes, addresses, serial numbers or names of your installation** (zones, rooms, partitions, people). Replace them with made-up values. Security issues don't belong here: report them privately, see SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Integration version
+      description: Settings → Devices & services → ABUS Secvest, or the version in HACS.
+      placeholder: "0.4.0"
+    validations:
+      required: true
+  - type: input
+    id: home-assistant
+    attributes:
+      label: Home Assistant version
+      description: Settings → About.
+      placeholder: "2026.9.4"
+    validations:
+      required: true
+  - type: input
+    id: panel
+    attributes:
+      label: Panel model and firmware
+      description: As shown in the panel's web interface under Info.
+      placeholder: "FUAA50500, v3.01.31"
+    validations:
+      required: true
+  - type: input
+    id: language
+    attributes:
+      label: Panel language and language pack version
+      description: Also under Info in the panel's web interface.
+      placeholder: "German, 1.03"
+  - type: dropdown
+    id: connection
+    attributes:
+      label: Connection to the panel
+      options:
+        - Directly (port 4433)
+        - Through a reverse proxy
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Settings → Devices & services → ABUS Secvest → ⋮ → Download diagnostics, then drag the file here. It is redacted; look through it anyway before attaching it.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log
+      description: Lines of Home Assistant's log about `custom_components.secvest` (Settings → System → Logs), redacted like above.
+      render: text
+  - type: checkboxes
+    id: redacted
+    attributes:
+      label: Redacted
+      options:
+        - label: I removed credentials, codes, addresses and names of my installation from everything above.
+          required: true

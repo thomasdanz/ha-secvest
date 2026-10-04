@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/thomasdanz/ha-secvest/security/advisories/new
+    about: Privately, never as a public issue. See SECURITY.md.
+  - name: How the panel's API behaves
+    url: https://github.com/thomasdanz/secvest-api
+    about: The documented API and the observed behaviour of the panel.
