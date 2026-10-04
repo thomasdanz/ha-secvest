@@ -162,6 +162,10 @@ While the installer is logged in at the panel, its API is locked. The diagnostic
 
 If the panel later rejects the credentials (for example after the password was changed at the panel), the integration stops sending anything after that single 401, also after a restart of Home Assistant, and asks you to reauthenticate: enter user code and password again; they are checked with a single request. If a reverse proxy answered the 401, fix the proxy first, then reauthenticate.
 
+## Diagnostics
+
+For a bug report, download the diagnostics: Settings → Devices & services → ABUS Secvest → ⋮ → **Download diagnostics**. The file holds the panel's answers of the last polling round, the connection and polling state and the settings. The address, credentials and codes, and all names and texts (installation, partitions, zones, zone groups, users, fault texts) are replaced by `**REDACTED**`; ids and states stay. Downloading sends nothing to the panel. Look through the file before sharing it anyway.
+
 ## Limitations
 
 - **Delay:** changes show up with the next polling round, by default within 30 seconds.
