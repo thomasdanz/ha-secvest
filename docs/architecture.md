@@ -23,8 +23,9 @@ Terms follow the manufacturer's wording, see the [glossary](glossary.md).
 │ Home Assistant                                                │
 │                                                               │
 │  config_flow.py      alarm_control_panel.py  binary_sensor.py │
-│  diagnostics.py      switch.py  sensor.py  event.py           │
-│  logbook.py                   │                               │
+│  options_flow.py     switch.py  sensor.py  event.py           │
+│  zone_group_flow.py  diagnostics.py  logbook.py               │
+│  flow_helpers.py              │                               │
 │        │                      ▼                               │
 │        │               entity.py (base classes)               │
 │        │                      │                               │
@@ -76,7 +77,10 @@ The API client is a self-contained Python package without any Home Assistant dep
 | `sensor.py` | Faults count with details. |
 | `event.py` | The log event entity: receives each batch of new log entries from the coordinator and fires one event per entry, oldest first; also fires `secvest_log_entry` for the logbook (#34). |
 | `logbook.py` | Describes `secvest_log_entry` in Home Assistant's logbook: the entry's text with the panel's time, since the event entity's own logbook rows only show the type (#34). |
-| `config_flow.py` | Setup, partition/zone selection, options (a menu: settings, or codes with add, change and remove, #141), zone groups (subentry flow), reauthentication. |
+| `config_flow.py` | Setup (address and credentials, partition and zone selection), reauthentication, the stored data's version, and the registration of the options and zone group flows (#147). |
+| `options_flow.py` | The options: a menu with the settings (partitions, intervals, User-Agent, then the zones step), the codes (add, change, remove, #141) and taking over names from the panel (#137). |
+| `zone_group_flow.py` | Adding and changing zone groups (subentry flow, #67). |
+| `flow_helpers.py` | Form parts shared by the flows: partition selector and the zones step (excluded zones, device class per zone). |
 | `log.py` | The log state (#11): the baseline, the entries of the overlap window, de-duplication by content and the stored state. |
 | `codes.py` | Codes for arming and disarming (in the options since 1.3, #141; config subentries before, #116): user name plus a salted hash (PBKDF2) of a four-digit code and its parameters (`kdf`; missing means `pbkdf2-sha256-100000`, as stored before 0.3); lookup by code, hashing all stored codes in one executor job so the event loop isn't blocked (#139). The hash protects against casual reading of the configuration only: four digits are 10,000 candidates. Home Assistant's own: they can't be checked against the panel (no API, and failed logins must be avoided). |
 | `groups.py` | Zone groups as stored in their subentries; what a change of which reloads the entry. |
