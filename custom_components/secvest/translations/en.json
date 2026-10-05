@@ -47,6 +47,22 @@
           "password": "The password of that panel user."
         }
       },
+      "reconfigure": {
+        "title": "Change connection",
+        "description": "Change the address, the credentials or the certificate check of {name}, e.g. for a new address or reverse proxy, or a new password. The settings are checked with a single request; meanwhile polling waits. Entities, names and settings stay.\n\nFor another panel, add a new entry instead: the panel can't be identified, so it isn't noticed here.",
+        "data": {
+          "url": "Address",
+          "user_code": "User code",
+          "password": "Password",
+          "verify_ssl": "Verify certificate"
+        },
+        "data_description": {
+          "url": "The panel's address, e.g. 192.168.1.10 (port 4433) or 192.168.1.10:4433, or the https URL of a reverse proxy in front of it.",
+          "user_code": "The code of the panel user Home Assistant logs in with.",
+          "password": "Leave empty to keep the current password.",
+          "verify_ssl": "Leave off for the panel's own self-signed certificate; turn on behind a reverse proxy with a valid certificate."
+        }
+      },
       "zones": {
         "title": "Zones",
         "description": "Choose what kind of detector each zone is; the panel doesn't tell. Excluded zones get no entities. You can change this later in the integration's options. Zones that belong to one opening, such as the two wings of a window, can be combined afterwards with \"Add zone group\" on the integration's page. Codes for arming and disarming are added in the integration's options (Configure → Codes); without any, the alarm panel asks for none.",
@@ -65,11 +81,13 @@
       "cannot_connect": "The panel could not be reached. Check the address and the network.",
       "timeout": "The panel did not answer in time. Check the address; the panel may be busy.",
       "unexpected_response": "The address answered, but not like a Secvest panel. Check the address (and the path behind a reverse proxy).",
-      "no_partitions": "Select at least one partition."
+      "no_partitions": "Select at least one partition.",
+      "already_configured": "Another entry already uses this address."
     },
     "abort": {
       "already_configured": "This panel is already set up.",
-      "reauth_successful": "The credentials were updated."
+      "reauth_successful": "The credentials were updated.",
+      "reconfigure_successful": "The connection settings were changed."
     }
   },
   "entity": {

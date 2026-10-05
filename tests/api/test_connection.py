@@ -380,6 +380,19 @@ async def test_command_lost_after_sending_it_anew(
     assert fake_panel.partitions[1].state == "set"
 
 
+async def test_disconnect(fake_panel: FakePanel, transport: Transport) -> None:
+    """Disconnecting closes the connection; the next request resumes (#138)."""
+    await transport.request("GET", "/system/")
+    await transport.disconnect()
+    await transport.request("GET", "/system/")
+    assert fake_panel.stats.connections == 2
+    assert transport.stats.resumed_handshakes == 1
+    # nothing to close after closing
+    await transport.close()
+    await transport.disconnect()
+    assert fake_panel.stats.requests == [("GET", "/system/"), ("GET", "/system/")]
+
+
 async def test_request_after_close(fake_panel: FakePanel, transport: Transport) -> None:
     """A late request after closing is a communication error; nothing is sent."""
     await transport.close()

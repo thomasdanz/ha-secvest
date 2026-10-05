@@ -47,6 +47,22 @@
           "password": "Das Passwort dieses Benutzers."
         }
       },
+      "reconfigure": {
+        "title": "Verbindung ändern",
+        "description": "Ändere Adresse, Zugangsdaten oder Zertifikatsprüfung von {name}, z. B. für eine neue Adresse oder einen neuen Reverse-Proxy oder ein neues Passwort. Die Einstellungen werden mit einer einzigen Anfrage geprüft; die Abfrage wartet so lange. Entitäten, Namen und Einstellungen bleiben.\n\nFür eine andere Zentrale lege stattdessen einen neuen Eintrag an: Die Zentrale lässt sich nicht erkennen, deshalb fällt das hier nicht auf.",
+        "data": {
+          "url": "Adresse",
+          "user_code": "Benutzercode",
+          "password": "Passwort",
+          "verify_ssl": "Zertifikat prüfen"
+        },
+        "data_description": {
+          "url": "Adresse der Zentrale, z. B. 192.168.1.10 (Port 4433) oder 192.168.1.10:4433, oder die https-URL eines Reverse-Proxys davor.",
+          "user_code": "Der Code des Benutzers der Zentrale, mit dem sich Home Assistant anmeldet.",
+          "password": "Leer lassen, um das bisherige Passwort zu behalten.",
+          "verify_ssl": "Für das selbstsignierte Zertifikat der Zentrale ausgeschaltet lassen; hinter einem Reverse-Proxy mit gültigem Zertifikat einschalten."
+        }
+      },
       "zones": {
         "title": "Zonen",
         "description": "Wähle, was für ein Melder jede Zone ist; die Zentrale verrät es nicht. Ausgeschlossene Zonen bekommen keine Entitäten. Das lässt sich später in den Optionen der Integration ändern. Zonen, die zu einer Öffnung gehören, etwa die beiden Flügel eines Fensters, fasst du danach auf der Seite der Integration mit „Zonengruppe hinzufügen“ zusammen. Codes zum Aktivieren und Deaktivieren legst du in den Optionen der Integration an (Konfigurieren → Codes); ohne Code fragt das Alarm-Panel keinen ab.",
@@ -65,11 +81,13 @@
       "cannot_connect": "Die Zentrale ist nicht erreichbar. Prüfe Adresse und Netzwerk.",
       "timeout": "Die Zentrale hat nicht rechtzeitig geantwortet. Prüfe die Adresse; die Zentrale ist eventuell ausgelastet.",
       "unexpected_response": "Unter der Adresse antwortet etwas, aber nicht wie eine Secvest. Prüfe die Adresse (und hinter einem Reverse-Proxy den Pfad).",
-      "no_partitions": "Wähle mindestens einen Teilbereich aus."
+      "no_partitions": "Wähle mindestens einen Teilbereich aus.",
+      "already_configured": "Ein anderer Eintrag verwendet diese Adresse bereits."
     },
     "abort": {
       "already_configured": "Diese Zentrale ist bereits eingerichtet.",
-      "reauth_successful": "Die Zugangsdaten wurden aktualisiert."
+      "reauth_successful": "Die Zugangsdaten wurden aktualisiert.",
+      "reconfigure_successful": "Die Verbindungseinstellungen wurden geändert."
     }
   },
   "entity": {

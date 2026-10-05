@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable, Iterable, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Mapping
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import timedelta
 import logging
@@ -11,6 +12,7 @@ import time
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
+from homeassistant.const import CONF_URL
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import issue_registry as ir
@@ -213,6 +215,9 @@ class _LastRound:
     after a locked or failed round goes on from there (#145).
     """
 
+    # the address it was read from: after a change of address (#138) it
+    # may be another panel's
+    url: str
     partitions: tuple[int, ...]
     state: PanelState
     installer_locked: bool
@@ -401,6 +406,18 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
             self._names = names
             self.hass.config_entries.async_schedule_reload(self.config_entry.entry_id)
 
+    @asynccontextmanager
+    async def async_hold_panel(self) -> AsyncIterator[None]:
+        """Keep the panel to the caller, e.g. to check new settings (#138).
+
+        Holds the request queue, ahead of a polling round, and closes the
+        connection, so a check on another transport is the only request
+        and the only connection to the panel. Polling goes on afterwards.
+        """
+        async with self.client.hold(priority=True):
+            await self.client.transport.disconnect()
+            yield
+
     async def async_read_installation_name(self) -> str:
         """Read the installation's name once, like the app at its start.
 
@@ -489,7 +506,11 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
             _LOGGER.info("The installer logged out; the panel is unlocked")
             self.installer_locked = False
         _last_rounds(self.hass)[self.config_entry.entry_id] = _LastRound(
-            self.selected_partitions, state, False, self.backoff
+            self.config_entry.data[CONF_URL],
+            self.selected_partitions,
+            state,
+            False,
+            self.backoff,
         )
         self._check_issues(state)
 
@@ -590,8 +611,9 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
 
         A reload (changed options or zone groups) would otherwise wait up to
         the minimum spacing before its first round. The result is only taken
-        for the same selected partitions; nothing is sent. The installer lock
-        and the backoff go on from where the rounds since left them.
+        for the same address and selected partitions; nothing is sent. The
+        installer lock and the backoff go on from where the rounds since left
+        them.
         """
         entry_id = self.config_entry.entry_id
         start = _round_starts(self.hass).get(entry_id)
@@ -599,6 +621,7 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         if (
             start is None
             or last is None
+            or last.url != self.config_entry.data[CONF_URL]
             or last.partitions != self.selected_partitions
             or time.monotonic() - start >= MIN_SCAN_INTERVAL
         ):

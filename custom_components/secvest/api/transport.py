@@ -288,6 +288,19 @@ class Transport:
                 self._executor, self._request_sync, method, path, body, read_timeout
             )
 
+    async def disconnect(self) -> None:
+        """Close the connection; the next request reconnects.
+
+        Nothing is sent. Within a hold, no other connection to the panel is
+        open afterwards, e.g. while settings are checked on another
+        transport (#138).
+        """
+        async with self.hold():
+            if self._closed:
+                return
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(self._executor, self._disconnect)
+
     async def close(self) -> None:
         """Close the connection and stop the thread; later requests fail."""
         async with self.hold(priority=True):

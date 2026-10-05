@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- **Reconfigure** in the entry's menu changes the panel's address, user code, password and certificate check without removing and re-adding the integration, so entities, names and settings stay. The settings are checked with a single request while polling waits; if the check fails, nothing changes (#138).
+
 ### Changed
 
 - Internal: the config flow is split into modules for setup, options, zone groups and their shared form parts; no change in behaviour (#147).
