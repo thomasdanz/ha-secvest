@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- README: why the logbook shows two rows for each entry of the panel's log, and that excluding the log entity from the recorder or the logbook hides both (#180).
 - Internal: the config flow is split into modules for setup, options, zone groups and their shared form parts; no change in behaviour (#147).
 
 ## [0.4.0] - 2026-10-04

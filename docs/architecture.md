@@ -61,7 +61,7 @@ The API client is a self-contained Python package without any Home Assistant dep
 | `parsing.py` | Lenient JSON parsing (control characters, ids as strings), both spellings of alarm states, conversion of log timestamps from panel local time. |
 | `errors.py` | `SecvestError` and subclasses: `AuthenticationError` (401), `InstallerLockedError` (403 installer), `NotAllowedError` (403 empty), `NotFoundError` (404), `InvalidRequestError` (400), `ArmingBlockedError` (409, carries the faults), `CommunicationError` (timeouts, connection errors, unexpected responses) with its subclass `ConnectionLostError` (the connection broke after a command was sent, so its outcome is unknown). |
 
-**Later (web interface epic):** reading data from the panel's web interface (e.g. signal strength, components such as repeaters) is a different interface with its own login, session and safety rules. It will live in a separate subpackage `webui/` next to the REST client, so the REST client stays unaffected and the feature can be disabled or left out entirely.
+**Planned for v1.1 (web interface epic):** reading data from the panel's web interface (e.g. signal strength, components such as repeaters) is a different interface with its own login, session and safety rules. It will live in a separate subpackage `webui/` next to the REST client, so the REST client stays unaffected and the feature can be disabled or left out entirely.
 
 ### Home Assistant integration
 
