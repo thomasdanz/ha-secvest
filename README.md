@@ -62,6 +62,8 @@ Then select the **partitions** Home Assistant should show and operate; their zon
 
 Finally choose what kind of detector each **zone** is (door, window, garage door, motion, …) and exclude zones you don't want in Home Assistant. The panel doesn't tell detector types apart, so this is up to you; you can change it later in the options.
 
+**Changing the connection:** if the panel gets a new address, you put a new reverse proxy in front of it, or its password changes, use **Reconfigure** in the entry's menu (Settings → Devices & services → ABUS Secvest → ⋮) instead of removing and re-adding the integration. It changes address, user code, password (leave it empty to keep the current one) and certificate check, checks them with a single request, and keeps all entities, names and settings. Meanwhile polling waits, so there is never a second connection to the panel; if the check fails, nothing changes. For another panel, add a new entry instead: the panel can't be identified, so the integration doesn't notice.
+
 ## Options
 
 In the integration's options (Settings → Devices & services → ABUS Secvest → Configure) you choose between the settings, the codes (see "Arming and disarming") and taking over names from the panel. Under the settings you can change the selected partitions, the status interval (at least 24 seconds), the log interval (how often new entries of the panel's log are read; 5 minutes by default, at least 2 minutes) and, under Advanced, the User-Agent. The second step lists the zones of the selected partitions: choose a device class per zone (door, window, motion, …; the panel doesn't tell detector types apart) and exclude zones you don't want in Home Assistant. Saving reloads the integration; nothing is sent to the panel while you change the settings or codes.
@@ -195,7 +197,7 @@ For a bug report, download the diagnostics: Settings → Devices & services → 
 - **Faults:** the sensor shows the list the panel returns; whether the panel shortens very long lists is unknown.
 - **Omitting** goes through the first selected partition that lists the zone. If the panel user has no rights there, omitting fails with "no permission", even if the user may operate another selected partition with the same zone.
 - **Log:** the panel's log is read once in full and then only its new entries, every 5 minutes. Entries written after a panel restart before its clock is set (dated 1 January 2019), and more than 600 new entries between two reads, can be missed. The panel stores its local time without a time zone; the integration reads it in Home Assistant's time zone, so set both to the same one.
-- **Entities are tied to the config entry:** the API reports no serial number, so removing and re-adding the integration creates new entities. Their entity ids can be renamed back in Home Assistant.
+- **Entities are tied to the config entry:** the API reports no serial number, so removing and re-adding the integration creates new entities (their entity ids can be renamed back in Home Assistant). For a new address or password use **Reconfigure** instead (see "Setup").
 
 ## Documentation
 

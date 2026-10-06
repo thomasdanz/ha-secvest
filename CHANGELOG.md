@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- **Reconfigure** in the entry's menu changes the panel's address, user code, password and certificate check without removing and re-adding the integration, so entities, names and settings stay. The settings are checked with a single request while polling waits; if the check fails, nothing changes (#138).
+
 ### Changed
 
 - README: why the logbook shows two rows for each entry of the panel's log, and that excluding the log entity from the recorder or the logbook hides both (#180).

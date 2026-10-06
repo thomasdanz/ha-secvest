@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 
 from homeassistant.config_entries import (
     ConfigEntry,
+    ConfigEntryState,
     ConfigFlow,
     ConfigFlowResult,
     ConfigSubentryFlow,
@@ -57,6 +58,18 @@ STEP_REAUTH_SCHEMA = vol.Schema(
         vol.Required(CONF_PASSWORD): TextSelector(
             TextSelectorConfig(type=TextSelectorType.PASSWORD)
         ),
+    }
+)
+
+STEP_RECONFIGURE_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_URL): TextSelector(),
+        vol.Required(CONF_USER_CODE): TextSelector(),
+        # empty keeps the stored password
+        vol.Optional(CONF_PASSWORD): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.PASSWORD)
+        ),
+        vol.Required(CONF_VERIFY_SSL): bool,
     }
 )
 
@@ -257,6 +270,71 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="reauth_confirm",
             data_schema=self.add_suggested_values_to_schema(
                 STEP_REAUTH_SCHEMA, {CONF_USER_CODE: user_code}
+            ),
+            errors=errors,
+            description_placeholders={"name": entry.title},
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Change address, credentials or certificate check (#138).
+
+        Checked with exactly one request; while the entry is loaded, its
+        polling waits and its connection is closed meanwhile. Another panel
+        at the new address isn't noticed: the API has no serial number.
+        """
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                url = normalize_address(user_input[CONF_URL])
+            except ValueError:
+                errors[CONF_URL] = "invalid_address"
+            else:
+                unique_id = url.removeprefix("https://")
+                if any(
+                    other.unique_id == unique_id
+                    for other in self._async_current_entries(include_ignore=False)
+                    if other.entry_id != entry.entry_id
+                ):
+                    errors[CONF_URL] = "already_configured"
+                else:
+                    data = {
+                        **entry.data,
+                        CONF_URL: url,
+                        CONF_USER_CODE: user_input[CONF_USER_CODE].strip(),
+                        CONF_PASSWORD: user_input.get(CONF_PASSWORD)
+                        or entry.data[CONF_PASSWORD],
+                        CONF_VERIFY_SSL: user_input[CONF_VERIFY_SSL],
+                    }
+                    if entry.state is ConfigEntryState.LOADED:
+                        async with entry.runtime_data.async_hold_panel():
+                            error = await self._validate(data, read_partitions=False)
+                    else:
+                        error = await self._validate(data, read_partitions=False)
+                    if error is None:
+                        updates = {**data, CONF_AUTH_FAILED: False}
+                        if entry.update_listeners:
+                            # loaded: its update listener reloads, since the
+                            # address and the credentials are part of what
+                            # it compares
+                            return self.async_update_and_abort(
+                                entry, unique_id=unique_id, data_updates=updates
+                            )
+                        return self.async_update_reload_and_abort(
+                            entry, unique_id=unique_id, data_updates=updates
+                        )
+                    errors["base"] = error
+        # the password is never suggested
+        suggested = {
+            key: (user_input or entry.data)[key]
+            for key in (CONF_URL, CONF_USER_CODE, CONF_VERIFY_SSL)
+        }
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(
+                STEP_RECONFIGURE_SCHEMA, suggested
             ),
             errors=errors,
             description_placeholders={"name": entry.title},
