@@ -21,6 +21,7 @@ from homeassistant.helpers import entity_registry as er
 
 from .const import (
     CONF_AREA_ID,
+    CONF_CERT_FINGERPRINT,
     CONF_CODES,
     CONF_HIDE_MEMBERS,
     CONF_USER_AGENT,
@@ -71,8 +72,9 @@ def reload_snapshot(entry: ConfigEntry) -> object:
     """Return the settings a change of which reloads the entry.
 
     Options, zone groups, the User-Agent, and the address, credentials and
-    certificate check, which the reconfiguration changes (#138). The flag a
-    401 sets is left out; clearing it reloads by itself. Codes are left
+    certificate check, which the reconfiguration changes (#138, #149). The
+    flags a 401 or an untrusted certificate set are left out; clearing them
+    reloads by itself. Codes are left
     out too: the alarm panels read them at each command (#141).
     """
     return (
@@ -84,7 +86,13 @@ def reload_snapshot(entry: ConfigEntry) -> object:
         entry.data.get(CONF_USER_AGENT),
         tuple(
             entry.data.get(key)
-            for key in (CONF_URL, CONF_USER_CODE, CONF_PASSWORD, CONF_VERIFY_SSL)
+            for key in (
+                CONF_URL,
+                CONF_USER_CODE,
+                CONF_PASSWORD,
+                CONF_VERIFY_SSL,
+                CONF_CERT_FINGERPRINT,
+            )
         ),
     )
 

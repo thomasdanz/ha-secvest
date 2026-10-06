@@ -10,7 +10,8 @@ from base64 import b64encode
 from collections.abc import AsyncIterator, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager, contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import hashlib
 import heapq
 import http.client
 import itertools
@@ -26,6 +27,7 @@ from urllib.parse import urlsplit
 from .errors import (
     ArmingBlockedError,
     AuthenticationError,
+    CertificateError,
     CommunicationError,
     ConnectionLostError,
     InstallerLockedError,
@@ -74,6 +76,91 @@ def translate_errors() -> Iterator[None]:
         raise CommunicationError(
             f"connection to the panel failed: {type(err).__name__}"
         ) from err
+
+
+def fingerprint(der: bytes) -> str:
+    """Return the SHA-256 fingerprint of a DER certificate, as lowercase hex."""
+    return hashlib.sha256(der).hexdigest()
+
+
+@dataclass(frozen=True)
+class PeerCertificate:
+    """The certificate a server presented, and whether it is publicly trusted.
+
+    Publicly trusted: its chain leads to a CA of the system's store and it
+    matches the host name. The TLS context and session of the probe are
+    kept, so a transport for the same server can resume the session
+    instead of another full handshake.
+    """
+
+    der: bytes
+    public: bool
+    context: ssl.SSLContext = field(repr=False, compare=False)
+    session: ssl.SSLSession | None = field(repr=False, compare=False)
+
+    @property
+    def fingerprint(self) -> str:
+        """Return the SHA-256 fingerprint, as lowercase hex."""
+        return fingerprint(self.der)
+
+
+def system_context() -> ssl.SSLContext:
+    """Verify against the system's CA store, with host name check (blocking)."""
+    return ssl.create_default_context()
+
+
+def pinned_context() -> ssl.SSLContext:
+    """Accept any certificate in the handshake; the caller checks it after.
+
+    For a self-signed certificate, which has no usable host name and whose
+    validity dates don't matter: its fingerprint is compared before
+    anything is sent (#149). Without a fingerprint, nothing is checked.
+    """
+    context = ssl.create_default_context()
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    return context
+
+
+def _handshake(
+    host: str, port: int, context: ssl.SSLContext
+) -> tuple[bytes, ssl.SSLSession | None]:
+    sock = socket.create_connection((host, port), CONNECT_TIMEOUT)
+    try:
+        with context.wrap_socket(sock, server_hostname=host) as tls:
+            der = tls.getpeercert(binary_form=True)
+            if der is None:
+                raise CommunicationError("the server presented no certificate")
+            return der, tls.session
+    finally:
+        sock.close()
+
+
+def probe_certificate_sync(url: str) -> PeerCertificate:
+    """Read the certificate a server presents; nothing is sent (blocking).
+
+    First a handshake that verifies it against the system's CA store; only
+    if that fails, a second one that accepts any certificate. Runs in an
+    executor, never during polling.
+    """
+    parts = urlsplit(url)
+    if parts.scheme != "https" or not parts.hostname:
+        raise ValueError("the panel's address must be an https URL")
+    host, port = parts.hostname, parts.port or 443
+    with translate_errors():
+        context = system_context()
+        try:
+            der, session = _handshake(host, port, context)
+        except ssl.SSLCertVerificationError:
+            context = pinned_context()
+            der, session = _handshake(host, port, context)
+            return PeerCertificate(der, False, context, session)
+        return PeerCertificate(der, True, context, session)
+
+
+async def probe_certificate(url: str) -> PeerCertificate:
+    """Read the certificate a server presents, in a thread; nothing is sent."""
+    return await asyncio.to_thread(probe_certificate_sync, url)
 
 
 def _forbidden(body: bytes) -> Exception:
@@ -151,9 +238,18 @@ class _Connection(http.client.HTTPSConnection):
             tls = transport.ssl_context.wrap_socket(
                 sock, server_hostname=self.host, session=transport.tls_session
             )
+        except ssl.SSLCertVerificationError as err:
+            sock.close()
+            raise transport.certificate_failed("not publicly trusted") from err
         except BaseException:
             sock.close()
             raise
+        pinned = transport.fingerprint
+        if pinned is not None:
+            der = tls.getpeercert(binary_form=True)
+            if der is None or fingerprint(der) != pinned:
+                tls.close()
+                raise transport.certificate_failed("another fingerprint")
         tls.settimeout(self.timeout)
         self.sock = tls
         transport.on_connected(tls, time.monotonic() - started)
@@ -204,10 +300,15 @@ class Transport:
         user_code: str,
         password: str,
         *,
-        verify_ssl: bool = False,
+        verify: bool | str = False,
         user_agent: str = DEFAULT_USER_AGENT,
     ) -> None:
-        """Prepare the connection; nothing is sent yet."""
+        """Prepare the connection; nothing is sent yet.
+
+        verify: True verifies the certificate against the system's CA store
+        with host name check, a string is the pinned SHA-256 fingerprint of
+        a self-signed certificate (#149), False checks nothing.
+        """
         parts = urlsplit(url)
         if parts.scheme != "https" or not parts.hostname:
             raise ValueError("the panel's address must be an https URL")
@@ -216,7 +317,10 @@ class Transport:
         self._base_path = parts.path.rstrip("/")
         self._authorization = basic_auth(user_code, password)
         self._user_agent = user_agent or DEFAULT_USER_AGENT
-        self._verify_ssl = verify_ssl
+        if verify == "":
+            raise ValueError("an empty fingerprint")
+        self._verify_system = verify is True
+        self.fingerprint = verify.lower() if isinstance(verify, str) else None
         self._ssl_context: ssl.SSLContext | None = None
         self.tls_session: ssl.SSLSession | None = None
         self.stats = TransportStats()
@@ -232,9 +336,21 @@ class Transport:
         # so nothing is sent with these credentials again. New credentials
         # mean a new transport.
         self._auth_failed = False
+        # set by an untrusted certificate (#149); likewise final
+        self._certificate_failed = False
         # set by close(); a late refresh or command must not reach the
         # stopped thread
         self._closed = False
+
+    def resume(self, probed: PeerCertificate) -> None:
+        """Take over a probe's TLS context and session, before the first request.
+
+        The probe of the same server verified the certificate the same way,
+        so the first connection resumes its session instead of another full
+        handshake.
+        """
+        self._ssl_context = probed.context
+        self.tls_session = probed.session
 
     @property
     def ssl_context(self) -> ssl.SSLContext:
@@ -244,12 +360,10 @@ class Transport:
         the event loop.
         """
         if self._ssl_context is None:
-            context = ssl.create_default_context()
-            if not self._verify_ssl:
-                # the panel uses a self-signed certificate
-                context.check_hostname = False
-                context.verify_mode = ssl.CERT_NONE
-            self._ssl_context = context
+            if self._verify_system:
+                self._ssl_context = system_context()
+            else:
+                self._ssl_context = pinned_context()
         return self._ssl_context
 
     @asynccontextmanager
@@ -328,12 +442,26 @@ class Transport:
 
     @property
     def authentication_failed(self) -> bool:
-        """Whether the panel rejected the credentials; no request is sent then."""
-        return self._auth_failed
+        """Whether the credentials or the certificate failed; nothing is sent then."""
+        return self._auth_failed or self._certificate_failed
+
+    def certificate_failed(self, reason: str) -> CertificateError:
+        """Stop all requests after an untrusted certificate (#149)."""
+        self._certificate_failed = True
+        _LOGGER.warning(
+            "The panel's certificate isn't the trusted one (%s); nothing is sent "
+            "until it is confirmed",
+            reason,
+        )
+        return CertificateError(f"untrusted certificate: {reason}")
 
     def _request_sync(
         self, method: str, path: str, body: dict[str, Any] | None, timeout: float
     ) -> Any:
+        if self._certificate_failed:
+            raise CertificateError(
+                "no request sent: the panel's certificate isn't the trusted one"
+            )
         if self._auth_failed:
             # also stops requests that were queued before the 401
             raise AuthenticationError(

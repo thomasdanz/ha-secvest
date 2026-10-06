@@ -14,7 +14,7 @@
           "url": "The panel's address, e.g. 192.168.1.10 (port 4433) or 192.168.1.10:4433, or the https URL of a reverse proxy in front of it.",
           "user_code": "The code of the panel user Home Assistant logs in with.",
           "password": "The password of that panel user.",
-          "verify_ssl": "Leave off for the panel's own self-signed certificate; turn on behind a reverse proxy with a valid certificate."
+          "verify_ssl": "On: a certificate with a publicly trusted chain is verified as usual; a self-signed one, such as the panel's own, is shown next and pinned once you confirm it. Off: nothing is verified, so someone in your network could impersonate the panel and receive the credentials."
         },
         "sections": {
           "advanced": {
@@ -27,6 +27,14 @@
             }
           }
         }
+      },
+      "certificate_public": {
+        "title": "Certificate",
+        "description": "The address presents a publicly trusted certificate. It is verified against the system's certificate authorities at every connection, so renewals need nothing from you.\n\n- **Subject:** {subject}\n- **Issuer:** {issuer}\n- **Valid:** {valid_from} to {valid_until}\n- **SHA-256:** {fingerprint}"
+      },
+      "certificate_pinned": {
+        "title": "Confirm the certificate",
+        "description": "The address presents a self-signed certificate, as the panel itself does. Confirm it only if it is your panel's, e.g. by comparing the fingerprint with what a browser shows for the address. From then on only this certificate is accepted, and the credentials are sent only after you confirm.\n\n- **Subject:** {subject}\n- **Issuer:** {issuer}\n- **Valid:** {valid_from} to {valid_until}\n- **SHA-256:** {fingerprint}"
       },
       "partitions": {
         "title": "Select partitions",
@@ -47,6 +55,26 @@
           "password": "The password of that panel user."
         }
       },
+      "reauth_certificate": {
+        "title": "The panel's certificate",
+        "description": "{name} presented another certificate than the trusted one, so nothing has been sent since. Its certificate couldn't be read now; check the connection and try again."
+      },
+      "reauth_certificate_unchanged": {
+        "title": "Certificate trusted again",
+        "description": "{name} presented another certificate than the trusted one, so nothing has been sent since. Now it presents the trusted certificate again. Continue to use the connection again."
+      },
+      "reauth_certificate_changed": {
+        "title": "New certificate",
+        "description": "{name} presents another self-signed certificate than the confirmed one, so nothing has been sent since. This happens when the panel creates a new certificate, but also when someone in your network impersonates it. Confirm only if you expect the change.\n\n- **Confirmed so far:** {previous}\n- **Subject:** {subject}\n- **Issuer:** {issuer}\n- **Valid:** {valid_from} to {valid_until}\n- **SHA-256:** {fingerprint}"
+      },
+      "reauth_certificate_now_public": {
+        "title": "Now a public certificate",
+        "description": "{name} now presents a publicly trusted certificate instead of the confirmed self-signed one, e.g. because a reverse proxy is in front of the panel. Nothing has been sent since. Confirming switches to verification against the system's certificate authorities and drops the pinned fingerprint ({previous}).\n\n- **Subject:** {subject}\n- **Issuer:** {issuer}\n- **Valid:** {valid_from} to {valid_until}\n- **SHA-256:** {fingerprint}"
+      },
+      "reauth_certificate_now_pinned": {
+        "title": "Now a self-signed certificate",
+        "description": "{name} no longer presents a publicly trusted certificate but a self-signed one, e.g. the panel's own without the reverse proxy, or someone in your network impersonating it. Nothing has been sent since. Confirm only if you expect the change; then this certificate is pinned.\n\n- **Subject:** {subject}\n- **Issuer:** {issuer}\n- **Valid:** {valid_from} to {valid_until}\n- **SHA-256:** {fingerprint}"
+      },
       "reconfigure": {
         "title": "Change connection",
         "description": "Change the address, the credentials or the certificate check of {name}, e.g. for a new address or reverse proxy, or a new password. The settings are checked with a single request; meanwhile polling waits. Entities, names and settings stay.\n\nFor another panel, add a new entry instead: the panel can't be identified, so it isn't noticed here.",
@@ -60,7 +88,7 @@
           "url": "The panel's address, e.g. 192.168.1.10 (port 4433) or 192.168.1.10:4433, or the https URL of a reverse proxy in front of it.",
           "user_code": "The code of the panel user Home Assistant logs in with.",
           "password": "Leave empty to keep the current password.",
-          "verify_ssl": "Leave off for the panel's own self-signed certificate; turn on behind a reverse proxy with a valid certificate."
+          "verify_ssl": "On: a certificate with a publicly trusted chain is verified as usual; a self-signed one, such as the panel's own, is shown next and pinned once you confirm it. Off: nothing is verified, so someone in your network could impersonate the panel and receive the credentials."
         }
       },
       "zones": {
@@ -82,12 +110,15 @@
       "timeout": "The panel did not answer in time. Check the address; the panel may be busy.",
       "unexpected_response": "The address answered, but not like a Secvest panel. Check the address (and the path behind a reverse proxy).",
       "no_partitions": "Select at least one partition.",
-      "already_configured": "Another entry already uses this address."
+      "already_configured": "Another entry already uses this address.",
+      "certificate_changed": "The certificate changed during the check. Try again."
     },
     "abort": {
       "already_configured": "This panel is already set up.",
       "reauth_successful": "The credentials were updated.",
-      "reconfigure_successful": "The connection settings were changed."
+      "reconfigure_successful": "The connection settings were changed.",
+      "certificate_confirmed": "The certificate was confirmed; the connection is used again.",
+      "certificate_unchanged": "The panel presents the trusted certificate again; the connection is used again."
     }
   },
   "entity": {
@@ -323,6 +354,9 @@
     },
     "group_include_failed": {
       "message": "Zone group {group}: {zones} not included again. {reason}"
+    },
+    "certificate_changed": {
+      "message": "The panel's certificate isn't the trusted one. Nothing is sent anymore; confirm the new certificate to continue (Settings → Devices & services)"
     }
   },
   "options": {
@@ -433,7 +467,8 @@
     },
     "abort": {
       "not_loaded": "The integration isn't loaded. Fix the problem shown for it first (for example reauthenticate), then change the options.",
-      "auth_failed": "The panel rejected the credentials. Reauthenticate first (Settings → Devices & services)."
+      "auth_failed": "The panel rejected the credentials. Reauthenticate first (Settings → Devices & services).",
+      "certificate_changed": "The panel's certificate isn't the trusted one. Confirm it first (Settings → Devices & services)."
     }
   },
   "selector": {

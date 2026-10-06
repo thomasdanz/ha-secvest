@@ -12,6 +12,10 @@ CONF_ADVANCED = "advanced"
 # set after a 401; nothing is sent with the stored credentials until
 # a reauthentication succeeds (#6, #41)
 CONF_AUTH_FAILED = "auth_failed"
+# the pinned SHA-256 fingerprint of a self-signed certificate, and the flag an
+# untrusted certificate sets (#149)
+CONF_CERT_FINGERPRINT = "cert_fingerprint"
+CONF_CERTIFICATE_CHANGED = "certificate_changed"
 # the installation's name as last read on request in the options; names the
 # panel device (missing: the entry's title, from setup) (#137)
 CONF_INSTALLATION_NAME = "installation_name"

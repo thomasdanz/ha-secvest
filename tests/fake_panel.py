@@ -191,12 +191,26 @@ class FakePanel:
         self._in_flight = 0
         self._open_connections = 0
         self._failed_credentials: str | None = None
-        self._context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        # the panel speaks TLS 1.2 and issues session tickets
-        self._context.maximum_version = ssl.TLSVersion.TLSv1_2
-        self._context.load_cert_chain(cert_file, key_file)
+        self._context = self._tls_context(cert_file, key_file)
         self._server: _Server | None = None
         self._thread: threading.Thread | None = None
+
+    @staticmethod
+    def _tls_context(cert_file: Path, key_file: Path) -> ssl.SSLContext:
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        # the panel speaks TLS 1.2 and issues session tickets
+        context.maximum_version = ssl.TLSVersion.TLSv1_2
+        context.load_cert_chain(cert_file, key_file)
+        return context
+
+    def swap_certificate(self, cert_file: Path, key_file: Path) -> None:
+        """Present another certificate from the next connection on.
+
+        Like a new certificate of the panel, or someone impersonating it;
+        sessions of the old one can't be resumed.
+        """
+        self._context = self._tls_context(cert_file, key_file)
+        self.close_connections()
 
     # server
 

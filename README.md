@@ -22,6 +22,7 @@ A Home Assistant custom integration for the ABUS Secvest alarm panel. It talks t
 - **Use a separate panel user** for Home Assistant: the level "normal user" is enough, with rights for exactly the partitions Home Assistant should operate. Every user sees all partitions, but the panel refuses commands on the others.
 - **Polling limits:** the integration never polls more often than every 24 seconds, the official app's own cycle, and backs off when the panel doesn't answer. It keeps one connection, sends one request at a time and resumes TLS sessions, since a full handshake takes the panel about 6.5 seconds. More load than the official app's was deliberately not tested.
 - **One rejected login stops everything:** failed logins may count towards a code tamper alarm, so the integration never causes a second one. After the first `401 Unauthorized` it sends nothing more with these credentials — no retry, no polling, also not after a restart of Home Assistant — its entities are unavailable, and Home Assistant asks you to reauthenticate (Settings → Devices & services). Only new credentials, checked with a single request, start it again. This holds for every 401, also one a reverse proxy in front of the panel answers.
+- **The certificate is checked:** with "Verify certificate" on, nobody in your network can impersonate the panel to capture user code and password; they go out only to the trusted certificate. If the panel presents another one (a new certificate, a reverse proxy added or removed, or someone impersonating it), the integration handles it like a rejected login: it sends nothing more, also not after a restart, and Home Assistant asks you to confirm the new certificate, showing what changed and its fingerprint. Confirm only if you expect the change.
 - **Set up each panel once.** The API reports no serial number, so the integration can't tell that two addresses (e.g. directly and through a reverse proxy) lead to the same panel; set up twice, it is polled twice.
 - **Don't expose the panel's API to the internet unprotected.** The panel neither noticed nor limited failed logins at its REST API in tests (see [`secvest-api`](https://github.com/thomasdanz/secvest-api)).
 
@@ -53,10 +54,10 @@ Add the integration in Home Assistant (Settings → Devices & services → Add i
 
 - **Address:** the panel's IP address or host name, optionally with a port (default 4433), or the https URL of a reverse proxy in front of it.
 - **User code** and **password** of a panel user. Use a separate user for Home Assistant: the level "normal user" is enough, with rights for exactly the partitions Home Assistant should operate. The installer code doesn't work.
-- **Verify certificate:** leave off for the panel's own self-signed certificate.
+- **Verify certificate** (on by default): a certificate with a publicly trusted chain, e.g. of a reverse proxy with Let's Encrypt, is verified as usual, and renewals need nothing from you. A self-signed certificate, such as the panel's own, is shown next with its fingerprint; once you confirm it, only this certificate is accepted. Turn it off only if you know why: then nothing is verified.
 - **Advanced → User-Agent:** only needed for a reverse proxy that filters by User-Agent.
 
-The credentials are checked with a single request. If the panel rejects them, nothing is retried automatically.
+The credentials are sent only after the certificate step, and checked with a single request. If the panel rejects them, nothing is retried automatically.
 
 Then select the **partitions** Home Assistant should show and operate; their zones are added automatically. The panel doesn't reveal which partitions the user may operate, so all of them are listed; partitions without zones are deselected.
 

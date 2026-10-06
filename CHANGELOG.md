@@ -7,10 +7,15 @@ All notable changes to this project are documented in this file. The format is b
 ### Added
 
 - **Reconfigure** in the entry's menu changes the panel's address, user code, password and certificate check without removing and re-adding the integration, so entities, names and settings stay. The settings are checked with a single request while polling waits; if the check fails, nothing changes (#138).
+- **The panel's certificate is verified:** "Verify certificate" is on by default for new setups. A publicly trusted certificate (e.g. a reverse proxy with Let's Encrypt) is verified as usual; a self-signed one, such as the panel's own, is shown with its fingerprint at setup and pinned once you confirm it, before any credentials are sent. If the panel later presents another certificate, nothing more is sent and Home Assistant asks you to confirm the new one, like after a rejected login (#149).
 
 ### Changed
 
 - Internal: the config flow is split into modules for setup, options, zone groups and their shared form parts; no change in behaviour (#147).
+
+### Upgrade notes
+
+- Existing setups keep their certificate check. With it off (the previous default for the panel's own certificate), nothing is verified: turn it on under **Reconfigure** in the entry's menu; the certificate is then shown and pinned once you confirm it (#149).
 
 ## [0.4.0] - 2026-10-04
 

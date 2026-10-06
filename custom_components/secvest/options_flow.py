@@ -20,7 +20,12 @@ from homeassistant.helpers.selector import (
 )
 import voluptuous as vol
 
-from .api.errors import AuthenticationError, InstallerLockedError, SecvestError
+from .api.errors import (
+    AuthenticationError,
+    CertificateError,
+    InstallerLockedError,
+    SecvestError,
+)
 from .codes import CODE_PATTERN, async_prepare, code_of
 from .const import (
     CONF_ADVANCED,
@@ -80,6 +85,9 @@ class SecvestOptionsFlow(OptionsFlow):
         if user_input is not None:
             try:
                 name = await entry.runtime_data.async_read_installation_name()
+            except CertificateError:
+                # the confirmation of the certificate has started (#149)
+                return self.async_abort(reason="certificate_changed")
             except AuthenticationError:
                 # the reauthentication has started
                 return self.async_abort(reason="auth_failed")

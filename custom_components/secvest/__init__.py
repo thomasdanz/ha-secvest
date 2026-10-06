@@ -4,16 +4,17 @@ import logging
 import re
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_PASSWORD, CONF_URL, CONF_VERIFY_SSL, Platform
+from homeassistant.const import CONF_PASSWORD, CONF_URL, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 from .api.client import Client
 from .api.transport import Transport
-from .config_flow import default_user_agent
+from .config_flow import default_user_agent, verification
 from .const import (
     CONF_AUTH_FAILED,
+    CONF_CERTIFICATE_CHANGED,
     CONF_CODES,
     CONF_EXCLUDED_ZONES,
     CONF_USER_AGENT,
@@ -43,6 +44,12 @@ type SecvestConfigEntry = ConfigEntry[SecvestCoordinator]
 async def async_setup_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> bool:
     """Connect to the panel and run the first polling round."""
     data = entry.data
+    if data.get(CONF_CERTIFICATE_CHANGED):
+        # the panel presented an untrusted certificate; nothing is sent until
+        # the user confirmed the new one (#149)
+        raise ConfigEntryAuthFailed(
+            translation_domain=DOMAIN, translation_key="certificate_changed"
+        )
     if data.get(CONF_AUTH_FAILED):
         # the panel rejected these credentials before, maybe before a
         # restart; never send them again (#6)
@@ -53,7 +60,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> b
         data[CONF_URL],
         data[CONF_USER_CODE],
         data[CONF_PASSWORD],
-        verify_ssl=data[CONF_VERIFY_SSL],
+        verify=verification(data),
         user_agent=data[CONF_USER_AGENT] or await default_user_agent(hass),
     )
     coordinator = SecvestCoordinator(hass, entry, Client(transport))
@@ -79,13 +86,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> b
     _remove_stale_entities(hass, entry)
     _hide_grouped_zones(hass, entry)
     # changed options or zone groups (subentries) reload the entry, and so
-    # does a reauthentication, which clears the flag a 401 set
+    # does a reauthentication, which clears the flag a 401 or an untrusted
+    # certificate set
     snapshot = reload_snapshot(entry)
-    auth_failed = [bool(entry.data.get(CONF_AUTH_FAILED))]
+    auth_failed = [_blocked(entry)]
     stored_codes = [entry.options.get(CONF_CODES, [])]
 
     async def _reload_on_change(hass: HomeAssistant, entry: SecvestConfigEntry) -> None:
-        now_failed = bool(entry.data.get(CONF_AUTH_FAILED))
+        now_failed = _blocked(entry)
         reauthenticated = auth_failed[0] and not now_failed
         auth_failed[0] = now_failed
         if reauthenticated or reload_snapshot(entry) != snapshot:
@@ -98,6 +106,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> b
 
     entry.async_on_unload(entry.add_update_listener(_reload_on_change))
     return True
+
+
+def _blocked(entry: SecvestConfigEntry) -> bool:
+    """Whether a 401 or an untrusted certificate stopped all requests."""
+    return bool(
+        entry.data.get(CONF_AUTH_FAILED) or entry.data.get(CONF_CERTIFICATE_CHANGED)
+    )
 
 
 _ZONE_ENTITY = re.compile(r"zone_([^_]+)_(open|problem|omit)")
@@ -167,6 +182,10 @@ async def async_migrate_entry(hass: HomeAssistant, entry: SecvestConfigEntry) ->
         hass.config_entries.async_update_entry(entry, options=options, minor_version=3)
         for subentry in subentries:
             hass.config_entries.async_remove_subentry(entry, subentry.subentry_id)
+    if entry.minor_version < 4:
+        # 1.4: a pinned certificate fingerprint and its flag may be stored
+        # (#149); older entries keep their certificate check as it was
+        hass.config_entries.async_update_entry(entry, minor_version=4)
     return True
 
 

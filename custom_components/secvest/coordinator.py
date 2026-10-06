@@ -21,6 +21,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .api.client import Client
 from .api.errors import (
     AuthenticationError,
+    CertificateError,
     ConnectionLostError,
     InstallerLockedError,
     SecvestError,
@@ -29,6 +30,7 @@ from .api.models import FaultType, LogEntry, PanelEvent, Partition, Zone, ZoneSt
 from .const import (
     BACKOFF_MAX,
     CONF_AUTH_FAILED,
+    CONF_CERTIFICATE_CHANGED,
     CONF_LOG_INTERVAL,
     CONF_PARTITIONS,
     CONF_SCAN_INTERVAL,
@@ -347,9 +349,9 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
             state = await self._round()
             duration = time.monotonic() - started
         except AuthenticationError as err:
-            self._remember_auth_failed()
             raise ConfigEntryAuthFailed(
-                translation_domain=DOMAIN, translation_key="auth_failed"
+                translation_domain=DOMAIN,
+                translation_key=self._remember_auth_failed(err),
             ) from err
         except InstallerLockedError as err:
             # the panel answers, so no backoff and the interval stays; the
@@ -520,13 +522,21 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
             self._check_partition(number, state.partitions.get(number))
         self._check_groups(state)
 
-    def _remember_auth_failed(self) -> None:
-        # never retried: the transport already blocks further requests, and
-        # the flag keeps setup from sending the credentials again
-        self.hass.config_entries.async_update_entry(
-            self.config_entry,
-            data={**self.config_entry.data, CONF_AUTH_FAILED: True},
+    def _remember_auth_failed(self, err: AuthenticationError) -> str:
+        """Remember a 401 or an untrusted certificate; return its translation key.
+
+        Never retried: the transport already blocks further requests, and
+        the flag keeps setup from sending anything again.
+        """
+        key = (
+            CONF_CERTIFICATE_CHANGED
+            if isinstance(err, CertificateError)
+            else CONF_AUTH_FAILED
         )
+        self.hass.config_entries.async_update_entry(
+            self.config_entry, data={**self.config_entry.data, key: True}
+        )
+        return key
 
     def _set_installer_locked(self) -> None:
         if not self.installer_locked:
@@ -542,7 +552,7 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         the installer lock is shown. Other errors are left to the caller.
         """
         if isinstance(err, AuthenticationError):
-            self._remember_auth_failed()
+            self._remember_auth_failed(err)
             self.config_entry.async_start_reauth(self.hass)
         elif isinstance(err, InstallerLockedError):
             self._set_installer_locked()

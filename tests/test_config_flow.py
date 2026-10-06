@@ -17,6 +17,7 @@ from custom_components.secvest.api.errors import CommunicationError
 from custom_components.secvest.config_flow import normalize_address
 from custom_components.secvest.const import (
     CONF_ADVANCED,
+    CONF_CERT_FINGERPRINT,
     CONF_CODES,
     CONF_EXCLUDED_ZONES,
     CONF_PARTITIONS,
@@ -99,6 +100,7 @@ async def test_create_entry(hass: HomeAssistant, fake_panel: FakePanel) -> None:
         CONF_USER_CODE: fake_panel.user_code,
         CONF_PASSWORD: fake_panel.password,
         CONF_VERIFY_SSL: False,
+        CONF_CERT_FINGERPRINT: None,
         CONF_USER_AGENT: "",
     }
     assert result["options"] == {
@@ -204,13 +206,6 @@ async def test_cannot_connect(hass: HomeAssistant) -> None:
         },
     )
     assert result["errors"] == {"base": "cannot_connect"}
-
-
-async def test_certificate_rejected(hass: HomeAssistant, fake_panel: FakePanel) -> None:
-    """With verification on, the self-signed certificate can't connect."""
-    result = await _submit(hass, _input(fake_panel, **{CONF_VERIFY_SSL: True}))
-    assert result["errors"] == {"base": "cannot_connect"}
-    assert fake_panel.stats.requests == []
 
 
 async def test_timeout(hass: HomeAssistant, fake_panel: FakePanel) -> None:

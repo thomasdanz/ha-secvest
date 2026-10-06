@@ -23,6 +23,15 @@ class AuthenticationError(SecvestError):
     """The panel rejected the credentials (401); never retry."""
 
 
+class CertificateError(AuthenticationError):
+    """The panel's certificate isn't the trusted one (#149).
+
+    Nothing was sent on that connection, so the credentials are safe. As
+    after a 401, no further request is sent until the user has confirmed
+    the certificate.
+    """
+
+
 class InstallerLockedError(SecvestError):
     """The installer is logged in at the panel, which locks the API (403)."""
 
