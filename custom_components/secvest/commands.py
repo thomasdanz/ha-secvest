@@ -21,6 +21,7 @@ from homeassistant.exceptions import HomeAssistantError
 from .api.errors import (
     ArmingBlockedError,
     AuthenticationError,
+    CertificateError,
     CommunicationError,
     ConnectionLostError,
     InstallerLockedError,
@@ -200,6 +201,10 @@ def _panel_error(err: SecvestError) -> CommandError:
     if isinstance(err, InstallerLockedError):
         return CommandError(
             translation_domain=DOMAIN, translation_key="installer_locked"
+        )
+    if isinstance(err, CertificateError):
+        return CommandError(
+            translation_domain=DOMAIN, translation_key="certificate_changed"
         )
     if isinstance(err, AuthenticationError):
         return CommandError(translation_domain=DOMAIN, translation_key="auth_failed")

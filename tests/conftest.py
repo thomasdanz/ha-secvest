@@ -35,9 +35,8 @@ def auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
     """Let Home Assistant load the integration from custom_components."""
 
 
-@pytest.fixture(scope="session")
-def panel_certificate(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path]:
-    """Create a self-signed certificate for the fake panel, like the panel's."""
+def make_certificate(directory: Path) -> tuple[Path, Path]:
+    """Create a self-signed certificate like the panel's, in the directory."""
     key = ec.generate_private_key(ec.SECP256R1())
     name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "secvest")])
     now = datetime.now(UTC)
@@ -62,7 +61,6 @@ def panel_certificate(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, P
         )
         .sign(key, hashes.SHA256())
     )
-    directory = tmp_path_factory.mktemp("fake-panel")
     cert_file = directory / "cert.pem"
     key_file = directory / "key.pem"
     cert_file.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
@@ -74,6 +72,18 @@ def panel_certificate(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, P
         )
     )
     return cert_file, key_file
+
+
+@pytest.fixture(scope="session")
+def panel_certificate(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path]:
+    """Create a self-signed certificate for the fake panel, like the panel's."""
+    return make_certificate(tmp_path_factory.mktemp("fake-panel"))
+
+
+@pytest.fixture(scope="session")
+def other_certificate(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path]:
+    """Create another self-signed certificate, e.g. a new one of the panel."""
+    return make_certificate(tmp_path_factory.mktemp("other"))
 
 
 @pytest.fixture

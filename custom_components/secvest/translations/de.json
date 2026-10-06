@@ -14,7 +14,7 @@
           "url": "Adresse der Zentrale, z. B. 192.168.1.10 (Port 4433) oder 192.168.1.10:4433, oder die https-URL eines Reverse-Proxys davor.",
           "user_code": "Der Code des Benutzers der Zentrale, mit dem sich Home Assistant anmeldet.",
           "password": "Das Passwort dieses Benutzers.",
-          "verify_ssl": "Für das selbstsignierte Zertifikat der Zentrale ausgeschaltet lassen; hinter einem Reverse-Proxy mit gültigem Zertifikat einschalten."
+          "verify_ssl": "An: Ein Zertifikat mit öffentlich vertrauenswürdiger Kette wird wie üblich geprüft; ein selbstsigniertes, wie das der Zentrale, wird als Nächstes angezeigt und nach deiner Bestätigung fest hinterlegt. Aus: Es wird nichts geprüft, jemand in deinem Netzwerk könnte sich als Zentrale ausgeben und die Zugangsdaten erhalten."
         },
         "sections": {
           "advanced": {
@@ -27,6 +27,14 @@
             }
           }
         }
+      },
+      "certificate_public": {
+        "title": "Zertifikat",
+        "description": "Unter der Adresse antwortet ein öffentlich vertrauenswürdiges Zertifikat. Es wird bei jeder Verbindung gegen die Zertifizierungsstellen des Systems geprüft; Erneuerungen brauchen nichts von dir.\n\n- **Inhaber:** {subject}\n- **Aussteller:** {issuer}\n- **Gültig:** {valid_from} bis {valid_until}\n- **SHA-256:** {fingerprint}"
+      },
+      "certificate_pinned": {
+        "title": "Zertifikat bestätigen",
+        "description": "Unter der Adresse antwortet ein selbstsigniertes Zertifikat, wie es die Zentrale selbst verwendet. Bestätige es nur, wenn es das deiner Zentrale ist, z. B. indem du den Fingerabdruck mit dem vergleichst, den ein Browser für die Adresse anzeigt. Danach wird nur noch dieses Zertifikat akzeptiert, und die Zugangsdaten werden erst nach deiner Bestätigung gesendet.\n\n- **Inhaber:** {subject}\n- **Aussteller:** {issuer}\n- **Gültig:** {valid_from} bis {valid_until}\n- **SHA-256:** {fingerprint}"
       },
       "partitions": {
         "title": "Teilbereiche auswählen",
@@ -47,6 +55,26 @@
           "password": "Das Passwort dieses Benutzers."
         }
       },
+      "reauth_certificate": {
+        "title": "Zertifikat der Zentrale",
+        "description": "{name} hat ein anderes als das vertrauenswürdige Zertifikat vorgelegt, deshalb wird seitdem nichts mehr gesendet. Das Zertifikat ließ sich gerade nicht lesen; prüfe die Verbindung und versuche es erneut."
+      },
+      "reauth_certificate_unchanged": {
+        "title": "Zertifikat wieder vertrauenswürdig",
+        "description": "{name} hat ein anderes als das vertrauenswürdige Zertifikat vorgelegt, deshalb wird seitdem nichts mehr gesendet. Jetzt legt die Zentrale wieder das vertrauenswürdige Zertifikat vor. Fahre fort, um die Verbindung wieder zu nutzen."
+      },
+      "reauth_certificate_changed": {
+        "title": "Neues Zertifikat",
+        "description": "{name} legt ein anderes selbstsigniertes Zertifikat vor als das bestätigte, deshalb wird seitdem nichts mehr gesendet. Das passiert, wenn die Zentrale ein neues Zertifikat erzeugt, aber auch, wenn sich jemand in deinem Netzwerk als Zentrale ausgibt. Bestätige nur, wenn du die Änderung erwartest.\n\n- **Bisher bestätigt:** {previous}\n- **Inhaber:** {subject}\n- **Aussteller:** {issuer}\n- **Gültig:** {valid_from} bis {valid_until}\n- **SHA-256:** {fingerprint}"
+      },
+      "reauth_certificate_now_public": {
+        "title": "Jetzt ein öffentliches Zertifikat",
+        "description": "{name} legt jetzt ein öffentlich vertrauenswürdiges Zertifikat vor statt des bestätigten selbstsignierten, z. B. weil ein Reverse-Proxy vor der Zentrale steht. Seitdem wurde nichts gesendet. Mit der Bestätigung wird gegen die Zertifizierungsstellen des Systems geprüft und der hinterlegte Fingerabdruck ({previous}) verworfen.\n\n- **Inhaber:** {subject}\n- **Aussteller:** {issuer}\n- **Gültig:** {valid_from} bis {valid_until}\n- **SHA-256:** {fingerprint}"
+      },
+      "reauth_certificate_now_pinned": {
+        "title": "Jetzt ein selbstsigniertes Zertifikat",
+        "description": "{name} legt kein öffentlich vertrauenswürdiges Zertifikat mehr vor, sondern ein selbstsigniertes, z. B. das der Zentrale selbst ohne den Reverse-Proxy, oder jemand in deinem Netzwerk gibt sich als Zentrale aus. Seitdem wurde nichts gesendet. Bestätige nur, wenn du die Änderung erwartest; dann wird dieses Zertifikat fest hinterlegt.\n\n- **Inhaber:** {subject}\n- **Aussteller:** {issuer}\n- **Gültig:** {valid_from} bis {valid_until}\n- **SHA-256:** {fingerprint}"
+      },
       "reconfigure": {
         "title": "Verbindung ändern",
         "description": "Ändere Adresse, Zugangsdaten oder Zertifikatsprüfung von {name}, z. B. für eine neue Adresse oder einen neuen Reverse-Proxy oder ein neues Passwort. Die Einstellungen werden mit einer einzigen Anfrage geprüft; die Abfrage wartet so lange. Entitäten, Namen und Einstellungen bleiben.\n\nFür eine andere Zentrale lege stattdessen einen neuen Eintrag an: Die Zentrale lässt sich nicht erkennen, deshalb fällt das hier nicht auf.",
@@ -60,7 +88,7 @@
           "url": "Adresse der Zentrale, z. B. 192.168.1.10 (Port 4433) oder 192.168.1.10:4433, oder die https-URL eines Reverse-Proxys davor.",
           "user_code": "Der Code des Benutzers der Zentrale, mit dem sich Home Assistant anmeldet.",
           "password": "Leer lassen, um das bisherige Passwort zu behalten.",
-          "verify_ssl": "Für das selbstsignierte Zertifikat der Zentrale ausgeschaltet lassen; hinter einem Reverse-Proxy mit gültigem Zertifikat einschalten."
+          "verify_ssl": "An: Ein Zertifikat mit öffentlich vertrauenswürdiger Kette wird wie üblich geprüft; ein selbstsigniertes, wie das der Zentrale, wird als Nächstes angezeigt und nach deiner Bestätigung fest hinterlegt. Aus: Es wird nichts geprüft, jemand in deinem Netzwerk könnte sich als Zentrale ausgeben und die Zugangsdaten erhalten."
         }
       },
       "zones": {
@@ -82,12 +110,15 @@
       "timeout": "Die Zentrale hat nicht rechtzeitig geantwortet. Prüfe die Adresse; die Zentrale ist eventuell ausgelastet.",
       "unexpected_response": "Unter der Adresse antwortet etwas, aber nicht wie eine Secvest. Prüfe die Adresse (und hinter einem Reverse-Proxy den Pfad).",
       "no_partitions": "Wähle mindestens einen Teilbereich aus.",
-      "already_configured": "Ein anderer Eintrag verwendet diese Adresse bereits."
+      "already_configured": "Ein anderer Eintrag verwendet diese Adresse bereits.",
+      "certificate_changed": "Das Zertifikat hat sich während der Prüfung geändert. Versuche es erneut."
     },
     "abort": {
       "already_configured": "Diese Zentrale ist bereits eingerichtet.",
       "reauth_successful": "Die Zugangsdaten wurden aktualisiert.",
-      "reconfigure_successful": "Die Verbindungseinstellungen wurden geändert."
+      "reconfigure_successful": "Die Verbindungseinstellungen wurden geändert.",
+      "certificate_confirmed": "Das Zertifikat wurde bestätigt; die Verbindung wird wieder genutzt.",
+      "certificate_unchanged": "Die Zentrale legt wieder das vertrauenswürdige Zertifikat vor; die Verbindung wird wieder genutzt."
     }
   },
   "entity": {
@@ -323,6 +354,9 @@
     },
     "group_include_failed": {
       "message": "Zonengruppe {group}: {zones} nicht wieder eingeblendet. {reason}"
+    },
+    "certificate_changed": {
+      "message": "Das Zertifikat der Zentrale ist nicht das vertrauenswürdige. Es wird nichts mehr gesendet; bestätige das neue Zertifikat, um fortzufahren (Einstellungen → Geräte & Dienste)"
     }
   },
   "options": {
@@ -433,7 +467,8 @@
     },
     "abort": {
       "not_loaded": "Die Integration ist nicht geladen. Behebe zuerst das angezeigte Problem (z. B. erneut anmelden) und ändere dann die Optionen.",
-      "auth_failed": "Die Zentrale hat die Zugangsdaten abgelehnt. Melde dich zuerst erneut an (Einstellungen → Geräte & Dienste)."
+      "auth_failed": "Die Zentrale hat die Zugangsdaten abgelehnt. Melde dich zuerst erneut an (Einstellungen → Geräte & Dienste).",
+      "certificate_changed": "Das Zertifikat der Zentrale ist nicht das vertrauenswürdige. Bestätige es zuerst (Einstellungen → Geräte & Dienste)."
     }
   },
   "selector": {

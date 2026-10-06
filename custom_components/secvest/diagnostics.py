@@ -23,6 +23,7 @@ from . import SecvestConfigEntry
 from .api.parsing import panel_time
 from .codes import CONF_KDF, KDF
 from .const import (
+    CONF_CERT_FINGERPRINT,
     CONF_CODES,
     CONF_INSTALLATION_NAME,
     CONF_USER_CODE,
@@ -36,6 +37,8 @@ TO_REDACT = {
     CONF_URL,
     CONF_USER_CODE,
     CONF_PASSWORD,
+    # identifies the panel's certificate (#149)
+    CONF_CERT_FINGERPRINT,
     CONF_INSTALLATION_NAME,
     CONF_NAME,
     "title",

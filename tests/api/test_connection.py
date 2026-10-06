@@ -13,12 +13,18 @@ from custom_components.secvest.api import transport as transport_module
 from custom_components.secvest.api.errors import (
     ArmingBlockedError,
     AuthenticationError,
+    CertificateError,
     CommunicationError,
     ConnectionLostError,
     InstallerLockedError,
     NotFoundError,
 )
-from custom_components.secvest.api.transport import Transport, basic_auth
+from custom_components.secvest.api.transport import (
+    Transport,
+    basic_auth,
+    fingerprint,
+    probe_certificate,
+)
 
 from ..fake_panel import FakePanel, Injection
 
@@ -192,16 +198,23 @@ async def test_error_responses(fake_panel: FakePanel, transport: Transport) -> N
 
 
 async def test_certificate_verification(fake_panel: FakePanel) -> None:
-    """With verification on, the self-signed certificate is rejected."""
+    """Verified against the system's CA store, a self-signed certificate fails.
+
+    Like a 401, it stops every further request without a connection (#149).
+    """
     transport = Transport(
-        fake_panel.url, fake_panel.user_code, fake_panel.password, verify_ssl=True
+        fake_panel.url, fake_panel.user_code, fake_panel.password, verify=True
     )
     try:
-        with pytest.raises(CommunicationError):
+        with pytest.raises(CertificateError):
             await transport.request("GET", "/system/")
+        with pytest.raises(CertificateError):
+            await transport.request("GET", "/system/")
+        assert transport.authentication_failed
     finally:
         await transport.close()
     assert fake_panel.stats.requests == []
+    assert fake_panel.stats.connections == 0
 
 
 async def test_certificate_verified(
@@ -213,13 +226,113 @@ async def test_certificate_verified(
     # the default context trusts what SSL_CERT_FILE names
     monkeypatch.setenv("SSL_CERT_FILE", str(panel_certificate[0]))
     transport = Transport(
-        fake_panel.url, fake_panel.user_code, fake_panel.password, verify_ssl=True
+        fake_panel.url, fake_panel.user_code, fake_panel.password, verify=True
     )
     try:
         data = await transport.request("GET", "/system/")
     finally:
         await transport.close()
     assert data["partitions"] == ["1", "2", "3", "4"]
+
+
+def _fingerprint(certificate: tuple[Path, Path]) -> str:
+    return fingerprint(ssl.PEM_cert_to_DER_cert(certificate[0].read_text()))
+
+
+async def test_pinned_certificate(
+    fake_panel: FakePanel, panel_certificate: tuple[Path, Path]
+) -> None:
+    """A pinned fingerprint is accepted, also on a resumed session (#149)."""
+    transport = Transport(
+        fake_panel.url,
+        fake_panel.user_code,
+        fake_panel.password,
+        verify=_fingerprint(panel_certificate).upper(),
+    )
+    try:
+        await transport.request("GET", "/system/")
+        await transport.disconnect()
+        await transport.request("GET", "/system/")
+    finally:
+        await transport.close()
+    assert transport.stats.resumed_handshakes == 1
+    assert fake_panel.stats.requests == [("GET", "/system/"), ("GET", "/system/")]
+
+
+async def test_pinned_certificate_mismatch(fake_panel: FakePanel) -> None:
+    """Another certificate fails before anything is sent, and stops all requests."""
+    transport = Transport(
+        fake_panel.url, fake_panel.user_code, fake_panel.password, verify="00" * 32
+    )
+    try:
+        with pytest.raises(CertificateError):
+            await transport.request("GET", "/system/")
+        with pytest.raises(CertificateError):
+            await transport.request("GET", "/system/")
+    finally:
+        await transport.close()
+    assert fake_panel.stats.requests == []
+    # the second request didn't connect
+    assert fake_panel.stats.connections == 1
+
+
+def test_empty_fingerprint() -> None:
+    """An empty fingerprint is a mistake, not "no check"."""
+    with pytest.raises(ValueError, match="fingerprint"):
+        Transport("https://panel:4433", "1234", "secret", verify="")
+
+
+async def test_probe_self_signed(
+    fake_panel: FakePanel, panel_certificate: tuple[Path, Path]
+) -> None:
+    """A self-signed certificate is read with a second handshake; nothing is sent."""
+    probed = await probe_certificate(fake_panel.url)
+    assert not probed.public
+    assert probed.fingerprint == _fingerprint(panel_certificate)
+    assert fake_panel.stats.requests == []
+    # the first, verifying handshake failed
+    assert fake_panel.stats.connections == 1
+
+
+async def test_probe_public(
+    fake_panel: FakePanel,
+    panel_certificate: tuple[Path, Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A trusted certificate needs one handshake."""
+    monkeypatch.setenv("SSL_CERT_FILE", str(panel_certificate[0]))
+    probed = await probe_certificate(fake_panel.url)
+    assert probed.public
+    assert probed.fingerprint == _fingerprint(panel_certificate)
+    assert fake_panel.stats.connections == 1
+
+
+async def test_probe_unreachable(socket_enabled: None) -> None:
+    """Nothing answering is a communication error."""
+    with pytest.raises(CommunicationError):
+        await probe_certificate("https://127.0.0.1:1")
+    with pytest.raises(ValueError, match="https"):
+        await probe_certificate("http://panel")
+
+
+async def test_check_resumes_the_probe(
+    fake_panel: FakePanel, panel_certificate: tuple[Path, Path]
+) -> None:
+    """After a probe, the first request resumes its session."""
+    probed = await probe_certificate(fake_panel.url)
+    transport = Transport(
+        fake_panel.url,
+        fake_panel.user_code,
+        fake_panel.password,
+        verify=probed.fingerprint,
+    )
+    transport.resume(probed)
+    try:
+        await transport.request("GET", "/system/")
+    finally:
+        await transport.close()
+    assert transport.stats.resumed_handshakes == 1
+    assert transport.stats.full_handshakes == 0
 
 
 async def test_base_path(fake_panel: FakePanel) -> None:

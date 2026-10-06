@@ -36,7 +36,7 @@ async def test_content(
         "model": "Secvest Touch FUAA50500",
         "firmware": "v3.01.31",
     }
-    assert diagnostics["entry"]["version"] == "1.3"
+    assert diagnostics["entry"]["version"] == "1.4"
     assert diagnostics["entry"]["options"]["codes"] == [{"kdf": "pbkdf2-sha256-100000"}]
     assert diagnostics["transport"]["requests"] == len(ROUND)
     assert diagnostics["transport"]["full_handshakes"] >= 1
