@@ -8,10 +8,12 @@ All notable changes to this project are documented in this file. The format is b
 
 - **Reconfigure** in the entry's menu changes the panel's address, user code, password and certificate check without removing and re-adding the integration, so entities, names and settings stay. The settings are checked with a single request while polling waits; if the check fails, nothing changes (#138).
 - **The panel's certificate is verified:** "Verify certificate" is on by default for new setups. A publicly trusted certificate (e.g. a reverse proxy with Let's Encrypt) is verified as usual; a self-signed one, such as the panel's own, is shown with its fingerprint at setup and pinned once you confirm it, before any credentials are sent. If the panel later presents another certificate, nothing more is sent and Home Assistant asks you to confirm the new one, like after a rejected login (#149).
+- **Omit open zones and arm:** the action `secvest.omit_and_arm` omits the open zones that block arming once and then arms, each step checked; only if nothing else blocks arming, and the zones are included again if arming still fails. The `secvest_arming_failed` event tells whether to offer it (`can_omit_and_arm`) and names the alarm panel (`entity_id`), so a notification with an action can offer it, e.g. after arming from the Apple Home app; the README has an example (#118).
 
 ### Changed
 
 - README: why the logbook shows two rows for each entry of the panel's log, and that excluding the log entity from the recorder or the logbook hides both (#180).
+- README: the event reason `certificate_changed` is listed (#149).
 - Internal: the config flow is split into modules for setup, options, zone groups and their shared form parts; no change in behaviour (#147).
 
 ### Upgrade notes

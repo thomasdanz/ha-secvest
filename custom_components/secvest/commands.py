@@ -15,8 +15,10 @@ import logging
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
+from homeassistant.const import Platform
 from homeassistant.core import Context
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry as er
 
 from .api.errors import (
     ArmingBlockedError,
@@ -109,7 +111,8 @@ class Request:
     acknowledge_first (acknowledging before disarming an alarm). user is
     the name of the code that was entered; context is the calling action's,
     so automations can tell where it came from (a user, an automation, or
-    neither, e.g. HomeKit).
+    neither, e.g. HomeKit). omit_and_arm marks the follow-up action (#118),
+    which an automation usually calls.
     """
 
     number: int
@@ -117,6 +120,7 @@ class Request:
     action: str
     user: str | None = None
     context: Context | None = None
+    omit_and_arm: bool = False
 
 
 def fire_arming_failed(
@@ -133,10 +137,17 @@ def fire_arming_failed(
     """
     state = state or coordinator.data
     number, target, action = request.number, request.target, request.action
+    entry_id = coordinator.config_entry.entry_id
     coordinator.hass.bus.async_fire(
         EVENT_ARMING_FAILED,
         {
-            "entry_id": coordinator.config_entry.entry_id,
+            "entry_id": entry_id,
+            # the alarm panel, e.g. for the follow-up action secvest.omit_and_arm
+            "entity_id": er.async_get(coordinator.hass).async_get_entity_id(
+                Platform.ALARM_CONTROL_PANEL,
+                DOMAIN,
+                f"{entry_id}_partition_{number}_alarm",
+            ),
             "partition": number,
             "partition_name": state.partition_name(number),
             "requested": str(target),
@@ -150,11 +161,35 @@ def fire_arming_failed(
             ],
             "faults": list(failure.faults),
             "user": request.user,
+            # omitting the zones once would let it arm (#118), and whether this
+            # failure is of that action, never offered again then
+            "can_omit_and_arm": _can_omit_and_arm(request, failure, state),
+            "omit_and_arm": request.omit_and_arm,
         },
         context=request.context,
     )
     _LOGGER.info(
         "Partition %s: %s to %s failed (%s)", number, action, target, failure.reason
+    )
+
+
+def _can_omit_and_arm(request: Request, failure: Failure, state: PanelState) -> bool:
+    """Whether only open zones that can be omitted blocked arming (#118).
+
+    secvest.omit_and_arm checks again with a fresh state before it sends
+    anything; this only tells an automation whether to offer it.
+    """
+    return (
+        not request.omit_and_arm
+        # arming itself, not disarming first when switching modes
+        and request.action == "arm"
+        and request.target in ARMED
+        and bool(failure.zones)
+        and not failure.faults
+        and all(
+            (zone := state.zones.get(zone_id)) is not None and zone.omittable
+            for zone_id in failure.zones
+        )
     )
 
 
@@ -476,3 +511,159 @@ async def async_set_group_omitted(
                         "reason": str(err),
                     },
                 ) from err
+
+
+async def async_omit_and_arm(
+    coordinator: SecvestCoordinator,
+    number: int,
+    target: PartitionState,
+    *,
+    user: str | None = None,
+    context: Context | None = None,
+) -> bool:
+    """Omit the open zones that block arming, once, then arm; verified (#118).
+
+    Only if every blocker is an open zone that can be omitted, judged by a
+    fresh read; otherwise nothing is sent. The panel includes omitted zones
+    again at the next disarm, so omitting lasts for this arming only. If
+    arming fails anyway, the zones omitted here are included again, each
+    verified: left omitted, they would be unguarded at the next arming.
+    Every failure fires the arming_failed event. Returns False if nothing
+    was sent because the partition already was in the target state.
+    """
+    request = Request(number, target, "arm", user, context, omit_and_arm=True)
+    try:
+        return await _omit_and_arm(coordinator, request)
+    except CommandError as err:
+        if not err.reported:
+            reason = err.translation_key or "error"
+            fire_arming_failed(coordinator, request, Failure(reason))
+            err.reported = True
+        raise
+
+
+async def _omit_and_arm(coordinator: SecvestCoordinator, request: Request) -> bool:
+    number = request.number
+    _refuse_while_locked(coordinator)
+    async with coordinator.client.hold(priority=True):
+        state = await _read_blockers(coordinator, number)
+        partition = state.partitions.get(number)
+        if partition is None or partition.state != PartitionState.UNSET:
+            # nothing to omit for: already armed, in an alarm or switching;
+            # the regular command decides and reports
+            return await _set_partition_state(coordinator, request)
+        open_zones = [
+            zone
+            for zone in state.open_zones(number)
+            # Configuration-dependent and unconfirmed: inner is most likely
+            # "Intern überwacht"; a zone without it isn't monitored when armed
+            # internally, so at partset it is left to the panel (every zone of
+            # the reference panel has it)
+            if request.target == PartitionState.SET or zone.inner
+        ]
+        cannot = [zone.id for zone in open_zones if not zone.omittable]
+        problems = state.blocking_problems(number)
+        if cannot or problems:
+            # nothing is omitted unless that alone lets it arm
+            raise_failure(
+                coordinator,
+                replace(request, action="arm"),
+                Failure(
+                    "not_omittable",
+                    tuple(cannot),
+                    tuple(f.text or f"{f.type}/{f.id}" for f in problems),
+                ),
+                state,
+            )
+        omitted: list[str] = []
+        try:
+            for zone in open_zones:
+                await async_set_omitted(coordinator, zone.id, True)
+                omitted.append(zone.id)
+        except CommandError as err:
+            await _include_again(coordinator, request, omitted)
+            _fail(
+                coordinator,
+                request,
+                Failure("omit_failed", (zone.id,)),
+                {"reason": str(err)},
+            )
+        try:
+            return await _set_partition_state(coordinator, request)
+        except CommandError:
+            await _include_again(coordinator, request, omitted)
+            raise
+
+
+async def _read_blockers(coordinator: SecvestCoordinator, number: int) -> PanelState:
+    """Read the partitions, the partition's zones and the faults, fresh.
+
+    Within the caller's hold; what to omit depends on the real state.
+    """
+    try:
+        partitions = await coordinator.client.get_partitions()
+        zones = await coordinator.client.get_zones(number)
+        faults = await coordinator.client.get_faults()
+    except CommunicationError as err:
+        # nothing was sent yet, so the state is certainly unchanged
+        raise CommandError(
+            translation_domain=DOMAIN,
+            translation_key="unreachable",
+            translation_placeholders={"error": str(err)},
+        ) from err
+    except SecvestError as err:
+        coordinator.note_panel_error(err)
+        raise _panel_error(err) from err
+    return replace(
+        coordinator.data,
+        partitions=MappingProxyType({p.number: p for p in partitions}),
+        zones=MappingProxyType(
+            {**coordinator.data.zones, **{zone.id: zone for zone in zones}}
+        ),
+        faults=tuple(faults),
+    )
+
+
+async def _include_again(
+    coordinator: SecvestCoordinator, request: Request, zone_ids: list[str]
+) -> None:
+    """Include the zones omitted for a failed arming again, each verified.
+
+    A zone that stays omitted is reported with its own event and logged:
+    it would be unguarded at the next arming.
+    """
+    left: list[str] = []
+    for zone_id in zone_ids:
+        try:
+            await async_set_omitted(coordinator, zone_id, False)
+        except CommandError:
+            left.append(zone_id)
+    if left:
+        _LOGGER.warning(
+            "Partition %s: zones %s stay omitted after the failed arming",
+            request.number,
+            ", ".join(left),
+        )
+        fire_arming_failed(coordinator, request, Failure("still_omitted", tuple(left)))
+
+
+def _fail(
+    coordinator: SecvestCoordinator,
+    request: Request,
+    failure: Failure,
+    placeholders: dict[str, str],
+) -> None:
+    """Fire the event and raise the translated error, with extra placeholders."""
+    state = coordinator.data
+    fire_arming_failed(coordinator, request, failure, state)
+    error = CommandError(
+        translation_domain=DOMAIN,
+        translation_key=f"{request.action}_failed_{failure.reason}",
+        translation_placeholders={
+            "partition": state.partition_name(request.number),
+            "items": _names(state, failure.zones),
+            **placeholders,
+        },
+    )
+    error.reported = True
+    raise error

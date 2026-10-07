@@ -4,15 +4,23 @@ import logging
 import re
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_PASSWORD, CONF_URL, Platform
+from homeassistant.const import ATTR_CODE, CONF_PASSWORD, CONF_URL, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
-from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers import (
+    config_validation as cv,
+    device_registry as dr,
+    entity_registry as er,
+    service,
+)
+from homeassistant.helpers.typing import ConfigType
+import voluptuous as vol
 
 from .api.client import Client
 from .api.transport import Transport
 from .config_flow import default_user_agent, verification
 from .const import (
+    ATTR_MODE,
     CONF_AUTH_FAILED,
     CONF_CERTIFICATE_CHANGED,
     CONF_CODES,
@@ -21,6 +29,7 @@ from .const import (
     CONF_USER_CODE,
     CONF_ZONE_DEVICE_CLASSES,
     DOMAIN,
+    SERVICE_OMIT_AND_ARM,
     SUBENTRY_CODE,
 )
 from .coordinator import SecvestCoordinator, clear_issues, forget_rounds
@@ -39,6 +48,24 @@ PLATFORMS = [
 ]
 
 type SecvestConfigEntry = ConfigEntry[SecvestCoordinator]
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Register the integration's action (#118)."""
+    service.async_register_platform_entity_service(
+        hass,
+        DOMAIN,
+        SERVICE_OMIT_AND_ARM,
+        entity_domain=Platform.ALARM_CONTROL_PANEL,
+        schema={
+            vol.Required(ATTR_MODE): vol.In(["away", "home"]),
+            vol.Optional(ATTR_CODE): cv.string,
+        },
+        func="async_omit_and_arm",
+    )
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> bool:

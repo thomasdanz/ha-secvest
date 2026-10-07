@@ -357,6 +357,12 @@
     },
     "certificate_changed": {
       "message": "Das Zertifikat der Zentrale ist nicht das vertrauenswürdige. Es wird nichts mehr gesendet; bestätige das neue Zertifikat, um fortzufahren (Einstellungen → Geräte & Dienste)"
+    },
+    "arm_failed_not_omittable": {
+      "message": "Teilbereich {partition} wurde nicht aktiviert. Es blockieren nicht nur offene Zonen, die sich ausblenden lassen ({items}); nichts wurde ausgeblendet"
+    },
+    "arm_failed_omit_failed": {
+      "message": "Teilbereich {partition} wurde nicht aktiviert. Zone {items} ließ sich nicht ausblenden ({reason}); vorher ausgeblendete Zonen wurden wieder eingeblendet"
     }
   },
   "options": {
@@ -487,6 +493,12 @@
         "vibration": "Erschütterung",
         "same_as_zones": "Wie die Zonen"
       }
+    },
+    "arm_mode": {
+      "options": {
+        "away": "Aktivieren",
+        "home": "Intern aktivieren"
+      }
     }
   },
   "issues": {
@@ -574,6 +586,22 @@
       "abort": {
         "not_loaded": "Die Integration ist nicht geladen. Behebe zuerst das angezeigte Problem und ändere dann die Zonengruppen.",
         "reconfigure_successful": "Die Zonengruppe wurde geändert."
+      }
+    }
+  },
+  "services": {
+    "omit_and_arm": {
+      "name": "Offene Zonen ausblenden und aktivieren",
+      "description": "Blendet die offenen Zonen, die das Aktivieren verhindern, einmalig aus und aktiviert dann den Teilbereich. Nur wenn sonst nichts blockiert; scheitert das Aktivieren trotzdem, werden die Zonen wieder eingeblendet. Die Zentrale blendet ausgeblendete Zonen beim nächsten Deaktivieren wieder ein.",
+      "fields": {
+        "mode": {
+          "name": "Modus",
+          "description": "Aktivieren oder intern aktivieren."
+        },
+        "code": {
+          "name": "Code",
+          "description": "Nötig, solange Codes eingerichtet sind, wie beim Aktivieren."
+        }
       }
     }
   }

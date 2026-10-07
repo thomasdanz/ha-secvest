@@ -78,3 +78,7 @@ UNAVAILABLE_AFTER = 3
 # tested model and firmware (ADR 0005)
 TESTED_MODEL = "Secvest Touch FUAA50500"
 TESTED_FIRMWARE = "v3.01.31"
+
+# omit the open zones blocking arming once, then arm (#118)
+SERVICE_OMIT_AND_ARM = "omit_and_arm"
+ATTR_MODE = "mode"
