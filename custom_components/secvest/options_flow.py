@@ -18,7 +18,6 @@ from homeassistant.helpers.selector import (
     TextSelectorConfig,
     TextSelectorType,
 )
-import voluptuous as vol
 
 from .api.errors import (
     AuthenticationError,
@@ -45,6 +44,7 @@ from .const import (
     MIN_SCAN_INTERVAL,
 )
 from .flow_helpers import partition_selector, zone_labels, zone_options, zone_schema
+from .schema import vol
 
 
 class SecvestOptionsFlow(OptionsFlow):

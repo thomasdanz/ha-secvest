@@ -47,12 +47,12 @@ jobs:
       matrix:
         include:
           # current release: the version pinned in pyproject.toml / uv.lock
-          - home-assistant: "2026.9"
+          - home-assistant: "2026.10"
             pytest-ha: locked
             coverage: true
           # previous release
-          - home-assistant: "2026.8"
-            pytest-ha: "0.13.357"
+          - home-assistant: "2026.9"
+            pytest-ha: "0.13.366"
           # the minimum in hacs.json: DeviceInfo's via_device_id needs 2026.8
           - home-assistant: "2026.8.0 (minimum)"
             pytest-ha: "0.13.354"

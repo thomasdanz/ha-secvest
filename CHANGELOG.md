@@ -12,6 +12,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- Tested with Home Assistant 2026.10 and 2026.9; the minimum stays 2026.8.0. The forms and the action use probatio, Home Assistant's schema library since 2026.10, and voluptuous before (#187).
 - README: why the logbook shows two rows for each entry of the panel's log, and that excluding the log entity from the recorder or the logbook hides both (#180).
 - README: the event reason `certificate_changed` is listed (#149).
 - Internal: the config flow is split into modules for setup, options, zone groups and their shared form parts; no change in behaviour (#147).

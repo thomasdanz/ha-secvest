@@ -11,10 +11,10 @@ from homeassistant.helpers.selector import (
     SelectSelectorConfig,
     SelectSelectorMode,
 )
-import voluptuous as vol
 
 from .api.models import Partition, Zone
 from .const import CONF_EXCLUDED_ZONES, ZONE_DEVICE_CLASSES
+from .schema import vol
 
 
 def partition_selector(partitions: Iterable[Partition]) -> SelectSelector:

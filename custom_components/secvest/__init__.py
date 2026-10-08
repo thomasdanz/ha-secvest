@@ -14,7 +14,6 @@ from homeassistant.helpers import (
     service,
 )
 from homeassistant.helpers.typing import ConfigType
-import voluptuous as vol
 
 from .api.client import Client
 from .api.transport import Transport
@@ -36,6 +35,7 @@ from .coordinator import SecvestCoordinator, clear_issues, forget_rounds
 from .entity import panel_device_info
 from .groups import reload_snapshot, zone_groups
 from .log import log_store
+from .schema import vol
 
 _LOGGER = logging.getLogger(__name__)
 
