@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+
+- README: a dashboard button for omitting open zones and arming, through a script that carries the code (#191).
+
 ## [1.0.0] - 2026-10-08
 
 ### Added
