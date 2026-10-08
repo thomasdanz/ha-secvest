@@ -82,7 +82,7 @@ Zones that belong to one opening, such as the two wings of a window, can be comb
 - **Faults** on the panel device: the number of current faults, all of them in the attribute `faults` and a readable list in `summary` (one line per fault). This includes faults of components the API doesn't list otherwise, such as a repeater's low battery. Open zones, which the panel also reports as faults (even when disarmed), are left out here and counted by **Open zones**.
 - **Problem** on the panel device: on while **Faults** is above 0.
 - **Open zones** per selected partition: the number of the partition's zones that are open and not omitted, listed in the attributes.
-- **Arming** per selected partition (e.g. "House arming"): "Blocked" while **Open zones** is above 0 or a fault prevents arming the partition, "Free" otherwise; the attributes name the open zones and those faults. Open entry doors count too, since arming via the API fails while one is open, although the panel doesn't report it as a fault.
+- **Arming** per selected partition (e.g. "Ground floor arming"): "Blocked" while **Open zones** is above 0 or a fault prevents arming the partition, "Free" otherwise; the attributes name the open zones and those faults. Open entry doors count too, since arming via the API fails while one is open, although the panel doesn't report it as a fault.
 - **Installer lock** (diagnostic) on the panel device.
 - **Polling and connection** (diagnostic) on the panel device: **Round duration** (how long the last polling round's reads took, without the log), **Failed rounds** (failed rounds in a row, 0 while polling works; attributes `paused` and `last_error`), and, disabled by default, **Connection setup** (the last connection's setup time: about 0.013 s when the TLS session is resumed, about 6.5 s for a full handshake) and **Full handshakes** (connection setups without session resumption since the start). Durations are in seconds with two significant digits; you can show them in ms in the entity's settings. They stay available while the panel isn't reachable and cost no extra request.
 - **Log** on the panel device: an event entity that fires once for each new entry of the panel's log, with the event type `normal`, `alarm` or `trouble` and the attributes `text` (the panel's own text), `time` (when the panel wrote the entry), `user` and `user_name`, `partition` and `zone` where the entry names them. The log is read every 5 minutes by default, so entries arrive up to that much later. The first read takes the existing log as known and fires nothing, and a restart doesn't repeat entries. Each entry also appears in Home Assistant's logbook with its text and the panel's time, so you can see who armed or disarmed at the keypad or in the app without an automation; the logbook entry comes from the event `secvest_log_entry`, which carries the same data and the entity id.
@@ -204,6 +204,40 @@ mode: parallel
 ```
 
 A failure of the follow-up action fires the event again with `omit_and_arm: true` and is notified the same way, without offering the action once more. `!secret` works in automations kept in YAML files; an automation edited in the UI would have to contain the code itself.
+
+**From a dashboard:** the alarm panel's card can't ask a follow-up question either, but a button can call the action. A script carries the code, so it isn't part of the dashboard (`scripts.yaml`, where `!secret` works):
+
+```yaml
+alarm_omit_and_arm:
+  alias: "Alarm: omit open zones and arm"
+  sequence:
+    - action: secvest.omit_and_arm
+      target:
+        entity_id: alarm_control_panel.alarmanlage_ground_floor
+      data:
+        mode: away
+        code: !secret secvest_code
+```
+
+A tile card runs it after a confirmation and shows itself only while the partition's **Arming** sensor is "Blocked":
+
+```yaml
+type: tile
+entity: script.alarm_omit_and_arm
+name: Omit open zones and arm
+icon: mdi:shield-plus-outline
+tap_action:
+  action: perform-action
+  perform_action: script.alarm_omit_and_arm
+  confirmation:
+    text: Omit the open zones for this arming?
+visibility:
+  - condition: state
+    entity: binary_sensor.alarmanlage_ground_floor_arming
+    state: "on"
+```
+
+The action checks again before it sends anything, so a fault other than open zones that can be omitted still refuses with a message. For arming home, use a second script with `mode: home`. Whoever may use the dashboard can then arm without entering a code; disarming still needs one.
 
 **HomeKit:** HomeKit Bridge can't ask for a code, so it passes the one set in its configuration (`entity_config` → `code`). Adding a separate code named e.g. "HomeKit" shows HomeKit as the one who armed or disarmed, and can be removed on its own.
 

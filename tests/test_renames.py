@@ -61,13 +61,13 @@ async def test_partition_and_zone_renamed(
     ids = _ids(hass, entry)
     assert get_state(hass, PANEL).name == "Alarmanlage Teilber. 1"
     assert _zone_device(hass, entry).name == "Wireless zone Room 6 L"
-    fake_panel.partitions[1].name = "House"
+    fake_panel.partitions[1].name = "Ground floor"
     fake_panel.zones["209"].name = "Front door"
     sent = len(fake_panel.stats.requests)
     await _round(hass, entry)
     assert entry.state is ConfigEntryState.LOADED
-    assert get_state(hass, PANEL).name == "Alarmanlage House"
-    assert get_state(hass, OPEN_ZONES).name == "Alarmanlage House open zones"
+    assert get_state(hass, PANEL).name == "Alarmanlage Ground floor"
+    assert get_state(hass, OPEN_ZONES).name == "Alarmanlage Ground floor open zones"
     assert _zone_device(hass, entry).name == "Wireless zone Front door"
     assert get_state(hass, ZONE).name == "Wireless zone Front door"
     # the reload took the round's result
@@ -112,11 +112,11 @@ async def test_names_set_in_home_assistant_stay(
         _zone_device(hass, entry).id, name_by_user="My door"
     )
     await hass.async_block_till_done()
-    fake_panel.partitions[1].name = "House"
+    fake_panel.partitions[1].name = "Ground floor"
     fake_panel.zones["209"].name = "Front door"
     await _round(hass, entry)
     assert get_state(hass, OPEN_ZONES).name == "My open zones"
-    assert get_state(hass, PANEL).name == "Alarmanlage House"
+    assert get_state(hass, PANEL).name == "Alarmanlage Ground floor"
     device = _zone_device(hass, entry)
     assert (device.name, device.name_by_user) == ("Wireless zone Front door", "My door")
     assert get_state(hass, ZONE).name == "My door"
@@ -128,13 +128,13 @@ async def test_no_reload_from_a_command(
     """A command's verification never reloads; the next round does."""
     entry = await setup(code=CODE)
     coordinator = coordinator_of(entry)
-    fake_panel.partitions[1].name = "House"
+    fake_panel.partitions[1].name = "Ground floor"
     await call_panel(hass, "alarm_arm_away")
     await hass.async_block_till_done()
     assert entry.runtime_data is coordinator
     await _round(hass, entry)
     assert entry.runtime_data is not coordinator
-    assert get_state(hass, PANEL).name == "Alarmanlage House"
+    assert get_state(hass, PANEL).name == "Alarmanlage Ground floor"
 
 
 # the installation's name, on request in the options
