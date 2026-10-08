@@ -16,6 +16,7 @@ from base64 import b64encode
 from collections.abc import Iterator
 import contextlib
 from dataclasses import dataclass, field
+import hashlib
 from http.server import BaseHTTPRequestHandler
 import json
 from pathlib import Path
@@ -191,6 +192,7 @@ class FakePanel:
         self._in_flight = 0
         self._open_connections = 0
         self._failed_credentials: str | None = None
+        self._cert_file = cert_file
         self._context = self._tls_context(cert_file, key_file)
         self._server: _Server | None = None
         self._thread: threading.Thread | None = None
@@ -209,8 +211,15 @@ class FakePanel:
         Like a new certificate of the panel, or someone impersonating it;
         sessions of the old one can't be resumed.
         """
+        self._cert_file = cert_file
         self._context = self._tls_context(cert_file, key_file)
         self.close_connections()
+
+    @property
+    def fingerprint(self) -> str:
+        """SHA-256 fingerprint of the certificate presented, as lowercase hex."""
+        der = ssl.PEM_cert_to_DER_cert(self._cert_file.read_text())
+        return hashlib.sha256(der).hexdigest()
 
     # server
 

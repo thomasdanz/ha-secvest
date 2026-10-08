@@ -41,7 +41,10 @@ def _cases() -> list[Any]:
 def _fill(value: Any, panel: FakePanel) -> Any:
     if isinstance(value, str):
         return value.format(
-            url=panel.url, user_code=panel.user_code, password=panel.password
+            url=panel.url,
+            user_code=panel.user_code,
+            password=panel.password,
+            fingerprint=panel.fingerprint,
         )
     if isinstance(value, dict):
         return {key: _fill(item, panel) for key, item in value.items()}
