@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-08
+
 ### Added
 
 - **Reconfigure** in the entry's menu changes the panel's address, user code, password and certificate check without removing and re-adding the integration, so entities, names and settings stay. The settings are checked with a single request while polling waits; if the check fails, nothing changes (#138).
@@ -20,6 +22,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Upgrade notes
 
 - Existing setups keep their certificate check. With it off (the previous default for the panel's own certificate), nothing is verified: turn it on under **Reconfigure** in the entry's menu; the certificate is then shown and pinned once you confirm it (#149).
+- Automations on `secvest_arming_failed` keep working; the event has three new fields (`entity_id`, `can_omit_and_arm`, `omit_and_arm`, #118).
 
 ## [0.4.0] - 2026-10-04
 
@@ -284,7 +287,8 @@ First version, read-only: the state of partitions, zones and faults.
 - README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
 - Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
 
-[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/thomasdanz/ha-secvest/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/thomasdanz/ha-secvest/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/thomasdanz/ha-secvest/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/thomasdanz/ha-secvest/compare/v0.2.9...v0.3.0

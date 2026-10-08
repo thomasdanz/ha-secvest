@@ -1,5 +1,5 @@
 {
-  "_comment": "Config entries as released versions stored them, for the update test (#103). Placeholders: {url}, {user_code}, {password}; zones stand for every zone of the fake panel's partition 1 that isn't excluded, omittable_zones for the omittable ones only. Add the new version to an entry on every release, or add an entry when the stored data or the entities change. log_store is the stored log state (Store secvest.log.<entry id>, version 1). code is the plain code of the stored code subentry, for the test only.",
+  "_comment": "Config entries as released versions stored them, for the update test (#103). Placeholders: {url}, {user_code}, {password}, {fingerprint} (the fake panel's certificate); zones stand for every zone of the fake panel's partition 1 that isn't excluded, omittable_zones for the omittable ones only. Add the new version to an entry on every release, or add an entry when the stored data or the entities change. log_store is the stored log state (Store secvest.log.<entry id>, version 1). code is the plain code of the stored code subentry, for the test only.",
   "entries": [
     {
       "name": "after setup",
@@ -577,6 +577,213 @@
         "verify_ssl": false,
         "user_agent": "",
         "installation_name": "Butterkeks"
+      },
+      "options": {
+        "partitions": [
+          1
+        ],
+        "scan_interval": 30,
+        "log_interval": 600,
+        "excluded_zones": [],
+        "zone_device_classes": {},
+        "codes": [
+          {
+            "name": "User 1",
+            "salt": "00000000000000000000000000000000",
+            "hash": "5a991c5522a11248264187c979ef136b2aa1d6729f4381091d9bf89daf6eff04",
+            "kdf": "pbkdf2-sha256-100000"
+          }
+        ]
+      },
+      "subentries": [
+        {
+          "subentry_id": "01JZONEGROUP0000000000000A",
+          "subentry_type": "zone_group",
+          "title": "Room 3",
+          "unique_id": null,
+          "data": {
+            "name": "Room 3",
+            "zones": [
+              "203",
+              "204"
+            ],
+            "device_class": "same_as_zones",
+            "hide_members": true,
+            "area_id": "first_floor"
+          }
+        }
+      ],
+      "unique_ids": {
+        "panel": [
+          "installer_lock",
+          "problem",
+          "faults",
+          "log",
+          "round_duration",
+          "connection_setup",
+          "full_handshakes",
+          "failed_rounds"
+        ],
+        "partition_1": [
+          "alarm",
+          "arming_blocked",
+          "open_zones"
+        ],
+        "zones": [
+          "open",
+          "problem"
+        ],
+        "omittable_zones": [
+          "omit"
+        ],
+        "groups": [
+          "open",
+          "omit"
+        ]
+      },
+      "log_store": {
+        "newest": 1791059101,
+        "known": [
+          {
+            "id": "458511128576",
+            "type": "normal",
+            "text": "Ben003 Zone201 ausgeblendet",
+            "events": [
+              {
+                "timestamp": 1791059096,
+                "partition": null,
+                "zone_id": "201",
+                "user": null,
+                "username": null,
+                "images": []
+              }
+            ]
+          },
+          {
+            "id": "458511128577",
+            "type": "normal",
+            "text": "Ben003 Zone212 ausgeblendet",
+            "events": [
+              {
+                "timestamp": 1791059096,
+                "partition": null,
+                "zone_id": "212",
+                "user": null,
+                "username": null,
+                "images": []
+              }
+            ]
+          },
+          {
+            "id": "458511128578",
+            "type": "normal",
+            "text": "Ben003 Zone213 ausgeblendet",
+            "events": [
+              {
+                "timestamp": 1791059096,
+                "partition": null,
+                "zone_id": "213",
+                "user": null,
+                "username": null,
+                "images": []
+              }
+            ]
+          },
+          {
+            "id": "458511128579",
+            "type": "normal",
+            "text": "Ben003 TB 1 intern aktiv",
+            "events": [
+              {
+                "timestamp": 1791059096,
+                "partition": 1,
+                "zone_id": null,
+                "user": 3,
+                "username": "REDACTED",
+                "images": []
+              }
+            ]
+          },
+          {
+            "id": "458511129856",
+            "type": "normal",
+            "text": "Ben 003 TB 1 deaktiv",
+            "events": [
+              {
+                "timestamp": 1791059101,
+                "partition": 1,
+                "zone_id": null,
+                "user": 3,
+                "username": "REDACTED",
+                "images": []
+              }
+            ]
+          },
+          {
+            "id": "458511129857",
+            "type": "normal",
+            "text": "Ben053 Zone201 ausgeblendet ok ",
+            "events": [
+              {
+                "timestamp": 1791059101,
+                "partition": null,
+                "zone_id": "201",
+                "user": null,
+                "username": null,
+                "images": []
+              }
+            ]
+          },
+          {
+            "id": "458511129858",
+            "type": "normal",
+            "text": "Ben053 Zone212 ausgeblendet ok ",
+            "events": [
+              {
+                "timestamp": 1791059101,
+                "partition": null,
+                "zone_id": "212",
+                "user": null,
+                "username": null,
+                "images": []
+              }
+            ]
+          },
+          {
+            "id": "458511129859",
+            "type": "normal",
+            "text": "Ben053 Zone213 ausgeblendet ok ",
+            "events": [
+              {
+                "timestamp": 1791059101,
+                "partition": null,
+                "zone_id": "213",
+                "user": null,
+                "username": null,
+                "images": []
+              }
+            ]
+          }
+        ]
+      },
+      "code": "4711"
+    },
+    {
+      "name": "a pinned certificate, the flag of an untrusted one (stored data 1.4)",
+      "versions": [
+        "1.0.0"
+      ],
+      "minor_version": 4,
+      "data": {
+        "url": "{url}",
+        "user_code": "{user_code}",
+        "password": "{password}",
+        "verify_ssl": true,
+        "cert_fingerprint": "{fingerprint}",
+        "user_agent": "",
+        "installation_name": "Butterkeks",
+        "auth_failed": false,
+        "certificate_changed": false
       },
       "options": {
         "partitions": [

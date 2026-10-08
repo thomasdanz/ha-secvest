@@ -6,7 +6,7 @@
 
 A Home Assistant custom integration for the ABUS Secvest alarm panel. It talks to the panel's local REST API, the one the official app uses, as documented in [`secvest-api`](https://github.com/thomasdanz/secvest-api).
 
-> **Status:** v0.4, the first public release: shows partitions, zones and faults, arms and disarms (acknowledging an alarm on the way), omits zones and zone groups, shows the panel's log as events and in the logbook, and offers diagnostics. Hardening follows with v1.0 (see the [milestones](https://github.com/thomasdanz/ha-secvest/milestones)).
+> **Status:** v1.0 "Hardened": shows partitions, zones and faults, arms and disarms (acknowledging an alarm on the way, or omitting open zones once), omits zones and zone groups, shows the panel's log as events and in the logbook, verifies the panel's certificate, changes its connection without setting up again, and offers diagnostics. Data from the panel's web interface follows with v1.1 (see the [milestones](https://github.com/thomasdanz/ha-secvest/milestones)).
 
 > **Disclaimer:** This is an unofficial community project, not affiliated with or endorsed by ABUS. The panel is security equipment: use this integration at your own risk.
 
