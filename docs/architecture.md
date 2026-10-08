@@ -71,7 +71,7 @@ The API client is a self-contained Python package without any Home Assistant dep
 | `coordinator.py` | The only user of the client. Schedules polling rounds and log polling, executes commands and verifies them, applies backoff and pause, tracks the installer lock and the authentication state. Holds the latest `PanelState`. |
 | `entity.py` | Base entity classes: device info for the panel and per zone, availability rules, common attributes. |
 | `alarm_control_panel.py` | One panel per selected partition. Maps the partition state to Home Assistant states; an alarm is detected from the partition state itself (`*-alarm`, `acknowledged`), `/alarms/` only adds details. Arm/disarm call `commands.py`. |
-| `commands.py` | The command sequences (arm, disarm, switching between the armed modes, acknowledging before disarming, omitting): hold the queue, send through `SecvestCoordinator.async_command`, judge by the verified state, and turn failures into one translated error plus the `secvest_arming_failed` event, fired once for every failed arm or disarm, also without a verified state (installer lock, lost connection, wrong code, #126). The one exception is arming without any code while codes are configured: Home Assistant refuses it before the entity is called (#143). A connection problem at the read before a sequence is `unreachable`: nothing was sent (#128). The event carries the calling action's context and the code's user name, so automations can tell where a command came from (#120). |
+| `commands.py` | The command sequences (arm, disarm, switching between the armed modes, acknowledging before disarming, omitting): hold the queue, send through `SecvestCoordinator.async_command`, judge by the verified state, and turn failures into one translated error plus the `secvest_arming_failed` event, fired once for every failed arm or disarm, also without a verified state (installer lock, lost connection, wrong code, #126). The one exception is arming without any code while codes are configured: Home Assistant refuses it before the entity is called (#143). A connection problem at the read before a sequence is `unreachable`: nothing was sent (#128). The event carries the calling action's context and the code's user name, so automations can tell where a command came from (#120), the alarm panel's entity id, and whether omitting the open zones once would let it arm (#118). Also omitting the open zones that block arming once, then arming (`secvest.omit_and_arm`, #118). |
 | `binary_sensor.py` | Zone open/closed, zone problem, arming blocked per partition, installer lock. |
 | `switch.py` | Omit switch per omittable zone. |
 | `sensor.py` | Faults count with details. |
@@ -174,6 +174,19 @@ The verification refresh replaces the next regular polling round, so a command d
 **Fresh state before a sequence:** what to send first (disarm before switching modes, acknowledge before disarming, or refusing to arm during an alarm) is decided from the partition read right before, within the same hold, not from the last round, which can be an interval old. A 401 or the installer lock at that read is handled like in a round. If the partition already is in the requested state, nothing is sent (the official app never sends such a request); the command succeeds, the entities show the partitions just read, and `changed_by` stays as it was (#142), unless the state changed since it was last shown.
 
 **Connection lost after sending a command** (`ConnectionLostError`): the command may or may not have reached the panel. The integration first runs the verification refresh; only if the target state was not reached, it sends the command **once** more (verified again). This includes a command that first didn't go out because the panel had just closed the connection, and then broke off after going out on a new one. This is the single exception to "no automatic retries of commands" and is safe because a state change the panel already applied is not applied twice.
+
+### Omitting open zones once, then arming (#118)
+
+The action `secvest.omit_and_arm` (an entity action of the alarm panels, registered at the integration's setup) is meant as the follow-up of a failed arming, e.g. from an actionable notification, since HomeKit can't ask a follow-up question. The whole sequence holds the queue:
+
+1. The code is checked as for arming.
+2. A fresh read of the partitions, the partition's zones and the faults (three requests). A partition that isn't disarmed is left to the regular command.
+3. The open, not omitted zones of the partition block arming; at `partset` only those with `inner` (most likely "Intern überwacht"; unconfirmed, every zone of the reference panel has it). If one of them can't be omitted, or a fault other than an open zone prevents arming, nothing is sent (`not_omittable`).
+4. Each blocking zone is omitted through the zone's verified omit command; if one fails, the zones omitted so far are included again (`omit_failed`).
+5. The partition is armed like with the regular command, verified.
+6. If arming fails, the zones omitted in step 4 are included again, each verified: the panel includes omitted zones only at the next disarm, so they would otherwise stay unguarded at the next arming. A zone that stays omitted gets its own event (`still_omitted`).
+
+The `secvest_arming_failed` event says whether to offer the action (`can_omit_and_arm`: the failure named only open zones that can be omitted, and it wasn't the action's own) and marks the action's own failures (`omit_and_arm`), since an automation usually calls it and would otherwise filter its context out.
 
 ### Failed arming
 

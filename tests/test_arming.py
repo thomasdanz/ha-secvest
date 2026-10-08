@@ -102,6 +102,9 @@ async def test_blocked(
             "zone_names": ["Room 6 L"],
             "faults": [],
             "user": "Tester",
+            "entity_id": PANEL,
+            "can_omit_and_arm": True,
+            "omit_and_arm": False,
         }
     ]
 

@@ -128,7 +128,7 @@ The alarm panel arms away (full set), arms home (part set, "intern aktivieren") 
 
 The panel doesn't switch directly between the two armed modes, so switching disarms first and then arms again; the alarm panel keeps showing the previous mode until the switch is done, and if disarming fails, the message says so. Every command is checked by reading the partition again afterwards, whatever the panel answered: it counts as done only if the partition really is in the requested state. If the partition already is in the requested state (e.g. armed at the keypad meanwhile), nothing is sent, and the user shown doesn't change.
 
-If arming or disarming fails, the action fails with a message, shown in the UI and in automation traces, and the event `secvest_arming_failed` is fired once, for every failure, with `entry_id`, `partition`, `partition_name`, `requested` (`set`, `partset` or `unset`), `reason`, `step` (`command`, `disarm_first` when switching between the armed modes failed at disarming, or `acknowledge_first` when acknowledging an alarm before disarming failed), `zones` (ids), `zone_names`, `faults` and `user` (the name of the code that was entered). The event carries the calling action's context, so an automation can tell where the command came from: `trigger.event.context.user_id` is set when a user acted in Home Assistant, `parent_id` when an automation or script did, and neither for other callers such as HomeKit Bridge. The reasons:
+If arming or disarming fails, the action fails with a message, shown in the UI and in automation traces, and the event `secvest_arming_failed` is fired once, for every failure, with `entry_id`, `partition`, `partition_name`, `requested` (`set`, `partset` or `unset`), `reason`, `step` (`command`, `disarm_first` when switching between the armed modes failed at disarming, or `acknowledge_first` when acknowledging an alarm before disarming failed), `zones` (ids), `zone_names`, `faults`, `user` (the name of the code that was entered), `entity_id` (the alarm panel), `can_omit_and_arm` (only open zones that can be omitted blocked arming, see "Omit open zones and arm") and `omit_and_arm` (the failure is one of that action). The event carries the calling action's context, so an automation can tell where the command came from: `trigger.event.context.user_id` is set when a user acted in Home Assistant, `parent_id` when an automation or script did, and neither for other callers such as HomeKit Bridge. The reasons:
 
 | `reason` | Meaning |
 |---|---|
@@ -144,7 +144,11 @@ If arming or disarming fails, the action fails with a message, shown in the UI a
 | `installer_locked` | The installer is logged in at the panel; nothing was changed |
 | `arm_during_alarm` | Arming during an alarm isn't sent; disarm first |
 | `auth_failed` | The panel rejected the credentials; Home Assistant asks to reauthenticate |
+| `certificate_changed` | The panel presented another certificate than the trusted one; nothing was sent, Home Assistant asks to confirm the new one |
 | `invalid_code` | The code entered doesn't match any configured code (`user` is empty); nothing was sent |
+| `not_omittable` | Omit open zones and arm: something else than open zones that can be omitted blocks arming (`zones`, `faults`); nothing was sent |
+| `omit_failed` | Omit open zones and arm: a zone couldn't be omitted (`zones`); zones omitted before were included again, nothing was armed |
+| `still_omitted` | Omit open zones and arm: after arming failed (its own event), these zones couldn't be included again and stay omitted until the next disarm; check them |
 
 One failure has no event: arming **without any code** while codes are configured. Home Assistant refuses it itself ("code required") before the integration is called. Home Assistant's UI always asks for the code; for HomeKit Bridge, set the code in its `entity_config`.
 
@@ -161,6 +165,45 @@ actions:
     data:
       message: "Alarm not armed ({{ trigger.event.data.reason }}): {{ trigger.event.data.zone_names | join(', ') }}"
 ```
+
+**Omit open zones and arm:** the action `secvest.omit_and_arm` (target: the alarm panel; `mode`: `away` or `home`; `code` as for arming) omits the open zones that block arming once, then arms, each step checked. It reads the partition, its zones and the faults first and sends nothing unless open zones that can be omitted are all that block it (`not_omittable` otherwise). The panel includes omitted zones again at the next disarm, so they are omitted for this arming only; if arming still fails, the zones are included again, since they would otherwise be unguarded at the next arming. For `home`, zones that aren't monitored when armed internally (`inner: false`) are left to the panel. The usual way to use it is a notification with an action when arming fails, e.g. from the Apple Home app, which shows no reason. This extends the example above (iOS companion app; replace the notify action and the code):
+
+```yaml
+triggers:
+  - trigger: event
+    event_type: secvest_arming_failed
+conditions:
+  # commands from elsewhere (e.g. HomeKit), or this automation's own follow-up
+  - "{{ (trigger.event.context.user_id is none and trigger.event.context.parent_id is none) or trigger.event.data.omit_and_arm }}"
+actions:
+  - variables:
+      d: "{{ trigger.event.data }}"
+      action_id: "SECVEST_OMIT_AND_ARM_{{ context.id }}"
+  - action: notify.mobile_app_my_iphone
+    data:
+      title: "Alarm not armed"
+      message: "{{ d.reason }}: {{ (d.zone_names + d.faults) | join(', ') }}"
+      data:
+        actions: "{{ [{'action': action_id, 'title': 'Omit once and arm'}] if d.can_omit_and_arm else [] }}"
+  - if: "{{ d.can_omit_and_arm }}"
+    then:
+      - wait_for_trigger:
+          - trigger: event
+            event_type: mobile_app_notification_action
+            event_data:
+              action: "{{ action_id }}"
+        timeout: "00:05:00"
+        continue_on_timeout: false
+      - action: secvest.omit_and_arm
+        target:
+          entity_id: "{{ d.entity_id }}"
+        data:
+          mode: "{{ 'home' if d.requested == 'partset' else 'away' }}"
+          code: !secret secvest_code
+mode: parallel
+```
+
+A failure of the follow-up action fires the event again with `omit_and_arm: true` and is notified the same way, without offering the action once more. `!secret` works in automations kept in YAML files; an automation edited in the UI would have to contain the code itself.
 
 **HomeKit:** HomeKit Bridge can't ask for a code, so it passes the one set in its configuration (`entity_config` → `code`). Adding a separate code named e.g. "HomeKit" shows HomeKit as the one who armed or disarmed, and can be removed on its own.
 

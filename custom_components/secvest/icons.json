@@ -47,5 +47,10 @@
         "default": "mdi:text-box-outline"
       }
     }
+  },
+  "services": {
+    "omit_and_arm": {
+      "service": "mdi:shield-plus-outline"
+    }
   }
 }

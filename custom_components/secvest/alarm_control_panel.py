@@ -19,6 +19,7 @@ from .codes import async_find, codes
 from .commands import (
     Failure,
     Request,
+    async_omit_and_arm,
     async_set_partition_state,
     fire_arming_failed,
 )
@@ -190,7 +191,14 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
         """Arm the partition completely."""
         await self._command(code, PartitionState.SET)
 
-    async def _command(self, code: str | None, target: PartitionState) -> None:
+    async def async_omit_and_arm(self, mode: str, code: str | None = None) -> None:
+        """Omit the open zones blocking arming once, then arm (#118)."""
+        target = PartitionState.SET if mode == "away" else PartitionState.PARTSET
+        await self._command(code, target, omit_open_zones=True)
+
+    async def _command(
+        self, code: str | None, target: PartitionState, *, omit_open_zones: bool = False
+    ) -> None:
         """Check the code, then send the command; nothing is sent otherwise.
 
         Without any configured code, none is checked: a code passed anyway
@@ -212,8 +220,9 @@ class SecvestAlarmPanel(SecvestEntity, AlarmControlPanelEntity):
             name = user.name
         before = self._shown_state
         self._commanding = True
+        command = async_omit_and_arm if omit_open_zones else async_set_partition_state
         try:
-            sent = await async_set_partition_state(
+            sent = await command(
                 self.coordinator,
                 self.number,
                 target,

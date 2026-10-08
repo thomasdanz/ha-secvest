@@ -357,6 +357,12 @@
     },
     "certificate_changed": {
       "message": "The panel's certificate isn't the trusted one. Nothing is sent anymore; confirm the new certificate to continue (Settings → Devices & services)"
+    },
+    "arm_failed_not_omittable": {
+      "message": "Partition {partition} was not armed: not only open zones that can be omitted block it ({items}); nothing was omitted"
+    },
+    "arm_failed_omit_failed": {
+      "message": "Partition {partition} was not armed: zone {items} couldn't be omitted ({reason}); zones omitted before were included again"
     }
   },
   "options": {
@@ -487,6 +493,12 @@
         "vibration": "Vibration",
         "same_as_zones": "Same as the zones"
       }
+    },
+    "arm_mode": {
+      "options": {
+        "away": "Away",
+        "home": "Home"
+      }
     }
   },
   "issues": {
@@ -574,6 +586,22 @@
       "abort": {
         "not_loaded": "The integration isn't loaded. Fix the problem shown for it first, then change the zone groups.",
         "reconfigure_successful": "The zone group was changed."
+      }
+    }
+  },
+  "services": {
+    "omit_and_arm": {
+      "name": "Omit open zones and arm",
+      "description": "Omits the open zones that block arming once, then arms the partition. Only if nothing else blocks it; if arming still fails, the zones are included again. The panel includes omitted zones again at the next disarm.",
+      "fields": {
+        "mode": {
+          "name": "Mode",
+          "description": "Away (set) or home (part set)."
+        },
+        "code": {
+          "name": "Code",
+          "description": "Needed while codes are configured, as for arming."
+        }
       }
     }
   }

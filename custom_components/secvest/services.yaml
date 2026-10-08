@@ -1,0 +1,19 @@
+omit_and_arm:
+  target:
+    entity:
+      integration: secvest
+      domain: alarm_control_panel
+  fields:
+    mode:
+      required: true
+      default: away
+      selector:
+        select:
+          options:
+            - away
+            - home
+          translation_key: arm_mode
+    code:
+      selector:
+        text:
+          type: password
