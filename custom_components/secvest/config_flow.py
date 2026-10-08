@@ -24,7 +24,6 @@ from homeassistant.helpers.selector import (
 )
 from homeassistant.helpers.typing import UNDEFINED, UndefinedType
 from homeassistant.loader import async_get_integration
-import voluptuous as vol
 
 from .api.client import Client
 from .api.errors import (
@@ -56,6 +55,7 @@ from .const import (
 )
 from .flow_helpers import partition_selector, zone_labels, zone_options, zone_schema
 from .options_flow import SecvestOptionsFlow
+from .schema import vol
 from .zone_group_flow import ZoneGroupFlow
 
 STEP_REAUTH_SCHEMA = vol.Schema(

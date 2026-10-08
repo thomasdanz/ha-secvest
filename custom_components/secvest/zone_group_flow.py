@@ -22,7 +22,6 @@ from homeassistant.helpers.selector import (
     SelectSelectorMode,
     TextSelector,
 )
-import voluptuous as vol
 
 from .const import (
     CONF_AREA_ID,
@@ -33,6 +32,7 @@ from .const import (
 )
 from .flow_helpers import zone_labels
 from .groups import SAME_AS_ZONES, zone_groups, zones_device_class
+from .schema import vol
 
 
 class ZoneGroupFlow(ConfigSubentryFlow):

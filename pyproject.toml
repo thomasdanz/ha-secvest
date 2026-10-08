@@ -11,7 +11,7 @@ dev = [
     "mypy==2.3.1",
     # pins the matching Home Assistant release (current: 2026.9)
     "pytest-cov==7.1.0",
-    "pytest-homeassistant-custom-component==0.13.366",
+    "pytest-homeassistant-custom-component==0.13.371",
     "ruff==0.16.9",
 ]
 
@@ -56,6 +56,12 @@ explicit_package_bases = true
 # ship no type information (resvg_py: scripts/render_icon.py only)
 module = ["pytest_homeassistant_custom_component.*", "resvg_py"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Home Assistant 2026.10 moved BinarySensorDeviceClass to const.py and
+# re-exports it without __all__; const.py doesn't exist before 2026.10
+module = ["homeassistant.components.binary_sensor"]
+implicit_reexport = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

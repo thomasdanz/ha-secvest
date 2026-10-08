@@ -82,6 +82,7 @@ The API client is a self-contained Python package without any Home Assistant dep
 | `zone_group_flow.py` | Adding and changing zone groups (subentry flow, #67). |
 | `flow_helpers.py` | Form parts shared by the flows: partition selector and the zones step (excluded zones, device class per zone). |
 | `log.py` | The log state (#11): the baseline, the entries of the overlap window, de-duplication by content and the stored state. |
+| `schema.py` | The schema library of the forms and the action: voluptuous at runtime, which Home Assistant 2026.10 maps to probatio at startup (older versions use it as it is), and probatio's types for the type checks; goes once the minimum reaches 2026.10 (#187). |
 | `certificates.py` | Subject, issuer, validity and fingerprint of a certificate for the flows (#149); only displayed. |
 | `codes.py` | Codes for arming and disarming (in the options since 1.3, #141; config subentries before, #116): user name plus a salted hash (PBKDF2) of a four-digit code and its parameters (`kdf`; missing means `pbkdf2-sha256-100000`, as stored before 0.3); lookup by code, hashing all stored codes in one executor job so the event loop isn't blocked (#139). The hash protects against casual reading of the configuration only: four digits are 10,000 candidates. Home Assistant's own: they can't be checked against the panel (no API, and failed logins must be avoided). |
 | `groups.py` | Zone groups as stored in their subentries; what a change of which reloads the entry. |
