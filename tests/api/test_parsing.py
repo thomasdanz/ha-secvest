@@ -47,6 +47,10 @@ PARSERS: dict[str, Callable[[Any], object]] = {
     "GET_system_partitions-2_zones": parse_zones,
     "GET_system_partitions-1_zones-209": parse_zone,
     "PUT_system_partitions-1_zones-209": parse_zone,
+    # without a partition number (#193): the list is empty, the zone the same
+    "GET_system_partitions_zones": parse_zones,
+    "GET_system_partitions_zones-209": parse_zone,
+    "PUT_system_partitions_zones-209": parse_zone,
     "GET_faults": parse_faults,
     "GET_alarms": parse_alarms,
     "GET_logs": parse_log,

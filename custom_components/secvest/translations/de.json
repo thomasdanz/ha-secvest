@@ -326,7 +326,7 @@
       "message": "Zone {zone} wurde nicht ausgeblendet. Sie ist nicht ausblendbar"
     },
     "omit_failed_no_permission": {
-      "message": "Zone {zone} wurde nicht ausgeblendet. Keine Berechtigung, Zonen dieses Teilbereichs auszublenden"
+      "message": "Zone {zone} wurde nicht ausgeblendet. Keine Berechtigung, diese Zone auszublenden"
     },
     "omit_failed_error": {
       "message": "Zone {zone} wurde nicht ausgeblendet. Die Zentrale hat mit einem Fehler geantwortet"
@@ -338,7 +338,7 @@
       "message": "Zone {zone} wurde nicht wieder eingeblendet. Sie ist nicht ausblendbar"
     },
     "include_failed_no_permission": {
-      "message": "Zone {zone} wurde nicht wieder eingeblendet. Keine Berechtigung für Zonen dieses Teilbereichs"
+      "message": "Zone {zone} wurde nicht wieder eingeblendet. Keine Berechtigung für diese Zone"
     },
     "include_failed_error": {
       "message": "Zone {zone} wurde nicht wieder eingeblendet. Die Zentrale hat mit einem Fehler geantwortet"

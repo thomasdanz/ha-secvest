@@ -14,7 +14,7 @@ from .common import ROUND, Setup, coordinator_of, get_state, state_of
 from .fake_panel import FakePanel, Injection
 
 SWITCH = "switch.alarmanlage_room_6_l_omit"
-PUT = ("PUT", "/system/partitions-1/zones-209/")
+PUT = ("PUT", "/system/partitions/zones-209/")
 
 
 async def _switch(hass: HomeAssistant, service: str) -> None:
@@ -72,7 +72,7 @@ async def test_no_permission(
         await _switch(hass, "turn_on")
     assert err.value.translation_key == "omit_failed_no_permission"
     assert str(err.value) == (
-        "Zone Room 6 L was not omitted: no permission to omit zones of this partition"
+        "Zone Room 6 L was not omitted: no permission to omit this zone"
     )
     assert state_of(hass, SWITCH) == STATE_OFF
 
@@ -95,7 +95,7 @@ async def test_error_answer(
     """Another error answer is reported as such after the verification."""
     await setup()
     fake_panel.inject(
-        Injection("PUT", "/system/partitions-1/zones-209/", "status", status=500)
+        Injection("PUT", "/system/partitions/zones-209/", "status", status=500)
     )
     with pytest.raises(CommandError) as err:
         await _switch(hass, "turn_on")
@@ -110,7 +110,7 @@ async def test_ignored(
     fake_panel.inject(
         Injection(
             "PUT",
-            "/system/partitions-1/zones-209/",
+            "/system/partitions/zones-209/",
             "status",
             status=200,
             # the zone unchanged, as a panel that ignores the command answers

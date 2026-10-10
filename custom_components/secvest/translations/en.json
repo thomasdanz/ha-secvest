@@ -326,7 +326,7 @@
       "message": "Zone {zone} was not omitted: it can't be omitted"
     },
     "omit_failed_no_permission": {
-      "message": "Zone {zone} was not omitted: no permission to omit zones of this partition"
+      "message": "Zone {zone} was not omitted: no permission to omit this zone"
     },
     "omit_failed_error": {
       "message": "Zone {zone} was not omitted: the panel answered with an error"
@@ -338,7 +338,7 @@
       "message": "Zone {zone} was not included again: it can't be omitted"
     },
     "include_failed_no_permission": {
-      "message": "Zone {zone} was not included again: no permission for zones of this partition"
+      "message": "Zone {zone} was not included again: no permission for this zone"
     },
     "include_failed_error": {
       "message": "Zone {zone} was not included again: the panel answered with an error"

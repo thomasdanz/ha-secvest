@@ -35,7 +35,7 @@ READS = [
 
 
 def _zone(zone_id: str) -> tuple[str, str]:
-    return ("PUT", f"/system/partitions-1/zones-{zone_id}/")
+    return ("PUT", f"/system/partitions/zones-{zone_id}/")
 
 
 def _puts(panel: FakePanel) -> list[tuple[str, str]]:

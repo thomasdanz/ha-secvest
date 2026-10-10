@@ -408,26 +408,21 @@ async def async_set_omitted(
 ) -> None:
     """Omit a zone or include it again, verified by the zone read afterwards.
 
-    The panel answers an empty 403 both for a zone that can't be omitted and
-    for a partition the user may not operate; the fresh omittable tells them
-    apart.
+    Sent without a partition number (#193): a zone can belong to several
+    partitions, and the panel checks the user's rights itself. The panel
+    answers an empty 403 both for a zone that can't be omitted and for a
+    missing permission; the fresh omittable tells them apart.
     """
     client = coordinator.client
     action = "omit" if omitted else "include"
     _refuse_while_locked(coordinator)
     async with client.hold(priority=True):
         state = coordinator.data
-        # the zone is omitted through one of the selected partitions it is in
-        number = next(
-            (
-                n
-                for n in coordinator.selected_partitions
-                if (p := state.partitions.get(n)) is not None and zone_id in p.zone_ids
-            ),
-            None,
-        )
-        name = state.zones[zone_id].name if zone_id in state.zones else zone_id
-        if number is None:
+        # only a zone of the last round is sent, e.g. not one that no selected
+        # partition lists anymore
+        known = zone_id in state.zones
+        name = state.zones[zone_id].name if known else zone_id
+        if not known:
             raise CommandError(
                 translation_domain=DOMAIN,
                 translation_key=f"{action}_failed_unknown",
@@ -440,7 +435,7 @@ async def async_set_omitted(
 
         try:
             outcome = await coordinator.async_command(
-                partial(client.set_zone_omitted, number, zone_id, omitted), reached
+                partial(client.set_zone_omitted, zone_id, omitted), reached
             )
         except SecvestError as err:
             raise _panel_error(err) from err

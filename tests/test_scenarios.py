@@ -32,6 +32,7 @@ from custom_components.secvest.const import (
     CONF_PARTITIONS,
     CONF_USER_CODE,
     CONF_ZONES,
+    DOMAIN,
     SUBENTRY_ZONE_GROUP,
 )
 from custom_components.secvest.coordinator import CommandOutcome
@@ -45,7 +46,7 @@ from .common import (
     get_state,
     state_of,
 )
-from .fake_panel import SHARED_ZONE, FakePanel, Injection
+from .fake_panel import SHARED_ZONE, SPLIT_ZONES, FakePanel, Injection
 
 SHARED = "binary_sensor.alarmanlage_room_6_l"
 SHARED_OMIT = "switch.alarmanlage_room_6_l_omit"
@@ -93,40 +94,59 @@ async def test_shared_zone_once(
     ]
 
 
-@pytest.mark.parametrize(("selected", "through"), [([1, 2], 1), ([2, 1], 2)])
-async def test_shared_zone_omitted_through_the_first_partition(
+@pytest.mark.parametrize("selected", [[1, 2], [2, 1]])
+async def test_shared_zone_omitted_without_partition(
     hass: HomeAssistant,
     fake_panel: FakePanel,
     setup: Setup,
     selected: list[int],
-    through: int,
 ) -> None:
-    """Omitting goes through the first selected partition listing the zone."""
+    """A shared zone is omitted without a partition number (#193)."""
     fake_panel.split_partitions()
     await setup(**{CONF_PARTITIONS: selected})
     await hass.services.async_call(
         "switch", "turn_on", {"entity_id": SHARED_OMIT}, blocking=True
     )
     assert fake_panel.zones[SHARED_ZONE].omitted
-    assert (
-        "PUT",
-        f"/system/partitions-{through}/zones-{SHARED_ZONE}/",
-    ) in fake_panel.stats.requests
+    puts = [r for r in fake_panel.stats.requests if r[0] == "PUT"]
+    assert puts == [("PUT", f"/system/partitions/zones-{SHARED_ZONE}/")]
 
 
-async def test_shared_zone_without_rights_in_the_first_partition(
+async def test_shared_zone_with_rights_for_one_of_its_partitions(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
-    """No rights there means "no permission", as the README states."""
+    """Rights for the second partition no longer fail at the first (#193).
+
+    Which rights the panel checks without a partition number is untested; the
+    fake assumes one of the zone's partitions suffices.
+    """
     fake_panel.split_partitions()
     await setup(**{CONF_PARTITIONS: [1, 2]})
     fake_panel.rights = {2}
+    await hass.services.async_call(
+        "switch", "turn_on", {"entity_id": SHARED_OMIT}, blocking=True
+    )
+    assert fake_panel.zones[SHARED_ZONE].omitted
+
+
+async def test_zone_without_rights(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """No rights for any of the zone's partitions means "no permission"."""
+    fake_panel.split_partitions()
+    entry = await setup(**{CONF_PARTITIONS: [1, 2]})
+    fake_panel.rights = {1}
+    zone = SPLIT_ZONES[0]
+    entity_id = er.async_get(hass).async_get_entity_id(
+        "switch", DOMAIN, f"{entry.entry_id}_zone_{zone}_omit"
+    )
+    assert entity_id is not None
     with pytest.raises(CommandError) as err:
         await hass.services.async_call(
-            "switch", "turn_on", {"entity_id": SHARED_OMIT}, blocking=True
+            "switch", "turn_on", {"entity_id": entity_id}, blocking=True
         )
     assert err.value.translation_key == "omit_failed_no_permission"
-    assert not fake_panel.zones[SHARED_ZONE].omitted
+    assert not fake_panel.zones[zone].omitted
 
 
 async def test_fault_on_both_arming_sensors(
