@@ -163,11 +163,40 @@ class SecvestZoneEntity(SecvestEntity):
         return super().available and self.zone is not None
 
 
+def group_entity_id(
+    coordinator: SecvestCoordinator, group: ZoneGroup, domain: Platform, suffix: str
+) -> str:
+    """Suggest <domain>.<installation>_<group>[_<suffix>]."""
+    parts = (slugify(coordinator.config_entry.title), slugify(group.name), suffix)
+    return f"{domain}." + "_".join(part for part in parts if part)
+
+
+def group_device_info(coordinator: SecvestCoordinator, group: ZoneGroup) -> DeviceInfo:
+    """Return the group's device, linked to the panel."""
+    entry = coordinator.config_entry
+    info = DeviceInfo(
+        identifiers={(DOMAIN, f"{entry.entry_id}_group_{group.subentry_id}")},
+        # its detectors are ABUS's; an empty manufacturer shows as unknown
+        manufacturer=MANUFACTURER,
+        model=zone_model("zone_group", coordinator.hass.config.language),
+        translation_key="zone_group",
+        translation_placeholders={"name": group.name},
+        via_device_id=coordinator.panel_device_id,
+    )
+    # used only when the device is created; afterwards the device page (or
+    # reconfiguring the group) decides
+    if group.area_id and (
+        area := ar.async_get(coordinator.hass).async_get_area(group.area_id)
+    ):
+        info["suggested_area"] = area.name
+    return info
+
+
 class SecvestGroupEntity(SecvestEntity):
     """An entity on the device of a zone group.
 
-    The group is a Home Assistant concept: its own device, not attributed to
-    ABUS, and the member zones keep their devices.
+    The group is a Home Assistant concept: its own device (manufacturer ABUS,
+    like its detectors), and the member zones keep their devices.
     """
 
     # the platform of the subclass, for the suggested entity id
@@ -184,24 +213,10 @@ class SecvestGroupEntity(SecvestEntity):
         """Suggest <installation>_<group>[_<suffix>] as the entity id."""
         super().__init__(coordinator, f"group_{group.subentry_id}_{key}")
         self.zone_group = group
-        entry = coordinator.config_entry
-        object_id = "_".join(
-            part for part in (slugify(entry.title), slugify(group.name), suffix) if part
+        self.entity_id = group_entity_id(
+            coordinator, group, self.platform_domain, suffix
         )
-        self.entity_id = f"{self.platform_domain}.{object_id}"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"{entry.entry_id}_group_{group.subentry_id}")},
-            model=zone_model("zone_group", coordinator.hass.config.language),
-            translation_key="zone_group",
-            translation_placeholders={"name": group.name},
-            via_device_id=coordinator.panel_device_id,
-        )
-        # used only when the device is created; afterwards the device page
-        # (or reconfiguring the group) decides
-        if group.area_id and (
-            area := ar.async_get(coordinator.hass).async_get_area(group.area_id)
-        ):
-            self._attr_device_info["suggested_area"] = area.name
+        self._attr_device_info = group_device_info(coordinator, group)
 
     def listed_members(self) -> list[str]:
         """Return the members the selected partitions still list."""
@@ -264,3 +279,50 @@ def web_zones(entry: ConfigEntry) -> list[Zone]:
         for zone in coordinator.data.zones.values()
         if zone.id not in excluded and zone_kind(zone.id) == "wireless_zone"
     ]
+
+
+class SecvestWebGroupEntity(CoordinatorEntity[WebCoordinator]):
+    """An entity on a zone group's device from its members' web values (#200).
+
+    Like the members' web entities (#56): its own coordinator, never mixed
+    with the REST API's values.
+    """
+
+    _attr_has_entity_name = True
+    # the platform of the subclass, for the suggested entity id
+    platform_domain: Platform
+
+    def __init__(
+        self,
+        web: WebCoordinator,
+        panel: SecvestCoordinator,
+        group: ZoneGroup,
+        key: str,
+    ) -> None:
+        """Attach the entity to the group's device."""
+        super().__init__(web)
+        self.zone_group = group
+        self.panel = panel
+        entry = panel.config_entry
+        self._attr_unique_id = f"{entry.entry_id}_group_{group.subentry_id}_{key}"
+        self.entity_id = group_entity_id(panel, group, self.platform_domain, key)
+        self._attr_device_info = group_device_info(panel, group)
+
+    @property
+    def available(self) -> bool:
+        """As the members' web entities: unavailable only while blocked."""
+        return not self.coordinator.blocked
+
+    def member_statuses(self) -> list[WebZoneStatus | None]:
+        """Return the listed members' rows of the last read (None if missing)."""
+        state = self.coordinator.data
+        listed = self.panel.listed_zone_ids()
+        return [
+            None if state is None else state.zones.get(zone_id)
+            for zone_id in self.zone_group.zone_ids
+            if zone_id in listed
+        ]
+
+    def _read_attributes(self) -> dict[str, Any]:
+        state = self.coordinator.data
+        return {"last_read": None if state is None else state.read_at.isoformat()}

@@ -1,6 +1,6 @@
 """Binary sensors."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
 
@@ -16,10 +16,11 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from . import SecvestConfigEntry
 from .api.models import FaultType, PanelEvent, Partition, Zone, ZoneState
 from .const import CONF_EXCLUDED_ZONES, CONF_ZONE_DEVICE_CLASSES
-from .coordinator import SecvestCoordinator
+from .coordinator import PanelState, SecvestCoordinator
 from .entity import (
     SecvestEntity,
     SecvestGroupEntity,
+    SecvestWebGroupEntity,
     SecvestWebZoneEntity,
     SecvestZoneEntity,
     web_zones,
@@ -65,10 +66,43 @@ async def async_setup_entry(
     async_add_entities(entities)
     # each group belongs to its subentry, so deleting the group removes it
     for group in zone_groups(entry):
-        async_add_entities(
-            [ZoneGroupSensor(coordinator, group)],
-            config_subentry_id=group.subentry_id,
-        )
+        group_entities: list[BinarySensorEntity] = [
+            ZoneGroupSensor(coordinator, group),
+            ZoneGroupProblemSensor(coordinator, group),
+        ]
+        if (web := coordinator.web) is not None:
+            group_entities.extend(
+                WebGroupStatusSensor(web, coordinator, group, description)
+                for description in WEB_STATUS
+            )
+        async_add_entities(group_entities, config_subentry_id=group.subentry_id)
+
+
+def zone_faults(state: PanelState, zone_id: str) -> list[PanelEvent]:
+    """Return the faults affecting a zone, except "zone open".
+
+    "Zone open" appears for every open omittable zone, even when disarmed;
+    the zone sensor already shows it.
+    """
+    return [
+        fault
+        for fault in state.faults
+        if fault.zone_id == zone_id and fault.type != FaultType.ZONE_OPEN
+    ]
+
+
+def zone_problem(state: PanelState, zone_id: str) -> bool | None:
+    """Return whether a zone has a problem; None if the zone wasn't read.
+
+    A zone state other than open or closed (tamper, fault, ...) or a fault
+    other than "zone open" on the zone.
+    """
+    zone = state.zones.get(zone_id)
+    if zone is None:
+        return None
+    if zone.state not in (ZoneState.OPEN, ZoneState.CLOSED):
+        return True
+    return bool(zone_faults(state, zone_id))
 
 
 class InstallerLockSensor(SecvestEntity, BinarySensorEntity):
@@ -196,26 +230,13 @@ class ZoneProblemSensor(SecvestZoneEntity, BinarySensorEntity):
     @property
     def is_on(self) -> bool | None:
         """Return whether the zone has a problem."""
-        zone = self.zone
-        if zone is None:
-            return None
-        if zone.state not in (ZoneState.OPEN, ZoneState.CLOSED):
-            return True
-        return bool(self._faults())
+        return zone_problem(self.coordinator.data, self.zone_id)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """List the zone's faults, readable without the faults sensor."""
-        return {"faults": [f.text or f"{f.type}/{f.id}" for f in self._faults()]}
-
-    def _faults(self) -> list[PanelEvent]:
-        # "zone open" appears for every open omittable zone, even when
-        # disarmed; the zone sensor already shows it
-        return [
-            fault
-            for fault in self.coordinator.data.faults
-            if fault.zone_id == self.zone_id and fault.type != FaultType.ZONE_OPEN
-        ]
+        faults = zone_faults(self.coordinator.data, self.zone_id)
+        return {"faults": [f.text or f"{f.type}/{f.id}" for f in faults]}
 
 
 class ZoneGroupSensor(SecvestGroupEntity, BinarySensorEntity):
@@ -335,3 +356,95 @@ class WebStatusSensor(SecvestWebZoneEntity, BinarySensorEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return when it was read."""
         return self._read_attributes()
+
+
+class ZoneGroupProblemSensor(SecvestGroupEntity, BinarySensorEntity):
+    """On while a member zone has a problem (#200); from the REST API only.
+
+    Members the partitions no longer list don't count; a listed member not
+    read right now makes it unknown, unless another member has a problem.
+    """
+
+    _attr_translation_key = "zone_problem"
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    platform_domain = Platform.BINARY_SENSOR
+
+    def __init__(self, coordinator: SecvestCoordinator, group: ZoneGroup) -> None:
+        """Suggest <installation>_<group>_problem as the entity id."""
+        super().__init__(coordinator, group, "problem", suffix="problem")
+
+    @property
+    def available(self) -> bool:
+        """Unavailable while no member is listed or read, like the group."""
+        zones = self.coordinator.data.zones
+        return super().available and any(z in zones for z in self.listed_members())
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return whether a member has a problem."""
+        state = self.coordinator.data
+        return _any_of(zone_problem(state, z) for z in self.listed_members())
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Name the members with a problem."""
+        state = self.coordinator.data
+        return {
+            "problem_zones": [
+                z for z in self.listed_members() if zone_problem(state, z)
+            ]
+        }
+
+
+class WebGroupStatusSensor(SecvestWebGroupEntity, BinarySensorEntity):
+    """A zone group's battery, supervision or tamper from its members (#200).
+
+    From the members' web values only (#56): on while any listed member
+    reports it, off while all report it off, unknown otherwise.
+    """
+
+    entity_description: WebStatusDescription
+    platform_domain = Platform.BINARY_SENSOR
+
+    def __init__(
+        self,
+        web: WebCoordinator,
+        panel: SecvestCoordinator,
+        group: ZoneGroup,
+        description: WebStatusDescription,
+    ) -> None:
+        """Describe one status column."""
+        self.entity_description = description
+        super().__init__(web, panel, group, description.key)
+
+    def _values(self) -> list[tuple[str, bool | None]]:
+        listed = self.panel.listed_zone_ids()
+        members = [z for z in self.zone_group.zone_ids if z in listed]
+        return [
+            (zone_id, None if status is None else self.entity_description.value(status))
+            for zone_id, status in zip(members, self.member_statuses(), strict=True)
+        ]
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return the status of the group, unknown before the first read."""
+        return _any_of(value for _, value in self._values())
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Name the members that report it, and when they were read."""
+        return {
+            "zones": [zone_id for zone_id, value in self._values() if value],
+            **self._read_attributes(),
+        }
+
+
+def _any_of(values: Iterable[bool | None]) -> bool | None:
+    """On if any is on, off if all are off, otherwise unknown (also if empty)."""
+    items = list(values)
+    if any(items):
+        return True
+    if items and all(item is False for item in items):
+        return False
+    return None

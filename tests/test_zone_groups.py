@@ -128,8 +128,8 @@ async def test_add_group(
     assert isinstance(device, dr.DeviceEntry)
     assert device.name == "Zone group Room 3"
     assert device.model == "Zone group"
-    # a Home Assistant concept, not an ABUS device
-    assert device.manufacturer is None
+    # a Home Assistant concept, but its detectors are ABUS's (#200)
+    assert device.manufacturer == "ABUS"
     panel = coordinator_of(entry).panel_device_id
     assert device.via_device_id == panel
 

@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Added
 
 - **Web interface (optional):** each wireless zone's signal strength (directly and via the repeater), battery, supervision and tamper, read from the panel's web interface every 12 hours (1 to 24, in the options) with the same panel user. Off by default. Each read logs in, reads and logs out; after a failed web login the integration stops reading it until you confirm in a repair issue, since failed web logins count towards a code tamper alarm. These values never mix with the polled ones (#56).
+- **Zone groups** show a **Problem** sensor and, with the web interface on, **Battery**, **Supervision** and **Tamper**, each on while one of the group's zones reports it, so a hidden member's low battery shows on the group. Zone group devices name ABUS as their manufacturer instead of none (#200).
 - **Firmware and serial number** on the panel device, from the web interface's Info page when it is turned on; a firmware other than the tested one raises a repair issue you can ignore (#194).
 
 ### Changed
