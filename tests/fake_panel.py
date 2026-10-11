@@ -190,6 +190,9 @@ class FakePanel:
         self.web_logins = 0
         self._web_failed_login: tuple[str, str] | None = None
         self.web_rows: dict[str, WebRow] = {}
+        # Info → Zentrale (#194); neutral values, not the reference panel's
+        self.firmware = "v3.01.31"
+        self.serial_number = "SECVEST0000TEST01"
 
         system = _fixture_json("GET_system.json")
         self.name: str = system["name"]
@@ -536,6 +539,21 @@ class FakePanel:
             return 200, part.to_json()
         part.state = "acknowledged"
         return 200, part.to_json()
+
+    def about_page(self) -> bytes:
+        """Render Info → Zentrale as far as a client reads it (structure)."""
+        return (
+            '<h2 class="nodisplay">Zentrale </h2><form name="about_panel">'
+            '<fieldset><ol class="controls clearfix">'
+            '<li class="information fullwidth"> Version:&nbsp;&nbsp;'
+            f"<span>{self.firmware}</span>&nbsp;&nbsp; Sprache:&nbsp;&nbsp;"
+            "<span>Deutsch v1.47</span></li>"
+            '<li class="information fullwidth"> Serien Nr.:&nbsp;&nbsp;'
+            f"<span>{self.serial_number}</span>&nbsp;&nbsp; Part No.:&nbsp;&nbsp;"
+            "<span>FUAA50XXX</span></li>"
+            '<li class="information fullwidth">Teilbereiche:&nbsp;1</li>'
+            "</ol></fieldset></form>"
+        ).encode()
 
     def zone_list(self) -> bytes:
         """Render POST /sec_zones.cgx for the wireless bus, like the panel."""
@@ -922,6 +940,7 @@ class _Handler(BaseHTTPRequestHandler):
         if method != "POST" or path not in {
             "/sec_login.cgi",
             "/sec_zones.cgx",
+            "/sec_about_panel.cgi",
             "/index.htm",
         }:
             # the main page and its scripts' requests make the panel run
@@ -940,6 +959,9 @@ class _Handler(BaseHTTPRequestHandler):
             return 200, WebAnswer(_START_PAGE, "text/html")
         if session is None:
             return 401, _fixture("POST_sec_zones.cgx.401.html")
+        if path == "/sec_about_panel.cgi":
+            panel.web_sessions[session] = time.monotonic()
+            return 200, WebAnswer(panel.about_page(), "text/html")
         if form.get("bus") != "0" or form.get("listingType") != "busDevice":
             panel.violations.append(f"{request} with an undocumented form: {form}")
         panel.web_sessions[session] = time.monotonic()

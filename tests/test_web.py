@@ -14,7 +14,11 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import entity_registry as er, issue_registry as ir
+from homeassistant.helpers import (
+    device_registry as dr,
+    entity_registry as er,
+    issue_registry as ir,
+)
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 import pytest
@@ -42,6 +46,7 @@ from .fake_panel import FakePanel, Injection, WebRow
 READ = [
     ("POST", "/sec_login.cgi"),
     ("POST", "/sec_zones.cgx"),
+    ("POST", "/sec_about_panel.cgi"),
     ("POST", "/index.htm"),
 ]
 SIGNAL = "sensor.alarmanlage_room_1_signal_strength"
@@ -77,6 +82,7 @@ async def _setup_web(setup: Setup, **options: Any) -> MockConfigEntry:
 
 
 def _web_requests(fake_panel: FakePanel) -> list[tuple[str, str]]:
+    # the paths of a read, in the order they are sent
     return [r for r in fake_panel.stats.requests if r[1] in {p for _, p in READ}]
 
 
@@ -282,7 +288,8 @@ async def test_failed_read_keeps_the_values(
         assert _web(entry).last_error is not None
     # an ended session is no failed login
     assert not entry.data.get(CONF_WEB_LOGIN_FAILED)
-    assert _web_requests(fake_panel) == READ * 3
+    failed = [READ[0], READ[1], READ[3]]
+    assert _web_requests(fake_panel) == READ + failed * 2
     await _web(entry).async_refresh()
     assert _web(entry).last_error is None
 
@@ -434,3 +441,95 @@ async def test_confirming_for_a_removed_entry(hass: HomeAssistant) -> None:
     flow.issue_id = "web_x_login_failed"
     result = await flow.async_step_confirm({})
     assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
+async def test_firmware_and_serial_number(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """Info → Zentrale gives the panel device its firmware and serial (#194)."""
+    entry = await _setup_web(setup)
+    await _web(entry).async_refresh()
+    device = dr.async_get(hass).async_get(coordinator_of(entry).panel_device_id)
+    assert isinstance(device, dr.DeviceEntry)
+    assert device.sw_version == "v3.01.31"
+    assert device.serial_number == "SECVEST0000TEST01"
+    assert _web(entry).as_dict()["firmware"] == "v3.01.31"
+    # the serial number identifies the installation: not in the diagnostics
+    assert "TEST01" not in str(_web(entry).as_dict())
+    issue_id = f"web_{entry.entry_id}_firmware"
+    assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is None
+
+
+async def test_untested_firmware(
+    hass: HomeAssistant,
+    fake_panel: FakePanel,
+    setup: Setup,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Another firmware: logged once, an issue to ignore, nothing else changes."""
+    monkeypatch.setattr(web_module, "MIN_WEB_SPACING", 0)
+    fake_panel.firmware = "v3.02.01"
+    entry = await _setup_web(setup)
+    await _web(entry).async_refresh()
+    await _web(entry).async_refresh()
+    issue_id = f"web_{entry.entry_id}_firmware"
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, issue_id)
+    assert issue is not None
+    assert issue.translation_placeholders is not None
+    assert issue.translation_placeholders["firmware"] == "v3.02.01"
+    assert caplog.text.count("runs firmware v3.02.01") == 1
+    assert state_of(hass, SIGNAL) == "9"
+    # the tested one again: the issue goes
+    fake_panel.firmware = "v3.01.31"
+    await _web(entry).async_refresh()
+    assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is None
+
+
+async def test_info_page_without_values(
+    hass: HomeAssistant,
+    fake_panel: FakePanel,
+    setup: Setup,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed or unreadable Info page keeps what the panel device shows."""
+    monkeypatch.setattr(web_module, "MIN_WEB_SPACING", 0)
+    entry = await _setup_web(setup)
+    await _web(entry).async_refresh()
+    for injection in (
+        Injection("POST", "/sec_about_panel.cgi", "status", status=500),
+        Injection(
+            "POST",
+            "/sec_about_panel.cgi",
+            "status",
+            status=200,
+            body=b"<html></html>",
+            content_type="text/html",
+        ),
+    ):
+        fake_panel.inject(injection)
+        await _web(entry).async_refresh()
+        device = dr.async_get(hass).async_get(coordinator_of(entry).panel_device_id)
+        assert isinstance(device, dr.DeviceEntry)
+        assert device.sw_version == "v3.01.31"
+        assert device.serial_number == "SECVEST0000TEST01"
+        assert state_of(hass, SIGNAL) == "9"
+
+
+async def test_firmware_not_shown_keeps_the_device_value(
+    hass: HomeAssistant,
+    fake_panel: FakePanel,
+    setup: Setup,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Only the serial number readable: the firmware shown stays."""
+    monkeypatch.setattr(web_module, "MIN_WEB_SPACING", 0)
+    entry = await _setup_web(setup)
+    await _web(entry).async_refresh()
+    fake_panel.firmware = "unknown"
+    fake_panel.serial_number = "SECVEST0000TEST02"
+    await _web(entry).async_refresh()
+    device = dr.async_get(hass).async_get(coordinator_of(entry).panel_device_id)
+    assert isinstance(device, dr.DeviceEntry)
+    assert device.sw_version == "v3.01.31"
+    assert device.serial_number == "SECVEST0000TEST02"

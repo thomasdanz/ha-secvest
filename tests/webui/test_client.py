@@ -24,6 +24,7 @@ from ..fake_panel import FakePanel, Injection, WebRow
 
 LOGIN = ("POST", "/sec_login.cgi")
 DATA = ("POST", "/sec_zones.cgx")
+ABOUT = ("POST", "/sec_about_panel.cgi")
 LOGOUT = ("POST", "/index.htm")
 
 
@@ -45,13 +46,17 @@ async def test_read(fake_panel: FakePanel, transport: Transport) -> None:
     """Login, the zone list, logout: three requests, the session ended."""
     fake_panel.web_rows["212"] = WebRow(level=0, lowest=0, repeater=(6, 0))
     fake_panel.web_rows["205"].battery_low = True
-    statuses, unknown = await _client(fake_panel, transport).read_zones()
+    result = await _client(fake_panel, transport).read()
+    statuses, unknown = result.zones, result.unknown
     assert unknown == []
     assert len(statuses) == 19
     assert statuses["212"].signal == Level(0, 0)
     assert statuses["212"].repeater_signal == Level(6, 0)
     assert statuses["205"].battery_low is True
-    assert fake_panel.stats.requests == [LOGIN, DATA, LOGOUT]
+    assert result.panel is not None
+    assert result.panel.firmware == "v3.01.31"
+    assert result.panel.serial_number == "SECVEST0000TEST01"
+    assert fake_panel.stats.requests == [LOGIN, DATA, ABOUT, LOGOUT]
     assert fake_panel.web_sessions == {}
 
 
@@ -60,7 +65,7 @@ async def test_shares_the_connection(
 ) -> None:
     """REST and web requests go over one connection, one after another."""
     await Client(transport).get_partitions()
-    await _client(fake_panel, transport).read_zones()
+    await _client(fake_panel, transport).read()
     assert fake_panel.stats.connections == 1
     assert fake_panel.stats.max_open_connections == 1
 
@@ -68,7 +73,7 @@ async def test_shares_the_connection(
 async def test_failed_login(fake_panel: FakePanel, transport: Transport) -> None:
     """A refused login: no data request, no logout, nothing more."""
     with pytest.raises(WebLoginFailedError):
-        await _client(fake_panel, transport, password="wrong").read_zones()
+        await _client(fake_panel, transport, password="wrong").read()
     assert fake_panel.stats.requests == [LOGIN]
     # the REST API isn't blocked: the password works there
     assert not transport.authentication_failed
@@ -94,7 +99,7 @@ async def test_login_without_a_session(
     monkeypatch.setattr("custom_components.secvest.api.transport.WEB_READ_TIMEOUT", 0.2)
     fake_panel.inject(injection)
     with pytest.raises(WebLoginFailedError):
-        await _client(fake_panel, transport).read_zones()
+        await _client(fake_panel, transport).read()
     assert fake_panel.stats.requests == [LOGIN]
 
 
@@ -102,7 +107,7 @@ async def test_panel_unreachable(fake_panel: FakePanel, transport: Transport) ->
     """Nothing sent is no failed login: a plain communication error."""
     fake_panel.stop()
     with pytest.raises(CommunicationError) as err:
-        await _client(fake_panel, transport).read_zones()
+        await _client(fake_panel, transport).read()
     assert not isinstance(err.value, WebLoginFailedError)
     fake_panel.start()
 
@@ -111,7 +116,7 @@ async def test_session_ended(fake_panel: FakePanel, transport: Transport) -> Non
     """A 401 for the data means the session ended; the logout still goes out."""
     fake_panel.web_session_timeout = -1
     with pytest.raises(WebSessionEndedError):
-        await _client(fake_panel, transport).read_zones()
+        await _client(fake_panel, transport).read()
     assert fake_panel.stats.requests == [LOGIN, DATA, LOGOUT]
     # an ended web session isn't a REST 401
     assert not transport.authentication_failed
@@ -132,7 +137,7 @@ async def test_data_request_fails(
     """A failed data request is a communication error; the logout goes out."""
     fake_panel.inject(injection)
     with pytest.raises(CommunicationError):
-        await _client(fake_panel, transport).read_zones()
+        await _client(fake_panel, transport).read()
     assert fake_panel.stats.requests == [LOGIN, DATA, LOGOUT]
 
 
@@ -148,9 +153,9 @@ async def test_logout_fails(
 ) -> None:
     """The logout's answer doesn't matter, and it isn't repeated."""
     fake_panel.inject(injection)
-    statuses, _ = await _client(fake_panel, transport).read_zones()
+    statuses = (await _client(fake_panel, transport).read()).zones
     assert len(statuses) == 19
-    assert fake_panel.stats.requests == [LOGIN, DATA, LOGOUT]
+    assert fake_panel.stats.requests == [LOGIN, DATA, ABOUT, LOGOUT]
 
 
 async def test_closed_before_sending(
@@ -159,7 +164,7 @@ async def test_closed_before_sending(
     """A connection the panel closed before the login went out is replaced."""
     await Client(transport).get_partitions()
     fake_panel.close_connections()
-    statuses, _ = await _client(fake_panel, transport).read_zones()
+    statuses = (await _client(fake_panel, transport).read()).zones
     assert len(statuses) == 19
 
 
@@ -181,7 +186,7 @@ async def test_unusable_credentials(
     """Credentials the web interface can't take are refused before sending."""
     assert credentials_problem(user_code, password) == problem
     with pytest.raises(WebCredentialsError):
-        await WebClient(transport, user_code, password).read_zones()
+        await WebClient(transport, user_code, password).read()
     assert fake_panel.stats.requests == []
 
 
@@ -193,7 +198,7 @@ async def test_not_after_a_rest_401(fake_panel: FakePanel) -> None:
             await Client(transport).get_system()
         sent = len(fake_panel.stats.requests)
         with pytest.raises(AuthenticationError):
-            await WebClient(transport, fake_panel.user_code, "wrong").read_zones()
+            await WebClient(transport, fake_panel.user_code, "wrong").read()
         assert len(fake_panel.stats.requests) == sent
     finally:
         await transport.close()
@@ -213,7 +218,7 @@ async def test_not_sent_is_sent_once_more(
         return original(*args, **kwargs)
 
     monkeypatch.setattr(transport, "_exchange", exchange)
-    statuses, _ = await _client(fake_panel, transport).read_zones()
+    statuses = (await _client(fake_panel, transport).read()).zones
     assert len(statuses) == 19
 
 
@@ -227,7 +232,7 @@ async def test_not_sent_twice(
 
     monkeypatch.setattr(transport, "_exchange", exchange)
     with pytest.raises(CommunicationError) as err:
-        await _client(fake_panel, transport).read_zones()
+        await _client(fake_panel, transport).read()
     assert not isinstance(err.value, WebLoginFailedError)
 
 
@@ -235,5 +240,23 @@ async def test_closed_transport(fake_panel: FakePanel, transport: Transport) -> 
     """After closing, nothing is sent."""
     await transport.close()
     with pytest.raises(CommunicationError):
-        await _client(fake_panel, transport).read_zones()
+        await _client(fake_panel, transport).read()
     assert fake_panel.stats.requests == []
+
+
+@pytest.mark.parametrize(
+    "injection",
+    [
+        Injection("POST", "/sec_about_panel.cgi", "status", status=500),
+        Injection("POST", "/sec_about_panel.cgi", "drop_after"),
+    ],
+)
+async def test_info_page_fails(
+    fake_panel: FakePanel, transport: Transport, injection: Injection
+) -> None:
+    """Info → Zentrale only adds details: the read counts without it."""
+    fake_panel.inject(injection)
+    result = await _client(fake_panel, transport).read()
+    assert len(result.zones) == 19
+    assert result.panel is None
+    assert fake_panel.stats.requests == [LOGIN, DATA, ABOUT, LOGOUT]

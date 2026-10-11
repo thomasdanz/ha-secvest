@@ -549,6 +549,10 @@
     "web_credentials": {
       "title": "Weboberfläche kann sich nicht anmelden",
       "description": "Das Passwort des Benutzers von {name} an der Zentrale enthält „&“ oder ist länger als 16 Zeichen. Das nimmt die Weboberfläche der Zentrale nicht an, deshalb wird sie nicht gelesen. Gib dem Benutzer an der Zentrale ein anderes Passwort und konfiguriere die Integration neu, oder schalte die Weboberfläche in den Optionen aus."
+    },
+    "untested_firmware": {
+      "title": "Ungetestete Firmware der Zentrale",
+      "description": "Die Zentrale von {name} hat die Firmware {firmware}; getestet wurde die Integration mit {tested}. Sie arbeitet wie bisher, andere Firmware-Versionen können aber anders antworten. Wenn etwas nicht funktioniert, melde es mit den Diagnosedaten. Du kannst diesen Hinweis ignorieren."
     }
   },
   "device": {

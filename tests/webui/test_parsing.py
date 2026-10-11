@@ -6,8 +6,12 @@ from pathlib import Path
 import pytest
 
 from custom_components.secvest.api.errors import CommunicationError
-from custom_components.secvest.webui.models import Level
-from custom_components.secvest.webui.parsing import session_id, zone_statuses
+from custom_components.secvest.webui.models import Level, PanelInfo
+from custom_components.secvest.webui.parsing import (
+    panel_info,
+    session_id,
+    zone_statuses,
+)
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 
@@ -152,3 +156,46 @@ def test_web_package_does_not_import_home_assistant() -> None:
             assert not any(m.split(".")[0] == "homeassistant" for m in modules), (
                 path.name
             )
+
+
+def _info(*items: str) -> bytes:
+    lis = "".join(f'<li class="information fullwidth">{item}</li>' for item in items)
+    return f'<form name="about_panel"><ol class="controls">{lis}</ol></form>'.encode()
+
+
+def test_panel_info() -> None:
+    """Firmware and language from the first item, the serial from the second."""
+    page = _info(
+        "Version:&nbsp;<span>v3.01.31</span>&nbsp;"
+        "Sprache:&nbsp;<span>Deutsch v1.47</span>",
+        "Serien Nr.:&nbsp;<span>SECVEST0000TEST01</span> "
+        "Part No.:<span>FUAA50XXX</span>",
+        "Teilbereiche:&nbsp;1",
+    )
+    assert panel_info(page) == PanelInfo(
+        "v3.01.31", "Deutsch v1.47", "SECVEST0000TEST01"
+    )
+
+
+def test_panel_info_ignores_labels() -> None:
+    """Labels in another language don't matter, only structure and formats."""
+    page = _info(
+        "Version:<span>v4.0.1</span> Language:<span>English v2.0</span>",
+        "Serial no.:<span>ABCD1234EFGH</span> Part no.:<span>X</span>",
+    )
+    assert panel_info(page) == PanelInfo("v4.0.1", "English v2.0", "ABCD1234EFGH")
+
+
+@pytest.mark.parametrize(
+    "page",
+    [
+        b"",
+        _info("<span>3.01</span><span></span>", "<span>short</span>"),
+        _info("no spans"),
+    ],
+)
+def test_panel_info_unknown(page: bytes) -> None:
+    """Values in an unexpected format stay unknown."""
+    info = panel_info(page)
+    assert info.firmware is None
+    assert info.serial_number is None
