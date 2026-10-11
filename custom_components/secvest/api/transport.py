@@ -22,7 +22,7 @@ import socket
 import ssl
 import time
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 from .errors import (
     ArmingBlockedError,
@@ -186,6 +186,7 @@ def _arming_blocked(body: bytes) -> ArmingBlockedError:
 CONNECT_TIMEOUT = 15.0  # covers the panel's 6.5 s full TLS handshake
 READ_TIMEOUT = 10.0
 LOG_READ_TIMEOUT = 30.0  # log requests take about 6 s
+WEB_READ_TIMEOUT = 20.0  # the web interface's zone list took well under 1 s
 # reconnect instead of reusing a connection idle for longer; the panel
 # closes idle connections after 10-30 s, and a resumed reconnect is cheap
 MAX_IDLE = 5.0
@@ -402,6 +403,31 @@ class Transport:
                 self._executor, self._request_sync, method, path, body, read_timeout
             )
 
+    async def request_web(
+        self,
+        method: str,
+        path: str,
+        form: dict[str, str] | None = None,
+        *,
+        cookie: str | None = None,
+        xhr: bool = False,
+    ) -> tuple[int, bytes]:
+        """Send one request to the panel's web interface (#56).
+
+        Through the same queue and connection as the REST API, but without
+        Basic Auth: the web interface uses a form login and a session
+        cookie. Returns the status and the body; the caller judges them. A
+        401 here is an ended web session, not wrong credentials, so it
+        doesn't block the transport.
+        """
+        async with self.hold():
+            if self._closed:
+                raise CommunicationError("no request sent: the connection is closed")
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(
+                self._executor, self._web_request_sync, method, path, form, cookie, xhr
+            )
+
     async def disconnect(self) -> None:
         """Close the connection; the next request reconnects.
 
@@ -493,6 +519,57 @@ class Transport:
         if method == "GET" and not path.startswith("/logs/"):
             self.last_responses[path] = result
         return result
+
+    def _web_request_sync(
+        self,
+        method: str,
+        path: str,
+        form: dict[str, str] | None,
+        cookie: str | None,
+        xhr: bool,
+    ) -> tuple[int, bytes]:
+        if self._certificate_failed:
+            raise CertificateError(
+                "no request sent: the panel's certificate isn't the trusted one"
+            )
+        if self._auth_failed:
+            # the same credentials would fail at the web login too
+            raise AuthenticationError(
+                "no request sent: the panel rejected these credentials before"
+            )
+        data = None if form is None else urlencode(form).encode()
+        headers = {"Accept": "*/*", "User-Agent": self._user_agent}
+        if form is not None:
+            headers["Content-Type"] = (
+                "application/x-www-form-urlencoded; charset=UTF-8"
+                if xhr
+                else "application/x-www-form-urlencoded"
+            )
+        if xhr:
+            headers["X-Requested-With"] = "XMLHttpRequest"
+        if cookie is not None:
+            headers["Cookie"] = cookie
+        with translate_errors():
+            # connect first: if that fails, nothing was sent
+            self._connection(WEB_READ_TIMEOUT)
+        for attempt in (1, 2):
+            try:
+                return self._exchange(method, path, data, headers, WEB_READ_TIMEOUT)
+            except _NotSentError as err:
+                # closed by the panel before the request went out: nothing
+                # reached it, so it may go out once on a new connection
+                if attempt == 2:
+                    raise CommunicationError("the panel closed the connection") from err
+                _LOGGER.debug("Connection closed by the panel, reconnecting")
+                with translate_errors():
+                    self._connection(WEB_READ_TIMEOUT)
+            except (TimeoutError, OSError, http.client.HTTPException) as err:
+                # the request went out; its outcome is unknown (a login may
+                # have counted), so it is never sent again
+                raise ConnectionLostError(
+                    "a web request went out, but no answer came"
+                ) from err
+        raise AssertionError("unreachable")  # pragma: no cover
 
     def _attempt(
         self,

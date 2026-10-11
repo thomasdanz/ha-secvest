@@ -142,6 +142,15 @@
           "on": "Blockiert",
           "off": "Frei"
         }
+      },
+      "web_battery": {
+        "name": "Batterie"
+      },
+      "supervision": {
+        "name": "Supervision"
+      },
+      "web_tamper": {
+        "name": "Sabotage"
       }
     },
     "sensor": {
@@ -170,6 +179,12 @@
             "name": "Letzter Fehler"
           }
         }
+      },
+      "signal_strength": {
+        "name": "Signalstärke"
+      },
+      "signal_strength_repeater": {
+        "name": "Signalstärke über Repeater"
       }
     },
     "alarm_control_panel": {
@@ -381,12 +396,16 @@
         "data": {
           "partitions": "Teilbereiche",
           "scan_interval": "Abrufintervall",
-          "log_interval": "Logbuch-Intervall"
+          "log_interval": "Logbuch-Intervall",
+          "web_interface": "Weboberfläche lesen",
+          "web_interval": "Intervall Weboberfläche"
         },
         "data_description": {
           "partitions": "Die Teilbereiche, die Home Assistant anzeigt und bedient; ihre Zonen werden automatisch übernommen.",
           "scan_interval": "Wie oft die Zentrale abgefragt wird, in Sekunden. Nie unter 24 Sekunden, dem Takt der offiziellen App.",
-          "log_interval": "Wie oft neue Einträge aus dem Logbuch der Zentrale gelesen werden, in Sekunden. Mindestens 120 Sekunden: Das Lesen des Logbuchs dauert bei der Zentrale mehrere Sekunden."
+          "log_interval": "Wie oft neue Einträge aus dem Logbuch der Zentrale gelesen werden, in Sekunden. Mindestens 120 Sekunden: Das Lesen des Logbuchs dauert bei der Zentrale mehrere Sekunden.",
+          "web_interface": "Liest pro Funkzone Signalstärke, Batterie, Supervision und Sabotage aus der Weboberfläche der Zentrale, mit demselben Benutzer. Jeder Abruf meldet sich an und ab und schreibt dabei zwei Einträge ins Logbuch der Zentrale. Standardmäßig aus.",
+          "web_interval": "Wie oft die Weboberfläche gelesen wird, in Stunden (1 bis 24)."
         },
         "sections": {
           "advanced": {
@@ -469,7 +488,9 @@
       "invalid_code": "Gib einen Code aus vier Ziffern ein.",
       "code_exists": "Ein anderer Benutzer hat diesen Code schon.",
       "installer_locked": "Der Errichter ist an der Zentrale angemeldet, was die API sperrt. Versuche es erneut, wenn er sich abgemeldet hat.",
-      "cannot_connect": "Die Zentrale ist nicht erreichbar. Versuche es später erneut."
+      "cannot_connect": "Die Zentrale ist nicht erreichbar. Versuche es später erneut.",
+      "web_credentials_ampersand": "Mit einem Passwort, das „&“ enthält, kann sich die Weboberfläche nicht anmelden. Ändere zuerst das Passwort des Benutzers an der Zentrale oder lass diese Option aus.",
+      "web_credentials_too_long": "Die Weboberfläche nimmt Benutzercode und Passwort mit höchstens 16 Zeichen. Ändere zuerst das Passwort des Benutzers an der Zentrale oder lass diese Option aus."
     },
     "abort": {
       "not_loaded": "Die Integration ist nicht geladen. Behebe zuerst das angezeigte Problem (z. B. erneut anmelden) und ändere dann die Optionen.",
@@ -513,6 +534,21 @@
     "zone_group_zones_gone": {
       "title": "Zonengruppe {group} enthält Zonen, die es nicht mehr gibt",
       "description": "Die Zonengruppe {group} von {name} enthält Zonen, die die ausgewählten Teilbereiche nicht mehr auflisten: {zones}. Der Gruppensensor berücksichtigt sie nicht. Wurden die Zonen an der Zentrale entfernt, öffne die Seite der Integration, wähle die Gruppe und konfiguriere sie neu; hast du ihren Teilbereich abgewählt, wähle ihn in den Optionen wieder aus. Der Hinweis verschwindet, sobald die Gruppe wieder passt."
+    },
+    "web_login_failed": {
+      "title": "Anmeldung an der Weboberfläche fehlgeschlagen",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Erneut an der Weboberfläche anmelden?",
+            "description": "Die Zentrale von {name} hat die Anmeldung an ihrer Weboberfläche abgelehnt oder nicht beantwortet. Signalstärke, Batterie, Supervision und Sabotage werden nicht mehr gelesen: Fehlgeschlagene Anmeldungen an der Weboberfläche zählen zur Code-Sabotage, deshalb versucht es die Integration nie von selbst erneut.\n\nPrüfe Benutzercode und Passwort des Benutzers an der Zentrale, zum Beispiel mit einer Anmeldung an der Weboberfläche im Browser, und bestätige dann, um es einmal erneut zu versuchen. Neue Zugangsdaten (Neu konfigurieren) versuchen es ebenfalls erneut."
+          }
+        }
+      }
+    },
+    "web_credentials": {
+      "title": "Weboberfläche kann sich nicht anmelden",
+      "description": "Das Passwort des Benutzers von {name} an der Zentrale enthält „&“ oder ist länger als 16 Zeichen. Das nimmt die Weboberfläche der Zentrale nicht an, deshalb wird sie nicht gelesen. Gib dem Benutzer an der Zentrale ein anderes Passwort und konfiguriere die Integration neu, oder schalte die Weboberfläche in den Optionen aus."
     }
   },
   "device": {

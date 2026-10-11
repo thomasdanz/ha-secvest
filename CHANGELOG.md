@@ -4,10 +4,18 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- **Web interface (optional):** each wireless zone's signal strength (directly and via the repeater), battery, supervision and tamper, read from the panel's web interface every 12 hours (1 to 24, in the options) with the same panel user. Off by default. Each read logs in, reads and logs out; after a failed web login the integration stops reading it until you confirm in a repair issue, since failed web logins count towards a code tamper alarm. These values never mix with the polled ones (#56).
+
 ### Changed
 
 - README: a dashboard button for omitting open zones and arming, through a script that carries the code (#191).
 - **Omitting and including a zone** is sent without a partition number, as the panel's own web interface does. A zone in several partitions no longer fails with "no permission" because the panel user may not operate the first selected one; the panel checks the rights itself. This applies to the omit switches, zone groups and `secvest.omit_and_arm` (#193).
+
+### Upgrade notes
+
+- The web interface stays off after the update; nothing changes until you turn it on in the options.
 
 ## [1.0.0] - 2026-10-08
 

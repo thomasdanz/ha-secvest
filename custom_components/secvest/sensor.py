@@ -11,14 +11,16 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import EntityCategory, UnitOfTime
+from homeassistant.const import EntityCategory, Platform, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import SecvestConfigEntry
-from .api.models import PanelEvent, Partition
+from .api.models import PanelEvent, Partition, Zone
 from .coordinator import SecvestCoordinator
-from .entity import SecvestEntity
+from .entity import SecvestEntity, SecvestWebZoneEntity, web_zones
+from .web import WebCoordinator, level_attributes
+from .webui.models import Level
 
 # the entities only read the coordinator's state
 PARALLEL_UPDATES = 0
@@ -41,6 +43,10 @@ async def async_setup_entry(
         for number in coordinator.selected_partitions
         if number in partitions
     )
+    if (web := coordinator.web) is not None:
+        for zone in web_zones(entry):
+            entities.append(SignalSensor(web, coordinator, zone, repeater=False))
+            entities.append(SignalSensor(web, coordinator, zone, repeater=True))
     async_add_entities(entities)
 
 
@@ -220,3 +226,49 @@ class DiagnosticSensor(SecvestEntity, SensorEntity):
         """Return the attributes, if the sensor has any."""
         attributes = self.entity_description.attributes
         return attributes(self.coordinator) if attributes else None
+
+
+class SignalSensor(SecvestWebZoneEntity, SensorEntity):
+    """A wireless zone's signal strength level from the web interface (#56).
+
+    The level 0-9 as the panel shows it, without a unit: a level is a 3 dB
+    range with open ends, not a measured dBm value. The range and the lowest
+    level since the last reset are attributes. Through the repeater: the
+    level at which the RF repeater receives the zone, unknown for zones it
+    doesn't repeat (inferred from the panel's data, see the specification).
+    """
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    platform_domain = Platform.SENSOR
+
+    def __init__(
+        self,
+        web: WebCoordinator,
+        panel: SecvestCoordinator,
+        zone: Zone,
+        *,
+        repeater: bool,
+    ) -> None:
+        """One sensor for the direct level, one for the repeater's."""
+        key = "signal_strength_repeater" if repeater else "signal_strength"
+        super().__init__(web, panel, zone, key)
+        self._attr_translation_key = key
+        self._repeater = repeater
+
+    def _level(self) -> Level | None:
+        status = self.status
+        if status is None:
+            return None
+        return status.repeater_signal if self._repeater else status.signal
+
+    @property
+    def native_value(self) -> int | None:
+        """Return the current level, unknown before the first read."""
+        level = self._level()
+        return None if level is None else level.current
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the lowest level, the dBm range and when it was read."""
+        return {**level_attributes(self._level()), **self._read_attributes()}

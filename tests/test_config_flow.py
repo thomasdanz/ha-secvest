@@ -23,7 +23,10 @@ from custom_components.secvest.const import (
     CONF_PARTITIONS,
     CONF_USER_AGENT,
     CONF_USER_CODE,
+    CONF_WEB_INTERFACE,
+    CONF_WEB_INTERVAL,
     CONF_ZONE_DEVICE_CLASSES,
+    DEFAULT_WEB_INTERVAL,
     DOMAIN,
 )
 
@@ -108,6 +111,8 @@ async def test_create_entry(hass: HomeAssistant, fake_panel: FakePanel) -> None:
         CONF_EXCLUDED_ZONES: [],
         CONF_ZONE_DEVICE_CLASSES: {},
         CONF_CODES: [],
+        CONF_WEB_INTERFACE: False,
+        CONF_WEB_INTERVAL: DEFAULT_WEB_INTERVAL,
     }
     assert result["result"].unique_id == f"{fake_panel.host}:{fake_panel.port}"
     # the reads share one connection; the selection and zones steps send nothing
@@ -307,6 +312,8 @@ async def test_zone_types_during_setup(
         CONF_EXCLUDED_ZONES: ["201"],
         CONF_ZONE_DEVICE_CLASSES: {"209": "window"},
         CONF_CODES: [],
+        CONF_WEB_INTERFACE: False,
+        CONF_WEB_INTERVAL: DEFAULT_WEB_INTERVAL,
     }
 
 

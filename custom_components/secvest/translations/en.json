@@ -142,6 +142,15 @@
           "on": "Blocked",
           "off": "Free"
         }
+      },
+      "web_battery": {
+        "name": "Battery"
+      },
+      "supervision": {
+        "name": "Supervision"
+      },
+      "web_tamper": {
+        "name": "Tamper"
       }
     },
     "sensor": {
@@ -170,6 +179,12 @@
             "name": "Last error"
           }
         }
+      },
+      "signal_strength": {
+        "name": "Signal strength"
+      },
+      "signal_strength_repeater": {
+        "name": "Signal strength via repeater"
       }
     },
     "alarm_control_panel": {
@@ -381,12 +396,16 @@
         "data": {
           "partitions": "Partitions",
           "scan_interval": "Status interval",
-          "log_interval": "Log interval"
+          "log_interval": "Log interval",
+          "web_interface": "Read the web interface",
+          "web_interval": "Web interface interval"
         },
         "data_description": {
           "partitions": "The partitions Home Assistant shows and operates; their zones are added automatically.",
           "scan_interval": "How often the panel is polled, in seconds. Never below 24 seconds, the official app's own cycle.",
-          "log_interval": "How often new entries of the panel's log are read, in seconds. At least 120 seconds: reading the log takes the panel several seconds."
+          "log_interval": "How often new entries of the panel's log are read, in seconds. At least 120 seconds: reading the log takes the panel several seconds.",
+          "web_interface": "Reads each wireless zone's signal strength, battery, supervision and tamper from the panel's web interface, with the same panel user. Each read logs in and out, which writes two entries to the panel's log. Off by default.",
+          "web_interval": "How often the web interface is read, in hours (1 to 24)."
         },
         "sections": {
           "advanced": {
@@ -469,7 +488,9 @@
       "invalid_code": "Enter a code of four digits.",
       "code_exists": "Another user has this code already.",
       "installer_locked": "The installer is logged in at the panel, which locks the API. Try again after the installer has logged out.",
-      "cannot_connect": "The panel could not be reached. Try again later."
+      "cannot_connect": "The panel could not be reached. Try again later.",
+      "web_credentials_ampersand": "The web interface can't log in with a password containing \"&\". Change the panel user's password first, or leave this off.",
+      "web_credentials_too_long": "The web interface takes a user code and a password of at most 16 characters. Change the panel user's password first, or leave this off."
     },
     "abort": {
       "not_loaded": "The integration isn't loaded. Fix the problem shown for it first (for example reauthenticate), then change the options.",
@@ -513,6 +534,21 @@
     "zone_group_zones_gone": {
       "title": "Zone group {group} has zones that no longer exist",
       "description": "The zone group {group} of {name} contains zones that the selected partitions no longer list: {zones}. The group sensor ignores them. If the zones were removed at the panel, open the integration's page, choose the group and reconfigure it; if you deselected their partition, select it again in the options. This issue disappears once the group fits again."
+    },
+    "web_login_failed": {
+      "title": "Web interface login failed",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Log in at the web interface again?",
+            "description": "The panel of {name} refused the login at its web interface, or didn't answer it. Its signal strength, battery, supervision and tamper entities aren't read anymore: failed web logins count towards a code tamper alarm, so the integration never tries again on its own.\n\nCheck the panel user's code and password, e.g. by logging in at the web interface in a browser, then confirm to try once more. New credentials (reconfigure) try again too."
+          }
+        }
+      }
+    },
+    "web_credentials": {
+      "title": "Web interface can't log in",
+      "description": "The password of {name}'s panel user contains \"&\" or is longer than 16 characters, which the panel's web interface doesn't accept, so it isn't read. Give the panel user another password and reconfigure the integration, or turn the web interface off in the options."
     }
   },
   "device": {

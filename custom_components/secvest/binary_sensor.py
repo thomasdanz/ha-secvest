@@ -1,10 +1,13 @@
 """Binary sensors."""
 
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
+    BinarySensorEntityDescription,
 )
 from homeassistant.const import EntityCategory, Platform
 from homeassistant.core import HomeAssistant
@@ -14,8 +17,16 @@ from . import SecvestConfigEntry
 from .api.models import FaultType, PanelEvent, Partition, Zone, ZoneState
 from .const import CONF_EXCLUDED_ZONES, CONF_ZONE_DEVICE_CLASSES
 from .coordinator import SecvestCoordinator
-from .entity import SecvestEntity, SecvestGroupEntity, SecvestZoneEntity
+from .entity import (
+    SecvestEntity,
+    SecvestGroupEntity,
+    SecvestWebZoneEntity,
+    SecvestZoneEntity,
+    web_zones,
+)
 from .groups import SAME_AS_ZONES, ZoneGroup, zone_groups, zones_device_class
+from .web import WebCoordinator
+from .webui.models import WebZoneStatus
 
 # the entities only read the coordinator's state
 PARALLEL_UPDATES = 0
@@ -45,6 +56,12 @@ async def async_setup_entry(
             continue
         entities.append(ZoneSensor(coordinator, zone, device_classes.get(zone.id)))
         entities.append(ZoneProblemSensor(coordinator, zone))
+    if (web := coordinator.web) is not None:
+        for zone in web_zones(entry):
+            entities.extend(
+                WebStatusSensor(web, coordinator, zone, description)
+                for description in WEB_STATUS
+            )
     async_add_entities(entities)
     # each group belongs to its subentry, so deleting the group removes it
     for group in zone_groups(entry):
@@ -251,3 +268,70 @@ class ZoneGroupSensor(SecvestGroupEntity, BinarySensorEntity):
             ],
             "missing_zones": [z for z in self.zone_group.zone_ids if z not in listed],
         }
+
+
+@dataclass(frozen=True, kw_only=True)
+class WebStatusDescription(BinarySensorEntityDescription):
+    """A status column of the web interface's zone list."""
+
+    value: Callable[[WebZoneStatus], bool | None]
+
+
+# from the page's column guide; only "omitted" was observed (see the
+# specification), so these are the guide's assignment
+WEB_STATUS = (
+    WebStatusDescription(
+        key="battery",
+        translation_key="web_battery",
+        device_class=BinarySensorDeviceClass.BATTERY,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value=lambda status: status.battery_low,
+    ),
+    WebStatusDescription(
+        key="supervision",
+        translation_key="supervision",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value=lambda status: status.supervision_fault,
+    ),
+    WebStatusDescription(
+        key="tamper",
+        translation_key="web_tamper",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value=lambda status: status.tamper,
+    ),
+)
+
+
+class WebStatusSensor(SecvestWebZoneEntity, BinarySensorEntity):
+    """A wireless zone's battery, supervision or tamper from the web interface.
+
+    Only from the web interface, read every few hours (#56); the REST API's
+    faults stay with the zone problem sensor.
+    """
+
+    entity_description: WebStatusDescription
+    platform_domain = Platform.BINARY_SENSOR
+
+    def __init__(
+        self,
+        web: WebCoordinator,
+        panel: SecvestCoordinator,
+        zone: Zone,
+        description: WebStatusDescription,
+    ) -> None:
+        """Describe one status column."""
+        self.entity_description = description
+        super().__init__(web, panel, zone, description.key)
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return the status, unknown before the first read."""
+        status = self.status
+        return None if status is None else self.entity_description.value(status)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return when it was read."""
+        return self._read_attributes()

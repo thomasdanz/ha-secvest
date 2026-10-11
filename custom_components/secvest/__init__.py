@@ -26,7 +26,10 @@ from .const import (
     CONF_EXCLUDED_ZONES,
     CONF_USER_AGENT,
     CONF_USER_CODE,
+    CONF_WEB_INTERFACE,
+    CONF_WEB_INTERVAL,
     CONF_ZONE_DEVICE_CLASSES,
+    DEFAULT_WEB_INTERVAL,
     DOMAIN,
     SERVICE_OMIT_AND_ARM,
     SUBENTRY_CODE,
@@ -36,6 +39,7 @@ from .entity import panel_device_info
 from .groups import reload_snapshot, zone_groups
 from .log import log_store
 from .schema import vol
+from .web import WebCoordinator, clear_web_issues, forget_web_reads, web_enabled
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -109,6 +113,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> b
     entry.runtime_data = coordinator
     _remove_orphaned_devices(hass, entry, coordinator)
     coordinator.clear_stale_issues()
+    if web_enabled(entry.options):
+        coordinator.web = WebCoordinator(hass, entry, coordinator)
+        entry.async_on_unload(coordinator.web.async_start())
+    else:
+        clear_web_issues(hass, entry.entry_id)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _remove_stale_entities(hass, entry)
     _hide_grouped_zones(hass, entry)
@@ -142,7 +151,11 @@ def _blocked(entry: SecvestConfigEntry) -> bool:
     )
 
 
-_ZONE_ENTITY = re.compile(r"zone_([^_]+)_(open|problem|omit)")
+# the web interface's (#56) are removed while it is off
+_WEB_KEYS = r"(signal_strength|signal_strength_repeater|battery|supervision|tamper)"
+_ZONE_KEYS = rf"(open|problem|omit|{_WEB_KEYS[1:-1]})"
+_WEB_ENTITY = re.compile(rf"zone_[^_]+_{_WEB_KEYS}")
+_ZONE_ENTITY = re.compile(rf"zone_([^_]+)_{_ZONE_KEYS}")
 
 
 def _hide_grouped_zones(hass: HomeAssistant, entry: SecvestConfigEntry) -> None:
@@ -213,6 +226,14 @@ async def async_migrate_entry(hass: HomeAssistant, entry: SecvestConfigEntry) ->
         # 1.4: a pinned certificate fingerprint and its flag may be stored
         # (#149); older entries keep their certificate check as it was
         hass.config_entries.async_update_entry(entry, minor_version=4)
+    if entry.minor_version < 5:
+        # 1.5: reading the web interface (#56), off as before
+        options = {
+            CONF_WEB_INTERFACE: False,
+            CONF_WEB_INTERVAL: DEFAULT_WEB_INTERVAL,
+            **entry.options,
+        }
+        hass.config_entries.async_update_entry(entry, options=options, minor_version=5)
     return True
 
 
@@ -222,7 +243,7 @@ _ENTITY_KINDS = re.compile(
     r"(installer_lock|problem|faults|log"
     r"|round_duration|connection_setup|full_handshakes|failed_rounds"
     r"|partition_\d+_(alarm|arming_blocked|open_zones)"
-    r"|zone_[^_]+_(open|problem|omit)"
+    rf"|zone_[^_]+_{_ZONE_KEYS}"
     r"|group_[^_]+_(open|omit))"
 )
 
@@ -235,12 +256,16 @@ def _remove_stale_entities(hass: HomeAssistant, entry: SecvestConfigEntry) -> No
     """
     registry = er.async_get(hass)
     prefix = f"{entry.entry_id}_"
+    web = web_enabled(entry.options)
     for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
         kind = entity.unique_id.removeprefix(prefix)
         if not _ENTITY_KINDS.fullmatch(kind):
             _LOGGER.info(
                 "Removing %s, which this version no longer provides", entity.entity_id
             )
+            registry.async_remove(entity.entity_id)
+        elif not web and _WEB_ENTITY.fullmatch(kind):
+            # the web interface was turned off in the options
             registry.async_remove(entity.entity_id)
 
 
@@ -279,7 +304,9 @@ def _remove_orphaned_devices(
 async def async_remove_entry(hass: HomeAssistant, entry: SecvestConfigEntry) -> None:
     """Remove the repair issues, the kept rounds and the log state."""
     clear_issues(hass, entry.entry_id, keep=())
+    clear_web_issues(hass, entry.entry_id)
     forget_rounds(hass, entry.entry_id)
+    forget_web_reads(hass, entry.entry_id)
     await log_store(hass, entry.entry_id).async_remove()
 
 

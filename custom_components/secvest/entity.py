@@ -1,5 +1,7 @@
 """Base entity classes."""
 
+from typing import Any
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.helpers import area_registry as ar
@@ -8,9 +10,17 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
 from .api.models import Zone
-from .const import CONF_INSTALLATION_NAME, DOMAIN, MANUFACTURER, PANEL_MODEL
+from .const import (
+    CONF_EXCLUDED_ZONES,
+    CONF_INSTALLATION_NAME,
+    DOMAIN,
+    MANUFACTURER,
+    PANEL_MODEL,
+)
 from .coordinator import SecvestCoordinator
 from .groups import ZoneGroup
+from .web import WebCoordinator
+from .webui.models import WebZoneStatus
 
 
 def panel_device_info(entry: ConfigEntry) -> DeviceInfo:
@@ -89,6 +99,32 @@ def zone_kind(zone_id: str) -> str:
     return "zone"
 
 
+def zone_entity_id(
+    coordinator: SecvestCoordinator, zone: Zone, domain: Platform, suffix: str
+) -> str:
+    """Suggest <domain>.<installation>_<zone>[_<suffix>]."""
+    title = coordinator.config_entry.title
+    parts = (slugify(title), slugify(zone.name), suffix)
+    object_id = "_".join(part for part in parts if part)
+    return f"{domain}.{object_id}"
+
+
+def zone_device_info(coordinator: SecvestCoordinator, zone: Zone) -> DeviceInfo:
+    """Return the zone's device, linked to the panel.
+
+    The name tells the kind of zone, e.g. "Funkzone Keller".
+    """
+    kind = zone_kind(zone.id)
+    return DeviceInfo(
+        identifiers={(DOMAIN, f"{coordinator.config_entry.entry_id}_zone_{zone.id}")},
+        manufacturer=MANUFACTURER,
+        model=zone_model(kind, coordinator.hass.config.language),
+        translation_key=kind,
+        translation_placeholders={"name": zone.name},
+        via_device_id=coordinator.panel_device_id,
+    )
+
+
 class SecvestZoneEntity(SecvestEntity):
     """An entity on the device of one zone (detector)."""
 
@@ -113,24 +149,8 @@ class SecvestZoneEntity(SecvestEntity):
         """
         super().__init__(coordinator, f"zone_{zone.id}_{key}")
         self.zone_id = zone.id
-        entry = coordinator.config_entry
-        object_id = "_".join(
-            part for part in (slugify(entry.title), slugify(zone.name), suffix) if part
-        )
-        self.entity_id = f"{self.platform_domain}.{object_id}"
-        entry_id = entry.entry_id
-        # only the device changes when zones are grouped later (#67); the
-        # unique id stays
-        # the name tells the kind of zone, e.g. "Funkzone Keller"
-        kind = zone_kind(zone.id)
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"{entry_id}_zone_{zone.id}")},
-            manufacturer=MANUFACTURER,
-            model=zone_model(kind, coordinator.hass.config.language),
-            translation_key=kind,
-            translation_placeholders={"name": zone.name},
-            via_device_id=coordinator.panel_device_id,
-        )
+        self.entity_id = zone_entity_id(coordinator, zone, self.platform_domain, suffix)
+        self._attr_device_info = zone_device_info(coordinator, zone)
 
     @property
     def zone(self) -> Zone | None:
@@ -187,3 +207,60 @@ class SecvestGroupEntity(SecvestEntity):
         """Return the members the selected partitions still list."""
         listed = self.coordinator.listed_zone_ids()
         return [z for z in self.zone_group.zone_ids if z in listed]
+
+
+class SecvestWebZoneEntity(CoordinatorEntity[WebCoordinator]):
+    """An entity on a zone's device with a value from the web interface (#56).
+
+    Never mixed with the REST API's values: its own coordinator, read every
+    few hours.
+    """
+
+    _attr_has_entity_name = True
+    # the platform of the subclass, for the suggested entity id
+    platform_domain: Platform
+
+    def __init__(
+        self, web: WebCoordinator, panel: SecvestCoordinator, zone: Zone, key: str
+    ) -> None:
+        """Attach the entity to the zone's device."""
+        super().__init__(web)
+        self.zone_id = zone.id
+        entry = panel.config_entry
+        self._attr_unique_id = f"{entry.entry_id}_zone_{zone.id}_{key}"
+        self.entity_id = zone_entity_id(panel, zone, self.platform_domain, key)
+        self._attr_device_info = zone_device_info(panel, zone)
+
+    @property
+    def available(self) -> bool:
+        """Unavailable only while a failed login or the password blocks reads.
+
+        A failed read keeps the last values, so a read every few hours
+        doesn't leave the entities unavailable for hours.
+        """
+        return not self.coordinator.blocked
+
+    @property
+    def status(self) -> WebZoneStatus | None:
+        """Return the zone's row of the last read, if any."""
+        state = self.coordinator.data
+        return None if state is None else state.zones.get(self.zone_id)
+
+    def _read_attributes(self) -> dict[str, Any]:
+        state = self.coordinator.data
+        return {"last_read": None if state is None else state.read_at.isoformat()}
+
+
+def web_zones(entry: ConfigEntry) -> list[Zone]:
+    """Return the wireless zones that get web interface entities.
+
+    The zones of the selected partitions, without excluded ones; only
+    wireless zones are in the web interface's wireless zone list.
+    """
+    coordinator: SecvestCoordinator = entry.runtime_data
+    excluded = set(entry.options.get(CONF_EXCLUDED_ZONES, []))
+    return [
+        zone
+        for zone in coordinator.data.zones.values()
+        if zone.id not in excluded and zone_kind(zone.id) == "wireless_zone"
+    ]
