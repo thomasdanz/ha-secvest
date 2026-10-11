@@ -549,6 +549,10 @@
     "web_credentials": {
       "title": "Web interface can't log in",
       "description": "The password of {name}'s panel user contains \"&\" or is longer than 16 characters, which the panel's web interface doesn't accept, so it isn't read. Give the panel user another password and reconfigure the integration, or turn the web interface off in the options."
+    },
+    "untested_firmware": {
+      "title": "Untested panel firmware",
+      "description": "The panel of {name} runs firmware {firmware}; the integration was tested with {tested}. It works as before, but other firmware versions may answer differently. If something doesn't work, report it with the diagnostics. You can ignore this issue."
     }
   },
   "device": {

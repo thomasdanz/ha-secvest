@@ -7,7 +7,7 @@ from html import unescape
 import re
 
 from ..api.errors import CommunicationError
-from .models import Level, WebZoneStatus
+from .models import Level, PanelInfo, WebZoneStatus
 
 # rows of the wireless zone list are counted from 0 for zone 201
 FIRST_WIRELESS_ZONE = 201
@@ -119,3 +119,31 @@ def zone_statuses(body: bytes) -> tuple[dict[str, WebZoneStatus], list[str]]:
             tamper=flags[_TAMPER],
         )
     return statuses, unknown
+
+
+_INFO_ITEM = re.compile(
+    r"<li\b[^>]*class\s*=\s*[\"'][^\"']*\binformation\b[^\"']*[\"'][^>]*>(.*?)</li>",
+    re.IGNORECASE | re.DOTALL,
+)
+_SPAN = re.compile(r"<span\b[^>]*>(.*?)</span>", re.IGNORECASE | re.DOTALL)
+_FIRMWARE = re.compile(r"v\d+(?:\.\d+)+")
+# seen: letters, digits and "#"
+_SERIAL = re.compile(r"[A-Z0-9#]{8,32}")
+
+
+def panel_info(page: bytes) -> PanelInfo:
+    """Return firmware, language pack and serial number of Info → Zentrale.
+
+    By the page's structure and the values' formats, never by the labels
+    (UI texts in the panel's language): the first information item holds
+    firmware and language pack in its two spans, the second the serial
+    number and the part number (observed on firmware v3.01.31).
+    """
+    text = _decode(page)
+    items = [_SPAN.findall(item) for item in _INFO_ITEM.findall(text)]
+    first = [unescape(s).strip() for s in items[0]] if items else []
+    second = [unescape(s).strip() for s in items[1]] if len(items) > 1 else []
+    firmware = first[0] if first and _FIRMWARE.fullmatch(first[0]) else None
+    language = first[1] if len(first) > 1 and first[1] else None
+    serial = second[0] if second and _SERIAL.fullmatch(second[0]) else None
+    return PanelInfo(firmware=firmware, language=language, serial_number=serial)

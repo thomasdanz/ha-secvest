@@ -31,3 +31,26 @@ class WebZoneStatus:
     battery_low: bool | None
     supervision_fault: bool | None
     tamper: bool | None
+
+
+@dataclass(frozen=True, slots=True)
+class PanelInfo:
+    """The panel's firmware and serial number from Info → Zentrale (#194).
+
+    None where the page doesn't show a value in the expected format.
+    """
+
+    firmware: str | None
+    language: str | None
+    serial_number: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class WebRead:
+    """What one read of the web interface returned."""
+
+    zones: dict[str, WebZoneStatus]
+    # values that couldn't be read, for the log
+    unknown: list[str]
+    # None if not requested or the page couldn't be read
+    panel: PanelInfo | None

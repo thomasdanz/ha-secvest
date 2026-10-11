@@ -18,8 +18,9 @@ from typing import TYPE_CHECKING
 
 from homeassistant.const import CONF_PASSWORD
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers import device_registry as dr, issue_registry as ir
 from homeassistant.helpers.event import async_call_later
+from homeassistant.helpers.typing import UNDEFINED
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -35,10 +36,11 @@ from .const import (
     MAX_WEB_INTERVAL,
     MIN_WEB_INTERVAL,
     MIN_WEB_SPACING,
+    TESTED_FIRMWARE,
 )
 from .webui.client import WebClient, credentials_problem
 from .webui.errors import WebCredentialsError, WebLoginFailedError
-from .webui.models import Level, WebZoneStatus
+from .webui.models import Level, PanelInfo, WebZoneStatus
 
 if TYPE_CHECKING:
     from . import SecvestConfigEntry
@@ -53,6 +55,8 @@ class WebState:
 
     zones: Mapping[str, WebZoneStatus]
     read_at: datetime
+    # firmware and serial number from Info → Zentrale (#194), if read
+    panel: PanelInfo | None = None
 
 
 def web_enabled(options: Mapping[str, object]) -> bool:
@@ -97,10 +101,15 @@ def _credentials_issue_id(entry_id: str) -> str:
     return f"web_{entry_id}_credentials"
 
 
+def _firmware_issue_id(entry_id: str) -> str:
+    return f"web_{entry_id}_firmware"
+
+
 def clear_web_issues(hass: HomeAssistant, entry_id: str) -> None:
     """Delete the web interface's repair issues of an entry."""
     ir.async_delete_issue(hass, DOMAIN, _login_issue_id(entry_id))
     ir.async_delete_issue(hass, DOMAIN, _credentials_issue_id(entry_id))
+    ir.async_delete_issue(hass, DOMAIN, _firmware_issue_id(entry_id))
 
 
 @dataclass(slots=True)
@@ -150,6 +159,8 @@ class WebCoordinator(DataUpdateCoordinator[WebState | None]):
         self.last_error: str | None = None
         # values the panel sent that couldn't be read, logged once each
         self._unknown: set[str] = set()
+        # the untested firmware already logged
+        self._firmware_warned: str | None = None
         self.credentials_problem = credentials_problem(user_code, password)
         if self.blocked:
             # nothing to schedule; entities show the web interface unavailable
@@ -244,7 +255,7 @@ class WebCoordinator(DataUpdateCoordinator[WebState | None]):
             # the installer's session locks the panel; try at the next interval
             raise UpdateFailed("the installer is logged in")
         try:
-            zones, unknown = await self.client.read_zones()
+            read = await self.client.read()
         except WebCredentialsError as err:  # pragma: no cover - checked before
             raise UpdateFailed(str(err)) from err
         except WebLoginFailedError as err:
@@ -259,16 +270,62 @@ class WebCoordinator(DataUpdateCoordinator[WebState | None]):
             self.last_error = f"{type(err).__name__}: {err}"
             _LOGGER.warning("Reading the web interface failed: %s", err)
             raise UpdateFailed(str(err)) from err
-        for item in unknown:
+        for item in read.unknown:
             if item not in self._unknown:
                 self._unknown.add(item)
                 _LOGGER.warning("Unknown value from the web interface: %s", item)
         self.last_error = None
-        state = WebState(zones=MappingProxyType(zones), read_at=dt_util.utcnow())
+        if read.panel is not None:
+            self._take_panel_info(read.panel)
+        state = WebState(
+            zones=MappingProxyType(read.zones),
+            read_at=dt_util.utcnow(),
+            panel=read.panel,
+        )
         _last_reads(self.hass)[self.config_entry.entry_id] = _LastRead(
             state, time.monotonic()
         )
         return state
+
+    def _take_panel_info(self, info: PanelInfo) -> None:
+        """Show firmware and serial number on the panel device (#194).
+
+        A firmware other than the tested one (ADR 0005) is logged once and
+        raises a repair issue that can be ignored; nothing else changes.
+        """
+        # a value the page didn't show keeps what the device has
+        if self.panel.panel_device_id and (info.firmware or info.serial_number):
+            dr.async_get(self.hass).async_update_device(
+                self.panel.panel_device_id,
+                sw_version=UNDEFINED if info.firmware is None else info.firmware,
+                serial_number=(
+                    UNDEFINED if info.serial_number is None else info.serial_number
+                ),
+            )
+        issue_id = _firmware_issue_id(self.config_entry.entry_id)
+        if info.firmware is None or info.firmware == TESTED_FIRMWARE:
+            ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+            return
+        if info.firmware != self._firmware_warned:
+            self._firmware_warned = info.firmware
+            _LOGGER.warning(
+                "The panel runs firmware %s; tested is %s",
+                info.firmware,
+                TESTED_FIRMWARE,
+            )
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="untested_firmware",
+            translation_placeholders={
+                "name": self.config_entry.title,
+                "firmware": info.firmware,
+                "tested": TESTED_FIRMWARE,
+            },
+        )
 
     def _remember_login_failed(self, err: WebLoginFailedError) -> None:
         """Stop all web reads, also after a restart, and tell the user.
@@ -300,5 +357,9 @@ class WebCoordinator(DataUpdateCoordinator[WebState | None]):
             "credentials_problem": self.credentials_problem,
             "last_read": None if state is None else state.read_at.isoformat(),
             "zones": 0 if state is None else len(state.zones),
+            # the serial number is left out: it identifies the installation
+            "firmware": None
+            if state is None or state.panel is None
+            else state.panel.firmware,
             "last_error": self.last_error,
         }

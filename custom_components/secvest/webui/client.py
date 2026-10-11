@@ -10,8 +10,8 @@ import logging
 from ..api.errors import CommunicationError, ConnectionLostError
 from ..api.transport import Transport
 from .errors import WebCredentialsError, WebLoginFailedError, WebSessionEndedError
-from .models import WebZoneStatus
-from .parsing import session_id, zone_statuses
+from .models import PanelInfo, WebRead
+from .parsing import panel_info, session_id, zone_statuses
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,6 +34,10 @@ ZONE_LIST_FORM = {
 }
 
 
+# Info → Zentrale was requested with the overview's form (bus 1)
+ABOUT_FORM = {**ZONE_LIST_FORM, "bus": "1"}
+
+
 def credentials_problem(user_code: str, password: str) -> str | None:
     """Return why the web interface can't log in with these, or None."""
     if "&" in password:
@@ -52,12 +56,14 @@ class WebClient:
         self._user_code = user_code
         self._password = password
 
-    async def read_zones(self) -> tuple[dict[str, WebZoneStatus], list[str]]:
-        """Log in, read the wireless zone list and log out.
+    async def read(self) -> WebRead:
+        """Log in, read the wireless zone list and Info → Zentrale, log out.
 
         The whole sequence holds the queue, so no other request comes in
         between. Raises WebLoginFailedError if the login failed or its outcome
-        is unknown; the caller must not log in again on its own.
+        is unknown; the caller must not log in again on its own. Info →
+        Zentrale (#194) only adds firmware and serial number: if it fails, the
+        read still counts.
         """
         problem = credentials_problem(self._user_code, self._password)
         if problem is not None:
@@ -76,7 +82,8 @@ class WebClient:
                     raise WebSessionEndedError("the panel ended the web session")
                 if status != 200:
                     raise CommunicationError(f"unexpected response status {status}")
-                return zone_statuses(body)
+                zones, unknown = zone_statuses(body)
+                return WebRead(zones, unknown, await self._panel_info(ssid))
             finally:
                 await self._logout(ssid)
 
@@ -94,6 +101,24 @@ class WebClient:
         if ssid is None:
             raise WebLoginFailedError(f"the web login failed (status {status})")
         return ssid
+
+    async def _panel_info(self, ssid: str) -> PanelInfo | None:
+        """Read Info → Zentrale in the same session; None if that fails."""
+        try:
+            status, page = await self.transport.request_web(
+                "POST",
+                "/sec_about_panel.cgi",
+                ABOUT_FORM,
+                cookie=f"ssid={ssid}",
+                xhr=True,
+            )
+        except CommunicationError as err:
+            _LOGGER.debug("Reading Info → Zentrale failed: %s", err)
+            return None
+        if status != 200:
+            _LOGGER.debug("Info → Zentrale answered %s", status)
+            return None
+        return panel_info(page)
 
     async def _logout(self, ssid: str) -> None:
         """Log out once; the answer doesn't matter and nothing is repeated.
