@@ -1,8 +1,10 @@
 """The web interface's zone status as entities (#56)."""
 
 from datetime import timedelta
+import json
 from typing import Any
 
+from freezegun.api import FrozenDateTimeFactory
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import (
     CONF_PASSWORD,
@@ -37,6 +39,7 @@ from custom_components.secvest.const import (
     CONF_WEB_LOGIN_FAILED,
     DOMAIN,
 )
+from custom_components.secvest.diagnostics import async_get_config_entry_diagnostics
 from custom_components.secvest.repairs import WebLoginRepairFlow, async_create_fix_flow
 from custom_components.secvest.web import WebCoordinator, dbm_range
 
@@ -321,6 +324,37 @@ async def test_reload_keeps_the_last_read(
     assert _web_requests(fake_panel) == READ
 
 
+async def test_reads_at_the_interval(
+    hass: HomeAssistant,
+    fake_panel: FakePanel,
+    setup: Setup,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """The configured interval schedules the reads, also across a reload."""
+
+    async def _after(delay: timedelta) -> None:
+        freezer.tick(delay)
+        async_fire_time_changed(hass)
+        await hass.async_block_till_done(wait_background_tasks=True)
+
+    entry = await _setup_web(setup, **{CONF_WEB_INTERVAL: 3})
+    await _after(timedelta(seconds=3601))  # FIRST_WEB_DELAY in these tests
+    assert _web_requests(fake_panel) == READ
+    await _after(timedelta(hours=3) - timedelta(minutes=1))
+    assert _web_requests(fake_panel) == READ
+    await _after(timedelta(minutes=2))
+    assert _web_requests(fake_panel) == READ * 2
+
+    # a reload keeps the schedule: the next read comes 3 hours after the last
+    await _after(timedelta(hours=1))
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    await _after(timedelta(hours=2) - timedelta(minutes=2))
+    assert _web_requests(fake_panel) == READ * 2
+    await _after(timedelta(minutes=3))
+    assert _web_requests(fake_panel) == READ * 3
+
+
 async def test_options(
     hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
 ) -> None:
@@ -387,6 +421,10 @@ async def test_diagnostics(
     assert state["zones"] == 19
     assert state["login_failed"] is False
     assert state["last_read"] is not None
+    # the serial number identifies the installation: not in the download
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+    assert diagnostics["web_interface"]["firmware"] == "v3.01.31"
+    assert "SECVEST0000TEST01" not in json.dumps(diagnostics, default=str)
 
 
 async def test_unknown_values_are_logged_once(

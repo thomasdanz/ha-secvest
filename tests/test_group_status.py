@@ -1,5 +1,6 @@
 """Problem, battery, supervision and tamper of zone groups (#200)."""
 
+import json
 from typing import Any
 
 from homeassistant.config_entries import SOURCE_USER
@@ -99,6 +100,40 @@ async def test_problem(
 
     # another zone state, e.g. tamper, is one
     fake_panel.zones["203"].state = "tamper"
+    await coordinator_of(entry).async_refresh()
+    assert state_of(hass, PROBLEM) == STATE_ON
+
+
+def _without_zone(fake_panel: FakePanel, zone_id: str) -> Injection:
+    # the next round's zone read lacks a zone the partition still lists
+    zones = [
+        fake_panel.zones[z].to_json()
+        for z in fake_panel.partitions[1].zone_ids
+        if z != zone_id
+    ]
+    return Injection(
+        "GET",
+        "/system/partitions-1/zones/",
+        "status",
+        status=200,
+        body=json.dumps(zones).encode(),
+        content_type="application/json",
+    )
+
+
+async def test_problem_of_a_member_not_read(
+    hass: HomeAssistant, fake_panel: FakePanel, setup: Setup
+) -> None:
+    """A listed member missing from the round leaves "off" unknown."""
+    entry = await setup()
+    await _add_group(hass, entry)
+    fake_panel.inject(_without_zone(fake_panel, "204"))
+    await coordinator_of(entry).async_refresh()
+    assert state_of(hass, PROBLEM) == STATE_UNKNOWN
+
+    # a problem of the member read shows anyway
+    fake_panel.zones["203"].state = "tamper"
+    fake_panel.inject(_without_zone(fake_panel, "204"))
     await coordinator_of(entry).async_refresh()
     assert state_of(hass, PROBLEM) == STATE_ON
 
