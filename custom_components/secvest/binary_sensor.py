@@ -296,6 +296,8 @@ class WebStatusDescription(BinarySensorEntityDescription):
     """A status column of the web interface's zone list."""
 
     value: Callable[[WebZoneStatus], bool | None]
+    # on a zone group: the attribute naming the members that report it
+    zones_attribute: str
 
 
 # from the page's column guide; only "omitted" was observed (see the
@@ -307,6 +309,7 @@ WEB_STATUS = (
         device_class=BinarySensorDeviceClass.BATTERY,
         entity_category=EntityCategory.DIAGNOSTIC,
         value=lambda status: status.battery_low,
+        zones_attribute="battery_low_zones",
     ),
     WebStatusDescription(
         key="supervision",
@@ -314,6 +317,7 @@ WEB_STATUS = (
         device_class=BinarySensorDeviceClass.PROBLEM,
         entity_category=EntityCategory.DIAGNOSTIC,
         value=lambda status: status.supervision_fault,
+        zones_attribute="supervision_fault_zones",
     ),
     WebStatusDescription(
         key="tamper",
@@ -321,6 +325,7 @@ WEB_STATUS = (
         device_class=BinarySensorDeviceClass.PROBLEM,
         entity_category=EntityCategory.DIAGNOSTIC,
         value=lambda status: status.tamper,
+        zones_attribute="tamper_zones",
     ),
 )
 
@@ -434,8 +439,12 @@ class WebGroupStatusSensor(SecvestWebGroupEntity, BinarySensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Name the members that report it, and when they were read."""
+        # named like open_zones or problem_zones; the group sensor's "zones"
+        # lists all members
         return {
-            "zones": [zone_id for zone_id, value in self._values() if value],
+            self.entity_description.zones_attribute: [
+                zone_id for zone_id, value in self._values() if value
+            ],
             **self._read_attributes(),
         }
 

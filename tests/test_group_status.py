@@ -146,7 +146,9 @@ async def test_web_status(
     fake_panel.web_rows["203"].tamper = True
     await _read(entry)
     assert state_of(hass, BATTERY) == STATE_ON
-    assert get_state(hass, BATTERY).attributes["zones"] == ["204"]
+    assert get_state(hass, BATTERY).attributes["battery_low_zones"] == ["204"]
+    assert get_state(hass, TAMPER).attributes["tamper_zones"] == ["203"]
+    assert get_state(hass, SUPERVISION).attributes["supervision_fault_zones"] == []
     assert state_of(hass, TAMPER) == STATE_ON
     assert state_of(hass, SUPERVISION) == STATE_OFF
 
