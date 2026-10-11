@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-11
+
 ### Added
 
 - **Web interface (optional):** each wireless zone's signal strength (directly and via the repeater), battery, supervision and tamper, read from the panel's web interface every 12 hours (1 to 24, in the options) with the same panel user. Off by default. Each read logs in, reads and logs out; after a failed web login the integration stops reading it until you confirm in a repair issue, since failed web logins count towards a code tamper alarm. These values never mix with the polled ones (#56).
@@ -302,7 +304,8 @@ First version, read-only: the state of partitions, zones and faults.
 - README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
 - Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
 
-[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/thomasdanz/ha-secvest/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/thomasdanz/ha-secvest/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/thomasdanz/ha-secvest/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/thomasdanz/ha-secvest/compare/v0.3.0...v0.3.1

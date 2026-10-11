@@ -78,7 +78,9 @@ def _domain(unique_id: str) -> str:
         return "button"
     if unique_id.endswith("_omit"):
         return "switch"
-    if unique_id == "faults" or unique_id.endswith("_open_zones"):
+    if unique_id == "faults" or unique_id.endswith(
+        ("_open_zones", "_signal_strength", "_signal_strength_repeater")
+    ):
         return "sensor"
     if unique_id == "log":
         return "event"
@@ -164,9 +166,11 @@ async def test_update_keeps_the_entry_and_its_entities(
     assert entry.options[CONF_PARTITIONS] == [1]
     assert CONF_EXCLUDED_ZONES in entry.options
     assert CONF_ZONE_DEVICE_CLASSES in entry.options
-    # the web interface (1.5, #56) stays off, with the default interval
-    assert entry.options[CONF_WEB_INTERFACE] is False
-    assert entry.options[CONF_WEB_INTERVAL] == DEFAULT_WEB_INTERVAL
+    # the migration to 1.5 (#56) leaves the web interface off, with the
+    # default interval; later entries keep their settings (checked above)
+    if stored["minor_version"] < 5:
+        assert entry.options[CONF_WEB_INTERFACE] is False
+        assert entry.options[CONF_WEB_INTERVAL] == DEFAULT_WEB_INTERVAL
     # every entity keeps its unique id and entity id, and works
     for unique_id, entity_id in entity_ids.items():
         entity = registry.async_get(entity_id)
