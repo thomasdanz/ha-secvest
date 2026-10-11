@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- Tests: the web interface is read at the configured interval, also across a reload; a zone group's Problem sensor with a zone not read; the serial number stays out of the diagnostics (#205).
+
 ## [1.1.0] - 2026-10-11
 
 ### Added

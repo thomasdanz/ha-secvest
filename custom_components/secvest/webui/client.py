@@ -1,8 +1,8 @@
 """Reading the wireless zones' status from the panel's web interface (#56).
 
-One read is three requests through the transport's queue: login, the zone
-list's data, logout. Never the main page or its event requests, which make
-the panel run commands such as a firmware check.
+One read is four requests through the transport's queue: login, the zone
+list's data, Info → Zentrale (#194), logout. Never the main page or its event
+requests, which make the panel run commands such as a firmware check.
 """
 
 import logging

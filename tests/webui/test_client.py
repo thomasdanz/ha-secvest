@@ -43,7 +43,7 @@ def _client(
 
 
 async def test_read(fake_panel: FakePanel, transport: Transport) -> None:
-    """Login, the zone list, logout: three requests, the session ended."""
+    """Login, the zone list, Info → Zentrale, logout; the session ended."""
     fake_panel.web_rows["212"] = WebRow(level=0, lowest=0, repeater=(6, 0))
     fake_panel.web_rows["205"].battery_low = True
     result = await _client(fake_panel, transport).read()
