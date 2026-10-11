@@ -154,7 +154,7 @@ def _blocked(entry: SecvestConfigEntry) -> bool:
 # the web interface's (#56) are removed while it is off
 _WEB_KEYS = r"(signal_strength|signal_strength_repeater|battery|supervision|tamper)"
 _ZONE_KEYS = rf"(open|problem|omit|{_WEB_KEYS[1:-1]})"
-_WEB_ENTITY = re.compile(rf"zone_[^_]+_{_WEB_KEYS}")
+_WEB_ENTITY = re.compile(rf"(zone|group)_[^_]+_{_WEB_KEYS}")
 _ZONE_ENTITY = re.compile(rf"zone_([^_]+)_{_ZONE_KEYS}")
 
 
@@ -244,7 +244,7 @@ _ENTITY_KINDS = re.compile(
     r"|round_duration|connection_setup|full_handshakes|failed_rounds"
     r"|partition_\d+_(alarm|arming_blocked|open_zones)"
     rf"|zone_[^_]+_{_ZONE_KEYS}"
-    r"|group_[^_]+_(open|omit))"
+    r"|group_[^_]+_(open|omit|problem|battery|supervision|tamper))"
 )
 
 
