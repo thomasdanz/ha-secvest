@@ -376,7 +376,9 @@ def test_idle_connection_closed_and_session_resumed(
 
 def test_parallel_requests_are_violations(fake_panel: FakePanel) -> None:
     """Requests that overlap are detected."""
-    fake_panel.log_delay = 0.5
+    # slowed outside the fake's lock, so the second request surely overlaps
+    # (the log delay sleeps while holding it, which made this test flaky)
+    fake_panel.inject(Injection("GET", "/logs/", "slow", delay=0.5, times=2))
     clients = [Client(fake_panel), Client(fake_panel)]
     threads = [
         threading.Thread(target=c.request, args=("GET", "/logs/")) for c in clients
