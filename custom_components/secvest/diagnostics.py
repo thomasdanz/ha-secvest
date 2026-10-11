@@ -118,6 +118,10 @@ async def async_get_config_entry_diagnostics(
             "responses": async_redact_data(
                 dict(sorted(transport.last_responses.items())), TO_REDACT
             ),
+            # the web interface (#56), if enabled; its values only by count
+            "web_interface": None
+            if coordinator.web is None
+            else coordinator.web.as_dict(),
         }
     )
     return diagnostics

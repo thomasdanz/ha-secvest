@@ -19,7 +19,10 @@ from custom_components.secvest.const import (
     CONF_PARTITIONS,
     CONF_SCAN_INTERVAL,
     CONF_USER_AGENT,
+    CONF_WEB_INTERFACE,
+    CONF_WEB_INTERVAL,
     CONF_ZONE_DEVICE_CLASSES,
+    DEFAULT_WEB_INTERVAL,
 )
 
 from .common import Setup, coordinator_of, options_settings
@@ -88,6 +91,9 @@ async def test_change_options(
         CONF_EXCLUDED_ZONES: ["201"],
         CONF_ZONE_DEVICE_CLASSES: {"209": "door"},
         CONF_CODES: [],
+        # not in the form's input: kept as they were (off by default)
+        CONF_WEB_INTERFACE: False,
+        CONF_WEB_INTERVAL: DEFAULT_WEB_INTERVAL,
     }
     assert entry.data[CONF_USER_AGENT] == "Proxy/2"
     coordinator = coordinator_of(entry)

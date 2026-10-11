@@ -79,6 +79,21 @@ UNAVAILABLE_AFTER = 3
 TESTED_MODEL = "Secvest Touch FUAA50500"
 TESTED_FIRMWARE = "v3.01.31"
 
+# the web interface (#56): off by default; read every few hours, since each
+# read writes two of the panel's 600 log entries
+CONF_WEB_INTERFACE = "web_interface"
+CONF_WEB_INTERVAL = "web_interval"  # hours
+DEFAULT_WEB_INTERVAL = 12
+MIN_WEB_INTERVAL = 1
+MAX_WEB_INTERVAL = 24
+# the first read after setup, so setup doesn't wait for it (seconds)
+FIRST_WEB_DELAY = 120
+# a manual read never comes sooner than this after the last one (seconds)
+MIN_WEB_SPACING = 300
+# set after a failed web login; nothing is sent to the web interface until
+# the user confirms (repair issue) or enters new credentials
+CONF_WEB_LOGIN_FAILED = "web_login_failed"
+
 # omit the open zones blocking arming once, then arm (#118)
 SERVICE_OMIT_AND_ARM = "omit_and_arm"
 ATTR_MODE = "mode"

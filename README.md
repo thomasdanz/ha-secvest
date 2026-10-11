@@ -24,6 +24,7 @@ A Home Assistant custom integration for the ABUS Secvest alarm panel. It talks t
 - **One rejected login stops everything:** failed logins may count towards a code tamper alarm, so the integration never causes a second one. After the first `401 Unauthorized` it sends nothing more with these credentials — no retry, no polling, also not after a restart of Home Assistant — its entities are unavailable, and Home Assistant asks you to reauthenticate (Settings → Devices & services). Only new credentials, checked with a single request, start it again. This holds for every 401, also one a reverse proxy in front of the panel answers.
 - **The certificate is checked:** with "Verify certificate" on, nobody in your network can impersonate the panel to capture user code and password; they go out only to the trusted certificate. If the panel presents another one (a new certificate, a reverse proxy added or removed, or someone impersonating it), the integration handles it like a rejected login: it sends nothing more, also not after a restart, and Home Assistant asks you to confirm the new certificate, showing what changed and its fingerprint. Confirm only if you expect the change.
 - **Set up each panel once.** The API reports no serial number, so the integration can't tell that two addresses (e.g. directly and through a reverse proxy) lead to the same panel; set up twice, it is polled twice.
+- **Web interface (optional, off by default):** reading signal strengths and battery from the panel's web interface logs in there with the same panel user. A failed web login counts towards a code tamper alarm and doesn't show in the panel's log, so after one failed web login the integration stops reading it, also after a restart, until you confirm in a repair issue or enter new credentials. Each read writes two entries to the panel's log. See "Web interface".
 - **Don't expose the panel's API to the internet unprotected.** The panel neither noticed nor limited failed logins at its REST API in tests (see [`secvest-api`](https://github.com/thomasdanz/secvest-api)).
 
 ## Installation
@@ -67,9 +68,23 @@ Finally choose what kind of detector each **zone** is (door, window, garage door
 
 ## Options
 
-In the integration's options (Settings → Devices & services → ABUS Secvest → Configure) you choose between the settings, the codes (see "Arming and disarming") and taking over names from the panel. Under the settings you can change the selected partitions, the status interval (at least 24 seconds), the log interval (how often new entries of the panel's log are read; 5 minutes by default, at least 2 minutes) and, under Advanced, the User-Agent. The second step lists the zones of the selected partitions: choose a device class per zone (door, window, motion, …; the panel doesn't tell detector types apart) and exclude zones you don't want in Home Assistant. Saving reloads the integration; nothing is sent to the panel while you change the settings or codes.
+In the integration's options (Settings → Devices & services → ABUS Secvest → Configure) you choose between the settings, the codes (see "Arming and disarming") and taking over names from the panel. Under the settings you can change the selected partitions, the status interval (at least 24 seconds), the log interval (how often new entries of the panel's log are read; 5 minutes by default, at least 2 minutes), whether the web interface is read and how often (see "Web interface") and, under Advanced, the User-Agent. The second step lists the zones of the selected partitions: choose a device class per zone (door, window, motion, …; the panel doesn't tell detector types apart) and exclude zones you don't want in Home Assistant. Saving reloads the integration; nothing is sent to the panel while you change the settings or codes.
 
 If a selected partition has no zones anymore (for example after the installer moved its detectors to another partition), a repair issue suggests deselecting it in the options; ignore it if the partition is meant to be empty. It goes away by itself once the partition has zones again.
+
+## Web interface
+
+Optionally, the integration reads each wireless zone's signal strength, battery, supervision and tamper from the panel's web interface, which the REST API doesn't report. Turn it on under **Configure** → settings → **Read the web interface**, and choose how often it is read: every 12 hours by default, from 1 to 24 hours. It uses the same panel user as the integration; a normal user is enough, although the web interface's menus show the zone list only to the installer.
+
+- **Each read** logs in, reads the wireless zone list and logs out: three requests, through the same connection as the polling, never at the same time. The panel writes "Log in (Web)" and "Log out(Web)" to its log, two of its 600 entries, so read rarely. The first read comes two minutes after Home Assistant starts; a reload keeps the last values. To read now, use `homeassistant.update_entity` with one of the entities below; a read right after another (within 5 minutes) keeps the values instead. Nothing is read while the installer is logged in.
+- **Entities** per wireless zone, on the zone's device (diagnostic):
+  - **Signal strength**: the level 0 to 9 the panel received the zone's last message with, as the panel shows it (3 or more is recommended). Attributes: `lowest_level` (the lowest level since the readings were last reset, at the panel), `dbm_from` and `dbm_to` (the level's range: 0 is below −101 dBm, then steps of 3 dB, 9 is −77 dBm or more), `last_read`. The level jumps from read to read; Home Assistant's long-term statistics show its course.
+  - **Signal strength via repeater**: the same as received by the RF repeater, unknown for zones the repeater doesn't repeat. Derived from the panel's data, which no page labels.
+  - **Battery**, **Supervision** (the zone hasn't reported for a while), **Tamper**: from the zone list's status columns.
+- These values never mix with the polled ones: the zone's **Problem** sensor still comes from the faults the panel reports every 30 seconds.
+- **The password** must not contain `&` and be at most 16 characters long (the user code too): the web interface can't log in otherwise, although the API accepts it. The options refuse turning it on then, and a repair issue says so if the password changes later.
+- **If the web login fails**, the integration stops reading the web interface, its entities become unavailable and a repair issue appears. Check the panel user's code and password (e.g. by logging in at the web interface in a browser), then confirm in the repair issue to try once more; new credentials (Reconfigure) try again too. Other failures keep the last values and try again at the next interval.
+- Turning it off removes the entities.
 
 ## Zone groups
 
@@ -265,7 +280,7 @@ If the panel later rejects the credentials (for example after the password was c
 
 ## Diagnostics
 
-For a bug report, download the diagnostics: Settings → Devices & services → ABUS Secvest → ⋮ → **Download diagnostics**. The file holds the panel's answers of the last polling round, the connection and polling state and the settings. The address, credentials and codes, and all names and texts (installation, partitions, zones, zone groups, users, fault texts) are replaced by `**REDACTED**`; ids and states stay. Downloading sends nothing to the panel. Look through the file before sharing it anyway.
+For a bug report, download the diagnostics: Settings → Devices & services → ABUS Secvest → ⋮ → **Download diagnostics**. The file holds the panel's answers of the last polling round, the connection and polling state, the web interface's state (if turned on: last read, number of zones, last error) and the settings. The address, credentials and codes, and all names and texts (installation, partitions, zones, zone groups, users, fault texts) are replaced by `**REDACTED**`; ids and states stay. Downloading sends nothing to the panel. Look through the file before sharing it anyway.
 
 ## Limitations
 
@@ -275,6 +290,7 @@ For a bug report, download the diagnostics: Settings → Devices & services → 
 - **Faults:** the sensor shows the list the panel returns; whether the panel shortens very long lists is unknown.
 - **Omitting** a zone is sent without a partition number, as the panel's own web interface does, and the panel checks the user's rights itself. For a zone in several partitions, which partition's rights the panel requires hasn't been tested.
 - **Log:** the panel's log is read once in full and then only its new entries, every 5 minutes. Entries written after a panel restart before its clock is set (dated 1 January 2019), and more than 600 new entries between two reads, can be missed. The panel stores its local time without a time zone; the integration reads it in Home Assistant's time zone, so set both to the same one.
+- **Web interface:** wireless zones only; the battery, supervision and tamper columns are read as the page labels them, but only "omitted" was observed at a real panel so far. Other components (repeaters, sirens, keypads) aren't read: the web interface shows no status for them.
 - **Entities are tied to the config entry:** the API reports no serial number, so removing and re-adding the integration creates new entities (their entity ids can be renamed back in Home Assistant). For a new address or password use **Reconfigure** instead (see "Setup").
 
 ## Documentation

@@ -16,7 +16,10 @@ from custom_components.secvest.const import (
     CONF_CODES,
     CONF_EXCLUDED_ZONES,
     CONF_PARTITIONS,
+    CONF_WEB_INTERFACE,
+    CONF_WEB_INTERVAL,
     CONF_ZONE_DEVICE_CLASSES,
+    DEFAULT_WEB_INTERVAL,
     DOMAIN,
 )
 
@@ -161,6 +164,9 @@ async def test_update_keeps_the_entry_and_its_entities(
     assert entry.options[CONF_PARTITIONS] == [1]
     assert CONF_EXCLUDED_ZONES in entry.options
     assert CONF_ZONE_DEVICE_CLASSES in entry.options
+    # the web interface (1.5, #56) stays off, with the default interval
+    assert entry.options[CONF_WEB_INTERFACE] is False
+    assert entry.options[CONF_WEB_INTERVAL] == DEFAULT_WEB_INTERVAL
     # every entity keeps its unique id and entity id, and works
     for unique_id, entity_id in entity_ids.items():
         entity = registry.async_get(entity_id)
@@ -255,7 +261,7 @@ async def test_entities_of_removed_kinds_are_removed(
 
     removed = [
         register("button", "refresh"),
-        register("binary_sensor", "zone_209_battery"),
+        register("sensor", "zone_209_rssi"),
     ]
     # a zone the panel doesn't report right now
     kept = register("binary_sensor", "zone_299_open")

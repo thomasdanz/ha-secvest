@@ -7,6 +7,7 @@ independently of the integration's transport.
 from base64 import b64encode
 import http.client
 import json
+import re
 import socket
 import ssl
 import threading
@@ -27,7 +28,7 @@ from custom_components.secvest.api.parsing import (
     parse_zones,
 )
 
-from .fake_panel import FakePanel, Injection
+from .fake_panel import FIXTURES, FakePanel, Injection
 
 
 class Client:
@@ -387,3 +388,12 @@ def test_parallel_requests_are_violations(fake_panel: FakePanel) -> None:
     assert any("parallel request" in v for v in fake_panel.violations)
     assert fake_panel.stats.max_open_connections == 2
     fake_panel.violations.clear()
+
+
+def test_fake_zone_list_matches_the_capture(fake_panel: FakePanel) -> None:
+    """The fake's zone list has the captured answer's updates, in its order."""
+    capture = (FIXTURES / "POST_sec_zones.cgx.xml").read_text()
+    pattern = r"<(\w+)><id>(rtm\d+_\d+)</id>"
+    assert re.findall(pattern, fake_panel.zone_list().decode()) == re.findall(
+        pattern, capture
+    )

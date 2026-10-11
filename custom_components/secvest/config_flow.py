@@ -46,8 +46,12 @@ from .const import (
     CONF_PARTITIONS,
     CONF_USER_AGENT,
     CONF_USER_CODE,
+    CONF_WEB_INTERFACE,
+    CONF_WEB_INTERVAL,
+    CONF_WEB_LOGIN_FAILED,
     CONF_ZONE_DEVICE_CLASSES,
     DEFAULT_PORT,
+    DEFAULT_WEB_INTERVAL,
     DOMAIN,
     SUBENTRY_ZONE_GROUP,
     TESTED_FIRMWARE,
@@ -133,13 +137,26 @@ async def default_user_agent(hass: Any) -> str:
     return f"ha-secvest/{integration.version}"
 
 
+def _web_login_failed(stored: Mapping[str, Any], new: Mapping[str, Any]) -> bool:
+    """Keep a failed web login's flag unless the credentials change (#56).
+
+    The same credentials would fail again and count towards a code tamper
+    alarm; the repair issue is the way to try them once more.
+    """
+    changed = any(
+        new.get(key, stored.get(key)) != stored.get(key)
+        for key in (CONF_USER_CODE, CONF_PASSWORD)
+    )
+    return bool(stored.get(CONF_WEB_LOGIN_FAILED)) and not changed
+
+
 class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
     """Set up a panel."""
 
     # stored data: VERSION changes break compatibility, MINOR_VERSION
     # changes don't; each step is migrated in async_migrate_entry
     VERSION = 1
-    MINOR_VERSION = 4
+    MINOR_VERSION = 5
 
     @staticmethod
     @callback
@@ -292,6 +309,8 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_EXCLUDED_ZONES: excluded,
                     CONF_ZONE_DEVICE_CLASSES: classes,
                     CONF_CODES: [],
+                    CONF_WEB_INTERFACE: False,
+                    CONF_WEB_INTERVAL: DEFAULT_WEB_INTERVAL,
                 },
             )
         return self.async_show_form(
@@ -329,6 +348,7 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_USER_CODE: data[CONF_USER_CODE],
                         CONF_PASSWORD: data[CONF_PASSWORD],
                         CONF_AUTH_FAILED: False,
+                        CONF_WEB_LOGIN_FAILED: _web_login_failed(entry.data, data),
                     },
                 )
             errors["base"] = error
@@ -496,6 +516,7 @@ class SecvestConfigFlow(ConfigFlow, domain=DOMAIN):
             **self._data,
             CONF_AUTH_FAILED: False,
             CONF_CERTIFICATE_CHANGED: False,
+            CONF_WEB_LOGIN_FAILED: _web_login_failed(entry.data, self._data),
         }
         return self._update_and_reload(entry, updates, unique_id=self._unique_id)
 

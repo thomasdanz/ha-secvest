@@ -5,9 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntryState, ConfigFlowResult, OptionsFlow
-from homeassistant.const import CONF_CODE, CONF_NAME
+from homeassistant.const import CONF_CODE, CONF_NAME, CONF_PASSWORD
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers.selector import (
+    BooleanSelector,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
@@ -35,16 +36,23 @@ from .const import (
     CONF_PARTITIONS,
     CONF_SCAN_INTERVAL,
     CONF_USER_AGENT,
+    CONF_USER_CODE,
+    CONF_WEB_INTERFACE,
+    CONF_WEB_INTERVAL,
     CONF_ZONE_DEVICE_CLASSES,
     DEFAULT_LOG_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_WEB_INTERVAL,
     MAX_LOG_INTERVAL,
     MAX_SCAN_INTERVAL,
+    MAX_WEB_INTERVAL,
     MIN_LOG_INTERVAL,
     MIN_SCAN_INTERVAL,
+    MIN_WEB_INTERVAL,
 )
 from .flow_helpers import partition_selector, zone_labels, zone_options, zone_schema
 from .schema import vol
+from .webui.client import credentials_problem
 
 
 class SecvestOptionsFlow(OptionsFlow):
@@ -116,18 +124,37 @@ class SecvestOptionsFlow(OptionsFlow):
         errors: dict[str, str] = {}
         if user_input is not None:
             selected = sorted(int(value) for value in user_input[CONF_PARTITIONS])
-            if selected:
+            web = bool(
+                user_input.get(
+                    CONF_WEB_INTERFACE, entry.options.get(CONF_WEB_INTERFACE, False)
+                )
+            )
+            interval = user_input.get(
+                CONF_WEB_INTERVAL,
+                entry.options.get(CONF_WEB_INTERVAL, DEFAULT_WEB_INTERVAL),
+            )
+            if not selected:
+                errors["base"] = "no_partitions"
+            elif web and (
+                problem := credentials_problem(
+                    entry.data[CONF_USER_CODE], entry.data[CONF_PASSWORD]
+                )
+            ):
+                # the web login would fail and count towards code tamper
+                errors[CONF_WEB_INTERFACE] = f"web_credentials_{problem}"
+            else:
                 self._options = {
                     **entry.options,
                     CONF_PARTITIONS: selected,
                     CONF_SCAN_INTERVAL: int(user_input[CONF_SCAN_INTERVAL]),
                     CONF_LOG_INTERVAL: int(user_input[CONF_LOG_INTERVAL]),
+                    CONF_WEB_INTERFACE: web,
+                    CONF_WEB_INTERVAL: int(interval),
                 }
                 user_agent = user_input[CONF_ADVANCED].get(CONF_USER_AGENT, "").strip()
                 if user_agent != entry.data.get(CONF_USER_AGENT, ""):
                     self._user_agent = user_agent
                 return await self.async_step_zones()
-            errors["base"] = "no_partitions"
         schema = vol.Schema(
             {
                 vol.Required(CONF_PARTITIONS): partition_selector(
@@ -151,6 +178,16 @@ class SecvestOptionsFlow(OptionsFlow):
                         mode=NumberSelectorMode.BOX,
                     )
                 ),
+                vol.Optional(CONF_WEB_INTERFACE): BooleanSelector(),
+                vol.Optional(CONF_WEB_INTERVAL): NumberSelector(
+                    NumberSelectorConfig(
+                        min=MIN_WEB_INTERVAL,
+                        max=MAX_WEB_INTERVAL,
+                        step=1,
+                        unit_of_measurement="h",
+                        mode=NumberSelectorMode.BOX,
+                    )
+                ),
                 vol.Required(CONF_ADVANCED): section(
                     vol.Schema({vol.Optional(CONF_USER_AGENT): TextSelector()}),
                     {"collapsed": True},
@@ -164,6 +201,10 @@ class SecvestOptionsFlow(OptionsFlow):
             ),
             CONF_LOG_INTERVAL: entry.options.get(
                 CONF_LOG_INTERVAL, DEFAULT_LOG_INTERVAL
+            ),
+            CONF_WEB_INTERFACE: entry.options.get(CONF_WEB_INTERFACE, False),
+            CONF_WEB_INTERVAL: entry.options.get(
+                CONF_WEB_INTERVAL, DEFAULT_WEB_INTERVAL
             ),
             CONF_ADVANCED: {CONF_USER_AGENT: entry.data.get(CONF_USER_AGENT, "")},
         }

@@ -20,6 +20,10 @@ The terms come from the panel's language texts and user manuals (firmware v3.01.
 | Output | Ausgang | A switchable output of the panel |
 | Acknowledge | Quittieren | Confirm an alarm |
 | Reset | Rücksetzen | Return the panel to normal operation after an alarm |
+| Web interface | Weboberfläche | The panel's web pages, a separate interface from the app's REST API |
+| Signal strength | Signalstärke | The level 0-9 at which the panel receives a wireless component |
+| Supervision | Supervision | The panel's check that wireless components report regularly; a supervision fault means one hasn't |
+| Repeater | Repeater | A device that repeats wireless messages for components far from the panel |
 | Tamper | Sabotage | Opening or manipulating a detector or the panel housing; also wrong codes ("code tamper") |
 | Installer | Errichter | The installer account; while logged in at the panel, the API is locked |
 | Entry time / exit time | Eingangszeit / Ausgangszeit | Delays for entering and leaving through an entry/exit zone |

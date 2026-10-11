@@ -119,6 +119,27 @@ class Injection:
 
 
 @dataclass
+class WebRow:
+    """A wireless zone's row of the web interface's zone list (#56)."""
+
+    level: int = 9
+    lowest: int = 3
+    # the level at the RF repeater; None if no repeater repeats the zone
+    repeater: tuple[int, int] | None = None
+    battery_low: bool = False
+    supervision_fault: bool = False
+    tamper: bool = False
+
+
+@dataclass(frozen=True)
+class WebAnswer:
+    """An answer of the web interface, with its own content type."""
+
+    body: bytes
+    content_type: str
+
+
+@dataclass
 class Stats:
     """What the fake panel observed."""
 
@@ -161,6 +182,14 @@ class FakePanel:
         self.injections: list[Injection] = []
         self.violations: list[str] = []
         self.stats = Stats()
+        # the web interface (#56): open sessions by id with their last
+        # request, the idle time after which the panel ends one (about 55 s
+        # observed), and each wireless zone's row of the zone list
+        self.web_sessions: dict[str, float] = {}
+        self.web_session_timeout = 55.0
+        self.web_logins = 0
+        self._web_failed_login: tuple[str, str] | None = None
+        self.web_rows: dict[str, WebRow] = {}
 
         system = _fixture_json("GET_system.json")
         self.name: str = system["name"]
@@ -188,6 +217,9 @@ class FakePanel:
             for item in _fixture_json("GET_system_partitions-1_zones.json")
         }
 
+        self.web_rows = {
+            zone_id: WebRow() for zone_id in self.zones if 201 <= int(zone_id) <= 248
+        }
         self._lock = threading.RLock()
         self._in_flight = 0
         self._open_connections = 0
@@ -505,6 +537,45 @@ class FakePanel:
         part.state = "acknowledged"
         return 200, part.to_json()
 
+    def zone_list(self) -> bytes:
+        """Render POST /sec_zones.cgx for the wireless bus, like the panel."""
+
+        def disp(column: int, row: int, on: bool) -> str:
+            value = "block" if on else "none"
+            return f"<disp><id>rtm{column}_{row}</id><value>{value}</value></disp>"
+
+        def text(column: int, row: int, value: str) -> str:
+            return f"<text><id>rtm{column}_{row}</id><value>{value}</value></text>"
+
+        parts = ["<form><autoset-warn>no</autoset-warn><read-only>no</read-only>"]
+        for row in range(48):
+            zone_id = str(201 + row)
+            web = self.web_rows.get(zone_id)
+            zone = self.zones.get(zone_id)
+            parts.append(disp(8, row, web is not None and web.battery_low))
+            parts.append(disp(5, row, web is not None and web.supervision_fault))
+            if web is None or zone is None:
+                # an unused slot
+                parts.append(text(2, row, ""))
+            else:
+                parts.append(
+                    f"<bargraph><id>rtm1_{row}</id><value>{4 * web.level}</value>"
+                    "</bargraph>\n"
+                )
+                parts.append(text(2, row, f"{web.level}&lt;br/&gt;({web.lowest})"))
+                repeater = (
+                    "-(-) "
+                    if web.repeater is None
+                    else f"{web.repeater[0]}({web.repeater[1]}) "
+                )
+                parts.append(text(6, row, repeater))
+                parts.append(text(7, row, f"{web.level}({web.lowest})"))
+            parts.append(disp(11, row, web is not None and web.tamper))
+            parts.append(disp(9, row, zone is not None and zone.omitted))
+            parts.append(disp(10, row, zone is not None and zone.state == "open"))
+        parts.append("</form>")
+        return "".join(parts).encode()
+
     def set_zone_omitted(
         self, part: FakePartition | None, zone: FakeZone, omitted: bool
     ) -> tuple[int, Any]:
@@ -699,6 +770,10 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _answer(self, method: str, body: bytes) -> tuple[int, Any]:
         panel = self.panel
+        path = urlsplit(self.path).path
+        if path.startswith("/sec_") or path in {"/index.htm", "/events.cgx"}:
+            with panel._lock:
+                return self._web(method, path, body)
         expected = "Basic " + b64encode(
             f"{panel.user_code}:{panel.password}".encode()
         ).decode("ascii")
@@ -833,10 +908,80 @@ class _Handler(BaseHTTPRequestHandler):
             panel.violations.append(f"undocumented log query: {query}")
         return 200, entries
 
+    # the web interface (#56): form login and session cookie, no Basic Auth
+
+    def _web(self, method: str, path: str, body: bytes) -> tuple[int, Any]:
+        panel = self.panel
+        request = f"{method} {self.path}"
+        if self.headers.get("Authorization") is not None:
+            panel.violations.append(f"{request} sent Basic Auth to the web interface")
+        if panel.installer_locked:
+            # how the web interface answers then is unknown
+            panel.violations.append(f"{request} while the installer is logged in")
+            return 403, None
+        if method != "POST" or path not in {
+            "/sec_login.cgi",
+            "/sec_zones.cgx",
+            "/index.htm",
+        }:
+            # the main page and its scripts' requests make the panel run
+            # commands (e.g. a firmware check); the integration never sends them
+            panel.violations.append(f"{request}: not part of a web read")
+            return 404, _fixture("GET_unknown-path.404.html")
+        form = {key: values[-1] for key, values in parse_qs(body.decode()).items()}
+        if path == "/sec_login.cgi":
+            return self._web_login(form)
+        session = self._web_session()
+        if path == "/index.htm":
+            if form.get("logout") != "logout":
+                panel.violations.append(f"{request} without logout=logout")
+            if session is not None:
+                panel.web_sessions.pop(session, None)
+            return 200, WebAnswer(_START_PAGE, "text/html")
+        if session is None:
+            return 401, _fixture("POST_sec_zones.cgx.401.html")
+        if form.get("bus") != "0" or form.get("listingType") != "busDevice":
+            panel.violations.append(f"{request} with an undocumented form: {form}")
+        panel.web_sessions[session] = time.monotonic()
+        return 200, WebAnswer(panel.zone_list(), "text/xml")
+
+    def _web_login(self, form: dict[str, str]) -> tuple[int, Any]:
+        panel = self.panel
+        credentials = (form.get("usr", ""), form.get("pwd", ""))
+        if credentials == panel._web_failed_login:
+            panel.violations.append(
+                "repeated a web login that failed; failed web logins count "
+                "towards a code tamper alarm"
+            )
+        # "&" in a password breaks the panel's form decoding (observed)
+        if credentials != (panel.user_code, panel.password) or "&" in credentials[1]:
+            panel._web_failed_login = credentials
+            return 200, WebAnswer(_login_page("0", failed=True), "text/html")
+        panel._web_failed_login = None
+        panel.web_logins += 1
+        session = str(100000000 + len(panel.web_sessions) + panel.web_logins)
+        panel.web_sessions[session] = time.monotonic()
+        return 200, WebAnswer(_login_page(session), "text/html")
+
+    def _web_session(self) -> str | None:
+        """Return the request's open session, ending idle ones like the panel."""
+        panel = self.panel
+        now = time.monotonic()
+        for session, last in list(panel.web_sessions.items()):
+            if now - last > panel.web_session_timeout:
+                del panel.web_sessions[session]
+        cookie = self.headers.get("Cookie") or ""
+        match = re.search(r"(?:^|;\s*)ssid=(\d+)", cookie)
+        if match is None or match[1] not in panel.web_sessions:
+            return None
+        return match[1]
+
     # responses
 
     def _send(self, status: int, payload: Any) -> None:
-        if isinstance(payload, bytes):
+        if isinstance(payload, WebAnswer):
+            self._send_raw(status, payload.body, payload.content_type)
+        elif isinstance(payload, bytes):
             # HTML error pages come without a Content-Type, like the panel's
             self._send_raw(status, payload, None)
         elif payload is None:
@@ -875,3 +1020,21 @@ def _json_object(body: bytes) -> dict[str, Any] | None:
     except ValueError:
         return None
     return data if isinstance(data, dict) else None
+
+
+_START_PAGE = (
+    b'<!DOCTYPE html><html><head><meta http-equiv="REFRESH" '
+    b'content="0;url=sec_login.cgi"></head><body></body></html>'
+)
+
+
+def _login_page(session: str, *, failed: bool = False) -> bytes:
+    """Render the login page's answer as far as a client reads it."""
+    warning = "Fehler: Benutzername oder Passwort ungültig" if failed else ""
+    redirect = "" if failed else " document.redirectform.submit(); "
+    return (
+        f'<!DOCTYPE html><head></head><body onload="create_cookie();read_cookie();'
+        f'{redirect}"><form method="post" name="loginform" action="sec_login.cgi">'
+        f'<input type="hidden" value="{session}" id="ssid" />'
+        f'<ol><li class="c warning-text">{warning}</li></ol></form></body></html>'
+    ).encode()

@@ -49,6 +49,7 @@ from .log import LogTracker, log_store
 
 if TYPE_CHECKING:
     from . import SecvestConfigEntry
+    from .web import WebCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -289,6 +290,8 @@ class SecvestCoordinator(DataUpdateCoordinator[PanelState]):
         # the names of the partitions and zones at setup, by id, so that a
         # rename at the panel is noticed (#137)
         self._names: dict[tuple[str, str], str] | None = None
+        # reads the web interface, if enabled in the options (#56)
+        self.web: WebCoordinator | None = None
 
     @property
     def available(self) -> bool:
