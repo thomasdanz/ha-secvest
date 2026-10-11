@@ -160,33 +160,30 @@ async def test_states_never_sent(
 
 
 async def test_omit_zone(fake_panel: FakePanel, client: Client) -> None:
-    """Omitting sends the value as a string and returns the zone."""
-    zone = await client.set_zone_omitted(1, "209", True)
+    """Omitting needs no partition, sends a string and returns the zone."""
+    zone = await client.set_zone_omitted("209", True)
     assert zone.omitted is True
-    zone = await client.set_zone_omitted(1, "209", False)
+    zone = await client.set_zone_omitted("209", False)
     assert zone.omitted is False
     assert fake_panel.stats.requests == [
-        ("PUT", "/system/partitions-1/zones-209/"),
-        ("PUT", "/system/partitions-1/zones-209/"),
+        ("PUT", "/system/partitions/zones-209/"),
+        ("PUT", "/system/partitions/zones-209/"),
     ]
 
 
 async def test_omit_zone_not_omittable(client: Client) -> None:
     """A zone that isn't omittable is not allowed."""
     with pytest.raises(NotAllowedError):
-        await client.set_zone_omitted(1, "219", True)
+        await client.set_zone_omitted("219", True)
 
 
-@pytest.mark.parametrize(
-    ("partition", "zone_id"),
-    [(0, "209"), (-1, "209"), (True, "209"), (1, "209/../x"), (1, ""), (1, "z1")],
-)
-async def test_invalid_arguments(
-    fake_panel: FakePanel, client: Client, partition: Any, zone_id: str
+@pytest.mark.parametrize("zone_id", ["209/../x", "", "z1", "209 "])
+async def test_invalid_zone_id(
+    fake_panel: FakePanel, client: Client, zone_id: str
 ) -> None:
-    """Invalid partition numbers or zone ids are refused without a request."""
+    """Invalid zone ids are refused without a request."""
     with pytest.raises(ValueError, match="invalid"):
-        await client.set_zone_omitted(partition, zone_id, True)
+        await client.set_zone_omitted(zone_id, True)
     assert fake_panel.stats.requests == []
 
 

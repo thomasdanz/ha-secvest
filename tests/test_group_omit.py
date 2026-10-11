@@ -23,7 +23,7 @@ SWITCH = "switch.alarmanlage_room_3_omit"
 
 
 def _put(zone_id: str) -> tuple[str, str]:
-    return ("PUT", f"/system/partitions-1/zones-{zone_id}/")
+    return ("PUT", f"/system/partitions/zones-{zone_id}/")
 
 
 async def _add_group(
@@ -138,7 +138,7 @@ async def test_failure_in_the_middle(
     entry = await setup()
     await _add_group(hass, entry, ["203", "204", "205"])
     fake_panel.inject(
-        Injection("PUT", "/system/partitions-1/zones-204/", "status", status=403)
+        Injection("PUT", "/system/partitions/zones-204/", "status", status=403)
     )
     sent = len(fake_panel.stats.requests)
     with pytest.raises(CommandError) as err:

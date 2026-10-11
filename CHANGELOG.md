@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Changed
 
 - README: a dashboard button for omitting open zones and arming, through a script that carries the code (#191).
+- **Omitting and including a zone** is sent without a partition number, as the panel's own web interface does. A zone in several partitions no longer fails with "no permission" because the panel user may not operate the first selected one; the panel checks the rights itself. This applies to the omit switches, zone groups and `secvest.omit_and_arm` (#193).
 
 ## [1.0.0] - 2026-10-08
 

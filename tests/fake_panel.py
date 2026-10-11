@@ -506,10 +506,23 @@ class FakePanel:
         return 200, part.to_json()
 
     def set_zone_omitted(
-        self, part: FakePartition, zone: FakeZone, omitted: bool
+        self, part: FakePartition | None, zone: FakeZone, omitted: bool
     ) -> tuple[int, Any]:
-        """Apply PUT /system/partitions-{n}/zones-{zone}/ like the panel."""
-        if not zone.omittable or not self.may_operate(part.number):
+        """Apply PUT /system/partitions[-{n}]/zones-{zone}/ like the panel.
+
+        Without a partition number (#193) the panel's rights check is untested;
+        the fake assumes the user needs rights for one of the zone's
+        partitions, the error answers as with a partition number.
+        """
+        if part is not None:
+            allowed = self.may_operate(part.number)
+        else:
+            allowed = any(
+                self.may_operate(p.number)
+                for p in self.partitions.values()
+                if zone.id in p.zone_ids
+            )
+        if not zone.omittable or not allowed:
             return 403, None
         zone.omitted = omitted
         return 200, zone.to_json()
@@ -735,6 +748,11 @@ class _Handler(BaseHTTPRequestHandler):
                 return 200, [panel.zones[z].to_json() for z in part.zone_ids]
         if match := re.fullmatch(r"/system/partitions-(\d+)/zones-(\d+)/", path):
             return self._zone(method, int(match[1]), match[2], body)
+        # without a partition number (#193): no zone list, but the zone itself
+        if path == "/system/partitions/zones/" and method == "GET":
+            return 200, []
+        if match := re.fullmatch(r"/system/partitions/zones-(\d+)/", path):
+            return self._zone(method, None, match[1], body)
         panel.violations.append(f"undocumented request: {method} {self.path}")
         if method in {"GET", "PUT"}:
             return 404, _fixture("GET_unknown-path.404.html")
@@ -768,12 +786,16 @@ class _Handler(BaseHTTPRequestHandler):
         return panel.set_partition_state(part, requested)
 
     def _zone(
-        self, method: str, number: int, zone_id: str, body: bytes
+        self, method: str, number: int | None, zone_id: str, body: bytes
     ) -> tuple[int, Any]:
         panel = self.panel
-        part = panel.partitions.get(number)
+        part = None if number is None else panel.partitions.get(number)
         zone = panel.zones.get(zone_id)
-        if part is None or zone is None or zone_id not in part.zone_ids:
+        if number is None:
+            listed = any(zone_id in p.zone_ids for p in panel.partitions.values())
+        else:
+            listed = part is not None and zone_id in part.zone_ids
+        if zone is None or not listed:
             return 404, _fixture("GET_system_partitions-1_zones-220.404.html")
         if method == "GET":
             return 200, zone.to_json()

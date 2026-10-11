@@ -104,13 +104,16 @@ class Client:
         data = await self.transport.request("PUT", path, {"state": str(state)})
         return parse_partition(data)
 
-    async def set_zone_omitted(
-        self, partition: int, zone_id: str, omitted: bool
-    ) -> Zone:
-        """Omit a zone or include it again; return the panel's answer."""
+    async def set_zone_omitted(self, zone_id: str, omitted: bool) -> Zone:
+        """Omit a zone or include it again; return the panel's answer.
+
+        Without a partition number, as the panel's web interface does: a zone
+        can belong to several partitions, and the panel checks the rights
+        itself (#193).
+        """
         if not _ZONE_ID.fullmatch(zone_id):
             raise ValueError(f"invalid zone id {zone_id!r}")
-        path = f"/system/partitions-{_partition(partition)}/zones-{zone_id}/"
+        path = f"/system/partitions/zones-{zone_id}/"
         # the panel expects the value as a string
         body = {"omitted": "true" if omitted else "false"}
         return parse_zone(await self.transport.request("PUT", path, body))
