@@ -10,7 +10,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
-- README: buttons to open the repository in HACS and to start the setup, badges for the license and the minimum Home Assistant version, a feature list and a table of contents; the manual installation and the long examples are collapsed. It no longer says the firmware can't be checked: with the web interface on, it is (#207).
+- README: buttons to open the repository in HACS and to start the setup, badges for the license and the minimum Home Assistant version, a feature list, a table of contents and screenshots; the manual installation and the long examples are collapsed. It no longer says the firmware can't be checked: with the web interface on, it is (#207).
 
 ## [1.1.0] - 2026-10-11
 
