@@ -21,9 +21,7 @@ A Home Assistant custom integration for the ABUS Secvest alarm panel. It talks t
 - **Careful with the panel:** never polls faster than the official app, one connection, stops after one rejected login, verifies the panel's certificate.
 - **Diagnostics** to download, with names and credentials redacted.
 
-<p><img src="https://raw.githubusercontent.com/thomasdanz/ha-secvest/main/docs/images/panel-device.png" alt="The panel's device page in Home Assistant" width="800"></p>
-
-*The panel's device: the alarm panel of a partition, its sensors, the log and the polling diagnostics (screenshots with example names).*
+<p align="center"><img src="https://raw.githubusercontent.com/thomasdanz/ha-secvest/main/docs/images/panel-device.png" alt="The panel's device page in Home Assistant" width="800"><br><em>The panel's device: the alarm panel of a partition, its sensors, the log and the polling diagnostics (screenshots with example names).</em></p>
 
 ## Contents
 
@@ -102,9 +100,7 @@ Finally choose what kind of detector each **zone** is (door, window, garage door
 
 In the integration's options (Settings → Devices & services → ABUS Secvest → Configure) you choose between the settings, the codes (see "Arming and disarming") and taking over names from the panel. Under the settings you can change the selected partitions, the status interval (at least 24 seconds), the log interval (how often new entries of the panel's log are read; 5 minutes by default, at least 2 minutes), whether the web interface is read and how often (see "Web interface") and, under Advanced, the User-Agent. The second step lists the zones of the selected partitions: choose a device class per zone (door, window, motion, …; the panel doesn't tell detector types apart) and exclude zones you don't want in Home Assistant. Saving reloads the integration; nothing is sent to the panel while you change the settings or codes.
 
-<p><img src="https://raw.githubusercontent.com/thomasdanz/ha-secvest/main/docs/images/options-settings.png" alt="The settings in the integration's options" width="420"></p>
-
-*The settings: partitions, status and log interval, the web interface and its interval.*
+<p align="center"><img src="https://raw.githubusercontent.com/thomasdanz/ha-secvest/main/docs/images/options-settings.png" alt="The settings in the integration's options" width="420"><br><em>The settings: partitions, status and log interval, the web interface and its interval.</em></p>
 
 If a selected partition has no zones anymore (for example after the installer moved its detectors to another partition), a repair issue suggests deselecting it in the options; ignore it if the partition is meant to be empty. It goes away by itself once the partition has zones again.
 
@@ -112,9 +108,7 @@ If a selected partition has no zones anymore (for example after the installer mo
 
 Optionally, the integration reads each wireless zone's signal strength, battery, supervision and tamper from the panel's web interface, which the REST API doesn't report. Turn it on under **Configure** → settings → **Read the web interface**, and choose how often it is read: every 12 hours by default, from 1 to 24 hours. It uses the same panel user as the integration; a normal user is enough, although the web interface's menus show the zone list only to the installer.
 
-<p><img src="https://raw.githubusercontent.com/thomasdanz/ha-secvest/main/docs/images/zone-device.png" alt="A wireless zone's device page" width="800"></p>
-
-*A wireless zone: the zone sensor, the Omit switch and the Problem sensor come from the polling; battery, supervision, tamper and the signal strengths from the web interface.*
+<p align="center"><img src="https://raw.githubusercontent.com/thomasdanz/ha-secvest/main/docs/images/zone-device.png" alt="A wireless zone's device page" width="800"><br><em>A wireless zone: the zone sensor, the Omit switch and the Problem sensor come from the polling; battery, supervision, tamper and the signal strengths from the web interface.</em></p>
 
 - **Each read** logs in, reads the wireless zone list and the panel's Info page and logs out: four requests, through the same connection as the polling, never at the same time. The panel writes "Log in (Web)" and "Log out(Web)" to its log, two of its 600 entries, so read rarely. The first read comes two minutes after Home Assistant starts; a reload keeps the last values. To read now, use `homeassistant.update_entity` with one of the entities below; a read right after another (within 5 minutes) keeps the values instead. Nothing is read while the installer is logged in.
 - **Entities** per wireless zone, on the zone's device (diagnostic):
@@ -131,13 +125,9 @@ Optionally, the integration reads each wireless zone's signal strength, battery,
 
 Zones that belong to one opening, such as the two wings of a window, can be combined into a zone group: on the integration's page choose **Add zone group**, give it a name, select at least two zones and choose how the group is shown (window, door, …, or "Same as the zones") and, optionally, its area. The group gets its own device "Zone group <name>" with a sensor that is on while any of its zones is open, e.g. `binary_sensor.alarmanlage_living_room`. The zones keep their own devices and entities. If at least one zone of the group can be omitted, the group device also gets an **Omit** switch: it omits all omittable zones of the group one after another (each checked) and includes them again; it is on while all of them are omitted and turns off by itself when the panel includes them at disarm. Zones that can't be omitted (e.g. entry doors) are never sent and are listed in its attribute `not_omittable_zones`. If omitting one zone fails, the switch stops there and names the zones that weren't changed; zones already omitted stay omitted. The group device also shows a **Problem** sensor, on while one of its zones has a problem (as the zone's own Problem sensor; attribute `problem_zones`), and, while the web interface is turned on, **Battery**, **Supervision** and **Tamper**, on while one of its zones reports it (see "Web interface"; attributes `battery_low_zones`, `supervision_fault_zones`, `tamper_zones`); signal strengths stay with the zones, since each detector has its own radio path. **Hide grouped zones** hides the zones' entities in Home Assistant, the web interface's too; they keep working and can still be used in automations. Each group can be changed or deleted on the integration's page. If a zone of a group disappears (removed at the panel, or its partition deselected), the group sensor ignores it and a repair issue asks you to reconfigure the group. A zone group is a Home Assistant feature; the panel knows nothing about it.
 
-<p><img src="https://raw.githubusercontent.com/thomasdanz/ha-secvest/main/docs/images/add-zone-group.png" alt="The dialog to add a zone group" width="420"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/thomasdanz/ha-secvest/main/docs/images/add-zone-group.png" alt="The dialog to add a zone group" width="420"><br><em>Adding a zone group of two zones.</em></p>
 
-*Adding a zone group of two zones.*
-
-<p><img src="https://raw.githubusercontent.com/thomasdanz/ha-secvest/main/docs/images/integration.png" alt="The integration's page with zone groups" width="800"></p>
-
-*The integration's page lists each zone group with its device; the zones without a group are collapsed.*
+<p align="center"><img src="https://raw.githubusercontent.com/thomasdanz/ha-secvest/main/docs/images/integration.png" alt="The integration's page with zone groups" width="800"><br><em>The integration's page lists each zone group with its device; the zones without a group are collapsed.</em></p>
 
 ## Entities
 
