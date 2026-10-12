@@ -978,7 +978,8 @@
     {
       "name": "the web interface on (stored data 1.5)",
       "versions": [
-        "1.1.0"
+        "1.1.0",
+        "1.1.1"
       ],
       "minor_version": 5,
       "data": {

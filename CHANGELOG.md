@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-12
+
 ### Added
 
 - Tests: the web interface is read at the configured interval, also across a reload; a zone group's Problem sensor with a zone not read; the serial number stays out of the diagnostics (#205).
@@ -312,7 +314,8 @@ First version, read-only: the state of partitions, zones and faults.
 - README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
 - Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
 
-[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/thomasdanz/ha-secvest/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/thomasdanz/ha-secvest/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/thomasdanz/ha-secvest/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/thomasdanz/ha-secvest/compare/v0.3.1...v0.4.0
