@@ -2,23 +2,44 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories)
 [![Release](https://img.shields.io/github/v/release/thomasdanz/ha-secvest)](https://github.com/thomasdanz/ha-secvest/releases)
+[![Home Assistant](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fthomasdanz%2Fha-secvest%2Fmain%2Fhacs.json&query=%24.homeassistant&prefix=%E2%89%A5%20&label=Home%20Assistant&color=41BDF5)](#supported-versions)
 [![CI](https://github.com/thomasdanz/ha-secvest/actions/workflows/ci.yml/badge.svg)](https://github.com/thomasdanz/ha-secvest/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/thomasdanz/ha-secvest)](LICENSE)
 
 A Home Assistant custom integration for the ABUS Secvest alarm panel. It talks to the panel's local REST API, the one the official app uses, as documented in [`secvest-api`](https://github.com/thomasdanz/secvest-api).
 
-> **Status:** v1.1 "Web interface": shows partitions, zones and faults, arms and disarms (acknowledging an alarm on the way, or omitting open zones once), omits zones and zone groups, shows the panel's log as events and in the logbook, verifies the panel's certificate, changes its connection without setting up again, and offers diagnostics. Optionally it reads each wireless zone's signal strength, battery, supervision and tamper, and the panel's firmware and serial number, from the panel's web interface (see the [milestones](https://github.com/thomasdanz/ha-secvest/milestones)).
+> [!WARNING]
+> This is an unofficial community project, not affiliated with or endorsed by ABUS. The panel is security equipment: use this integration at your own risk.
 
-> **Disclaimer:** This is an unofficial community project, not affiliated with or endorsed by ABUS. The panel is security equipment: use this integration at your own risk.
+## Features
+
+- **Alarm panel per partition:** arm away or home and disarm, with codes of your own; disarming acknowledges an alarm on the way; open zones can be omitted once to arm anyway.
+- **Zones as devices:** a sensor per zone (open or closed), an omit switch and a problem sensor; zone groups combine e.g. the two wings of a window.
+- **Panel state:** faults, open zones and whether arming is blocked, per partition; the installer lock.
+- **The panel's log** as events and in Home Assistant's logbook: who armed or disarmed, at the keypad or in the app.
+- **Optionally from the panel's web interface:** each wireless zone's signal strength, battery, supervision and tamper, and the panel's firmware and serial number.
+- **Careful with the panel:** never polls faster than the official app, one connection, stops after one rejected login, verifies the panel's certificate.
+- **Diagnostics** to download, with names and credentials redacted.
+
+<p><img src="https://raw.githubusercontent.com/thomasdanz/ha-secvest/main/docs/images/panel-device.png" alt="The panel's device page in Home Assistant" width="800"></p>
+
+*The panel's device: the alarm panel of a partition, its sensors, the log and the polling diagnostics (screenshots with example names).*
+
+## Contents
+
+[Supported versions](#supported-versions) · [Safety notes](#safety-notes) · [Installation](#installation) · [Setup](#setup) · [Options](#options) · [Web interface](#web-interface) · [Zone groups](#zone-groups) · [Entities](#entities) · [Arming and disarming](#arming-and-disarming) · [Exit and entry delays](#exit-and-entry-delays) · [How it works](#how-it-works) · [Diagnostics](#diagnostics) · [Limitations](#limitations) · [Documentation](#documentation)
 
 ## Supported versions
 
-- **Panel:** tested with the Secvest Touch FUAA50500 running firmware v3.01.31. The API doesn't report the firmware version, so the integration can't check it; other models and firmware versions are untested. Unknown values from the panel are kept and logged once instead of breaking anything.
+- **Panel:** tested with the Secvest Touch FUAA50500 running firmware v3.01.31; other models and firmware versions are untested. The API doesn't report the firmware version; with the web interface turned on, the integration reads it there and raises a repair issue for an untested one. Unknown values from the panel are kept and logged once instead of breaking anything.
 - **Reported to work with:** no other models or firmware versions yet. If it works (or doesn't) on yours, please open an issue with the panel model and firmware version.
 - **Home Assistant:** tested with 2026.10 and 2026.9, the current and the previous release, and with 2026.8.0, the minimum. Older versions don't work: the zone devices need 2026.8.
 
 ## Safety notes
 
-- The panel is security equipment in an inhabited building. Test automations that use it carefully.
+> [!IMPORTANT]
+> The panel is security equipment in an inhabited building. Test automations that use it carefully.
+
 - **Use a separate panel user** for Home Assistant: the level "normal user" is enough, with rights for exactly the partitions Home Assistant should operate. Every user sees all partitions, but the panel refuses commands on the others.
 - **Polling limits:** the integration never polls more often than every 24 seconds, the official app's own cycle, and backs off when the panel doesn't answer. It keeps one connection, sends one request at a time and resumes TLS sessions, since a full handshake takes the panel about 6.5 seconds. More load than the official app's was deliberately not tested.
 - **One rejected login stops everything:** failed logins may count towards a code tamper alarm, so the integration never causes a second one. After the first `401 Unauthorized` it sends nothing more with these credentials — no retry, no polling, also not after a restart of Home Assistant — its entities are unavailable, and Home Assistant asks you to reauthenticate (Settings → Devices & services). Only new credentials, checked with a single request, start it again. This holds for every 401, also one a reverse proxy in front of the panel answers.
@@ -29,9 +50,16 @@ A Home Assistant custom integration for the ABUS Secvest alarm panel. It talks t
 
 ## Installation
 
-**HACS:** add this repository as a custom repository (HACS → ⋮ → Custom repositories, type "Integration"), install "ABUS Secvest" and restart Home Assistant.
+**With HACS** (recommended):
 
-**Manually:** copy the folder `custom_components/secvest` of a release into the `custom_components` folder of your Home Assistant configuration and restart Home Assistant. To update, replace the folder and restart again.
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=thomasdanz&repository=ha-secvest&category=integration)
+
+The button opens this repository in HACS in your Home Assistant, which offers to add it. Without the button: HACS → ⋮ → Custom repositories, enter `https://github.com/thomasdanz/ha-secvest` with the type "Integration". Then install "ABUS Secvest" and restart Home Assistant. HACS offers new versions as updates.
+
+<details>
+<summary><b>Manual installation</b></summary>
+
+Copy the folder `custom_components/secvest` of a release into the `custom_components` folder of your Home Assistant configuration and restart Home Assistant. To update, replace the folder and restart again.
 
 From a clone of this repository, with SSH access to Home Assistant (e.g. the "Advanced SSH & Web Terminal" add-on), this installs exactly the tagged version, without local changes or `__pycache__`:
 
@@ -47,11 +75,15 @@ Replace `<tag>` with a version such as `v0.1.1`. Removing the folder first makes
 
 Replacing the files while Home Assistant runs is fine: the running code stays in memory until the restart. Restart right away, though, without setting up or reloading the integration in between, since Home Assistant loads some parts only when needed and could mix old and new files. If your configuration folder is a Git repository, add `custom_components/secvest/` to its `.gitignore`.
 
+</details>
+
 **Connection:** the integration works directly against the panel (its own HTTPS port 4433 with a self-signed certificate) and through a reverse proxy in front of it. The proxy may hold its own TLS session to the panel; the polling limits apply either way, since every request still reaches the panel.
 
 ## Setup
 
-Add the integration in Home Assistant (Settings → Devices & services → Add integration → ABUS Secvest) and enter:
+[![Open your Home Assistant instance and start setting up ABUS Secvest.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=secvest)
+
+Add the integration in Home Assistant (the button, or Settings → Devices & services → Add integration → ABUS Secvest) and enter:
 
 - **Address:** the panel's IP address or host name, optionally with a port (default 4433), or the https URL of a reverse proxy in front of it.
 - **User code** and **password** of a panel user. Use a separate user for Home Assistant: the level "normal user" is enough, with rights for exactly the partitions Home Assistant should operate. The installer code doesn't work.
@@ -70,11 +102,19 @@ Finally choose what kind of detector each **zone** is (door, window, garage door
 
 In the integration's options (Settings → Devices & services → ABUS Secvest → Configure) you choose between the settings, the codes (see "Arming and disarming") and taking over names from the panel. Under the settings you can change the selected partitions, the status interval (at least 24 seconds), the log interval (how often new entries of the panel's log are read; 5 minutes by default, at least 2 minutes), whether the web interface is read and how often (see "Web interface") and, under Advanced, the User-Agent. The second step lists the zones of the selected partitions: choose a device class per zone (door, window, motion, …; the panel doesn't tell detector types apart) and exclude zones you don't want in Home Assistant. Saving reloads the integration; nothing is sent to the panel while you change the settings or codes.
 
+<p><img src="https://raw.githubusercontent.com/thomasdanz/ha-secvest/main/docs/images/options-settings.png" alt="The settings in the integration's options" width="420"></p>
+
+*The settings: partitions, status and log interval, the web interface and its interval.*
+
 If a selected partition has no zones anymore (for example after the installer moved its detectors to another partition), a repair issue suggests deselecting it in the options; ignore it if the partition is meant to be empty. It goes away by itself once the partition has zones again.
 
 ## Web interface
 
 Optionally, the integration reads each wireless zone's signal strength, battery, supervision and tamper from the panel's web interface, which the REST API doesn't report. Turn it on under **Configure** → settings → **Read the web interface**, and choose how often it is read: every 12 hours by default, from 1 to 24 hours. It uses the same panel user as the integration; a normal user is enough, although the web interface's menus show the zone list only to the installer.
+
+<p><img src="https://raw.githubusercontent.com/thomasdanz/ha-secvest/main/docs/images/zone-device.png" alt="A wireless zone's device page" width="800"></p>
+
+*A wireless zone: the zone sensor, the Omit switch and the Problem sensor come from the polling; battery, supervision, tamper and the signal strengths from the web interface.*
 
 - **Each read** logs in, reads the wireless zone list and the panel's Info page and logs out: four requests, through the same connection as the polling, never at the same time. The panel writes "Log in (Web)" and "Log out(Web)" to its log, two of its 600 entries, so read rarely. The first read comes two minutes after Home Assistant starts; a reload keeps the last values. To read now, use `homeassistant.update_entity` with one of the entities below; a read right after another (within 5 minutes) keeps the values instead. Nothing is read while the installer is logged in.
 - **Entities** per wireless zone, on the zone's device (diagnostic):
@@ -90,6 +130,14 @@ Optionally, the integration reads each wireless zone's signal strength, battery,
 ## Zone groups
 
 Zones that belong to one opening, such as the two wings of a window, can be combined into a zone group: on the integration's page choose **Add zone group**, give it a name, select at least two zones and choose how the group is shown (window, door, …, or "Same as the zones") and, optionally, its area. The group gets its own device "Zone group <name>" with a sensor that is on while any of its zones is open, e.g. `binary_sensor.alarmanlage_living_room`. The zones keep their own devices and entities. If at least one zone of the group can be omitted, the group device also gets an **Omit** switch: it omits all omittable zones of the group one after another (each checked) and includes them again; it is on while all of them are omitted and turns off by itself when the panel includes them at disarm. Zones that can't be omitted (e.g. entry doors) are never sent and are listed in its attribute `not_omittable_zones`. If omitting one zone fails, the switch stops there and names the zones that weren't changed; zones already omitted stay omitted. The group device also shows a **Problem** sensor, on while one of its zones has a problem (as the zone's own Problem sensor; attribute `problem_zones`), and, while the web interface is turned on, **Battery**, **Supervision** and **Tamper**, on while one of its zones reports it (see "Web interface"; attributes `battery_low_zones`, `supervision_fault_zones`, `tamper_zones`); signal strengths stay with the zones, since each detector has its own radio path. **Hide grouped zones** hides the zones' entities in Home Assistant, the web interface's too; they keep working and can still be used in automations. Each group can be changed or deleted on the integration's page. If a zone of a group disappears (removed at the panel, or its partition deselected), the group sensor ignores it and a repair issue asks you to reconfigure the group. A zone group is a Home Assistant feature; the panel knows nothing about it.
+
+<p><img src="https://raw.githubusercontent.com/thomasdanz/ha-secvest/main/docs/images/add-zone-group.png" alt="The dialog to add a zone group" width="420"></p>
+
+*Adding a zone group of two zones.*
+
+<p><img src="https://raw.githubusercontent.com/thomasdanz/ha-secvest/main/docs/images/integration.png" alt="The integration's page with zone groups" width="800"></p>
+
+*The integration's page lists each zone group with its device; the zones without a group are collapsed.*
 
 ## Entities
 
@@ -108,6 +156,9 @@ Zones that belong to one opening, such as the two wings of a window, can be comb
 Entity ids start with the installation's name, followed by the partition or zone, e.g. `alarm_control_panel.alarmanlage_ground_floor` or `binary_sensor.alarmanlage_front_door`; the kind of zone isn't part of them. They are set once when the entities are created, with entity names in Home Assistant's language at that time (e.g. `sensor.alarmanlage_faults` in English, `sensor.alarmanlage_storungen` in German); you can rename them in Home Assistant.
 
 **Names follow the panel, ids don't:** when a partition or zone is renamed at the panel, the next polling round notices it (by its number, not its name) and the integration reloads once, without another request: the alarm panel, the partition's sensors and the zone's device and entities show the new name. Renaming the installation at the panel isn't noticed by itself, since polling doesn't read it; **Configure** → **Take over names from the panel** reads it once and names the panel device after it. Entity ids, the entry's title on the integration page (the first part of the ids of entities added later) and names you set in Home Assistant stay.
+
+<details>
+<summary><b>Examples:</b> faults on a dashboard, polling statistics</summary>
 
 To show the faults on a dashboard, use a Markdown card:
 
@@ -134,6 +185,8 @@ chart_type: line
 
 For a value to use in automations (e.g. the mean of the last hour), add a statistics helper (Settings → Devices & services → Helpers → Statistics) with the round duration as its source.
 
+</details>
+
 ## Arming and disarming
 
 The alarm panel arms away (full set), arms home (part set, "intern aktivieren") and disarms, with a code once you have added one.
@@ -144,7 +197,10 @@ The alarm panel arms away (full set), arms home (part set, "intern aktivieren") 
 
 The panel doesn't switch directly between the two armed modes, so switching disarms first and then arms again; the alarm panel keeps showing the previous mode until the switch is done, and if disarming fails, the message says so. Every command is checked by reading the partition again afterwards, whatever the panel answered: it counts as done only if the partition really is in the requested state. If the partition already is in the requested state (e.g. armed at the keypad meanwhile), nothing is sent, and the user shown doesn't change.
 
-If arming or disarming fails, the action fails with a message, shown in the UI and in automation traces, and the event `secvest_arming_failed` is fired once, for every failure, with `entry_id`, `partition`, `partition_name`, `requested` (`set`, `partset` or `unset`), `reason`, `step` (`command`, `disarm_first` when switching between the armed modes failed at disarming, or `acknowledge_first` when acknowledging an alarm before disarming failed), `zones` (ids), `zone_names`, `faults`, `user` (the name of the code that was entered), `entity_id` (the alarm panel), `can_omit_and_arm` (only open zones that can be omitted blocked arming, see "Omit open zones and arm") and `omit_and_arm` (the failure is one of that action). The event carries the calling action's context, so an automation can tell where the command came from: `trigger.event.context.user_id` is set when a user acted in Home Assistant, `parent_id` when an automation or script did, and neither for other callers such as HomeKit Bridge. The reasons:
+If arming or disarming fails, the action fails with a message, shown in the UI and in automation traces, and the event `secvest_arming_failed` is fired once, for every failure, with `entry_id`, `partition`, `partition_name`, `requested` (`set`, `partset` or `unset`), `reason`, `step` (`command`, `disarm_first` when switching between the armed modes failed at disarming, or `acknowledge_first` when acknowledging an alarm before disarming failed), `zones` (ids), `zone_names`, `faults`, `user` (the name of the code that was entered), `entity_id` (the alarm panel), `can_omit_and_arm` (only open zones that can be omitted blocked arming, see "Omit open zones and arm") and `omit_and_arm` (the failure is one of that action). The event carries the calling action's context, so an automation can tell where the command came from: `trigger.event.context.user_id` is set when a user acted in Home Assistant, `parent_id` when an automation or script did, and neither for other callers such as HomeKit Bridge. See the reasons below.
+
+<details>
+<summary><b>The reasons</b></summary>
 
 | `reason` | Meaning |
 |---|---|
@@ -166,9 +222,14 @@ If arming or disarming fails, the action fails with a message, shown in the UI a
 | `omit_failed` | Omit open zones and arm: a zone couldn't be omitted (`zones`); zones omitted before were included again, nothing was armed |
 | `still_omitted` | Omit open zones and arm: after arming failed (its own event), these zones couldn't be included again and stay omitted until the next disarm; check them |
 
+</details>
+
 One failure has no event: arming **without any code** while codes are configured. Home Assistant refuses it itself ("code required") before the integration is called. Home Assistant's UI always asks for the code; for HomeKit Bridge, set the code in its `entity_config`.
 
 An automation can react to failed arming, for example with a notification. Home Assistant's own UI already shows the message, so this one only notifies for commands from elsewhere, such as the Apple Home app via HomeKit Bridge, which shows no reason:
+
+<details>
+<summary><b>Example:</b> notify when arming failed</summary>
 
 ```yaml
 triggers:
@@ -182,7 +243,12 @@ actions:
       message: "Alarm not armed ({{ trigger.event.data.reason }}): {{ trigger.event.data.zone_names | join(', ') }}"
 ```
 
+</details>
+
 **Omit open zones and arm:** the action `secvest.omit_and_arm` (target: the alarm panel; `mode`: `away` or `home`; `code` as for arming) omits the open zones that block arming once, then arms, each step checked. It reads the partition, its zones and the faults first and sends nothing unless open zones that can be omitted are all that block it (`not_omittable` otherwise). The panel includes omitted zones again at the next disarm, so they are omitted for this arming only; if arming still fails, the zones are included again, since they would otherwise be unguarded at the next arming. For `home`, zones that aren't monitored when armed internally (`inner: false`) are left to the panel. The usual way to use it is a notification with an action when arming fails, e.g. from the Apple Home app, which shows no reason. This extends the example above (iOS companion app; replace the notify action and the code):
+
+<details>
+<summary><b>Example:</b> notification with an action to omit and arm</summary>
 
 ```yaml
 triggers:
@@ -221,7 +287,12 @@ mode: parallel
 
 A failure of the follow-up action fires the event again with `omit_and_arm: true` and is notified the same way, without offering the action once more. `!secret` works in automations kept in YAML files; an automation edited in the UI would have to contain the code itself.
 
+</details>
+
 **From a dashboard:** the alarm panel's card can't ask a follow-up question either, but a button can call the action. A script carries the code, so it isn't part of the dashboard (`scripts.yaml`, where `!secret` works):
+
+<details>
+<summary><b>Example:</b> script and tile card</summary>
 
 ```yaml
 alarm_omit_and_arm:
@@ -252,6 +323,8 @@ visibility:
     entity: binary_sensor.alarmanlage_ground_floor_arming
     state: "on"
 ```
+
+</details>
 
 The action checks again before it sends anything, so a fault other than open zones that can be omitted still refuses with a message. For arming home, use a second script with `mode: home`. Whoever may use the dashboard can then arm without entering a code; disarming still needs one.
 
