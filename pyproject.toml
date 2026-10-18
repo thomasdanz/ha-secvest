@@ -12,7 +12,7 @@ dev = [
     # pins the matching Home Assistant release (current: 2026.9)
     "pytest-cov==7.1.0",
     "pytest-homeassistant-custom-component==0.13.371",
-    "ruff==0.16.10",
+    "ruff==0.17.0",
 ]
 
 [tool.uv]
