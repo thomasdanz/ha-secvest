@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-11-05
+
 ### Changed
 
 - Tested with Home Assistant 2026.11 and 2026.10 (and the minimum 2026.8.0); 2026.9 is no longer tested. Tests use Home Assistant's own test package `pytest-homeassistant`, which replaces the discontinued `pytest-homeassistant-custom-component` from 2026.11 on; older versions are still tested with the latter (#218).
@@ -319,7 +321,8 @@ First version, read-only: the state of partitions, zones and faults.
 - README for v0.1: supported versions, safety notes, installation, connection, how it works and limitations (#49).
 - Tests: English and German texts are complete and use the glossary terms (#42); credentials never appear in logs or entity states, also across a 401 and the reauthentication (#50).
 
-[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/thomasdanz/ha-secvest/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/thomasdanz/ha-secvest/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/thomasdanz/ha-secvest/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/thomasdanz/ha-secvest/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/thomasdanz/ha-secvest/compare/v0.4.0...v1.0.0
