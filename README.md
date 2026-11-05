@@ -1,6 +1,6 @@
 # ABUS Secvest for Home Assistant
 
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories)
+[![Marketplace / HACS: custom repository](https://img.shields.io/badge/Marketplace%20%2F%20HACS-custom%20repository-41BDF5.svg)](#installation)
 [![Release](https://img.shields.io/github/v/release/thomasdanz/ha-secvest)](https://github.com/thomasdanz/ha-secvest/releases)
 [![Home Assistant](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fthomasdanz%2Fha-secvest%2Fmain%2Fhacs.json&query=%24.homeassistant&prefix=%E2%89%A5%20&label=Home%20Assistant&color=41BDF5)](#supported-versions)
 [![CI](https://github.com/thomasdanz/ha-secvest/actions/workflows/ci.yml/badge.svg)](https://github.com/thomasdanz/ha-secvest/actions/workflows/ci.yml)
@@ -48,11 +48,11 @@ A Home Assistant custom integration for the ABUS Secvest alarm panel. It talks t
 
 ## Installation
 
-**With HACS** (recommended):
+**With the Marketplace** (Home Assistant 2026.11 and later) **or HACS** (before), recommended:
 
-[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=thomasdanz&repository=ha-secvest&category=integration)
+[![Open your Home Assistant instance and open this repository in the Marketplace.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=thomasdanz&repository=ha-secvest&category=integration)
 
-The button opens this repository in HACS in your Home Assistant, which offers to add it. Without the button: HACS → ⋮ → Custom repositories, enter `https://github.com/thomasdanz/ha-secvest` with the type "Integration". Then install "ABUS Secvest" and restart Home Assistant. HACS offers new versions as updates.
+The button opens this repository in your Home Assistant, in the Marketplace or, before 2026.11, in HACS, which offers to add it. Without the button: Marketplace → ⋮ → **Custom repositories** (or HACS → ⋮ → Custom repositories), enter `https://github.com/thomasdanz/ha-secvest` with the type "Integration". Then install "ABUS Secvest" and restart Home Assistant. New versions are offered as updates. An installation from HACS is taken over by the Marketplace when Home Assistant is updated to 2026.11; nothing needs to be done.
 
 <details>
 <summary><b>Manual installation</b></summary>

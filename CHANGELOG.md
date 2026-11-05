@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file. The format is b
 ### Changed
 
 - Tested with Home Assistant 2026.11 and 2026.10 (and the minimum 2026.8.0); 2026.9 is no longer tested. Tests use Home Assistant's own test package `pytest-homeassistant`, which replaces the discontinued `pytest-homeassistant-custom-component` from 2026.11 on; older versions are still tested with the latter (#218).
+- README: installation through the Marketplace, HACS as part of Home Assistant from 2026.11; the install button opens the repository there (or in HACS on older versions), and an installation from HACS is taken over on the update (#219).
 
 ## [1.1.1] - 2026-10-12
 

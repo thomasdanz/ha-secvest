@@ -10,7 +10,7 @@ body:
     id: version
     attributes:
       label: Integration version
-      description: Settings → Devices & services → ABUS Secvest, or the version in HACS.
+      description: Settings → Devices & services → ABUS Secvest, or the version in the Marketplace (HACS before Home Assistant 2026.11).
       placeholder: "0.4.0"
     validations:
       required: true
