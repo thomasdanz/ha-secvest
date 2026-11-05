@@ -22,7 +22,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest.api.models import PartitionState
 from custom_components.secvest.commands import CommandError, Failure, explain
@@ -47,6 +46,7 @@ from .common import (
     state_of,
 )
 from .fake_panel import SHARED_ZONE, SPLIT_ZONES, FakePanel, Injection
+from .ha.common import MockConfigEntry
 
 SHARED = "binary_sensor.alarmanlage_room_6_l"
 SHARED_OMIT = "switch.alarmanlage_room_6_l_omit"

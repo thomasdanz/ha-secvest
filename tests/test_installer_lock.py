@@ -4,12 +4,12 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import STATE_OFF, STATE_ON, EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest.const import DOMAIN
 
 from .common import ROUND, Setup, coordinator_of
 from .fake_panel import FakePanel
+from .ha.common import MockConfigEntry
 
 
 def _entity_id(hass: HomeAssistant, entry: MockConfigEntry) -> str:

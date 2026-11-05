@@ -7,13 +7,13 @@ from homeassistant.const import CONF_PASSWORD, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest.config_flow import SecvestConfigFlow
 from custom_components.secvest.const import CONF_AUTH_FAILED, CONF_USER_CODE, DOMAIN
 
 from .common import ROUND, Setup, coordinator_of
 from .fake_panel import FakePanel
+from .ha.common import MockConfigEntry
 
 LOCK_SENSOR = "binary_sensor.alarmanlage_installer_lock"
 

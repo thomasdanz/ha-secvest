@@ -14,7 +14,6 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_NAME, CONF_PASSWORD, CONF_URL, CONF_VERIFY_SSL
 from homeassistant.core import HomeAssistant
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest import coordinator as coordinator_module
 from custom_components.secvest.codes import hash_code
@@ -28,6 +27,7 @@ from custom_components.secvest.const import (
 
 from .common import Setup
 from .fake_panel import FakePanel
+from .ha.common import MockConfigEntry
 
 
 @pytest.fixture(autouse=True)

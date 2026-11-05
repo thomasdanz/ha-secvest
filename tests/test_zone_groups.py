@@ -23,7 +23,6 @@ from homeassistant.helpers import (
     issue_registry as ir,
 )
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest import coordinator as coordinator_module
 from custom_components.secvest.const import (
@@ -37,6 +36,7 @@ from custom_components.secvest.schema import vol
 
 from .common import Setup, coordinator_of, state_of
 from .fake_panel import FakePanel
+from .ha.common import MockConfigEntry
 
 GROUP = "binary_sensor.alarmanlage_room_3"
 MEMBERS = ("binary_sensor.alarmanlage_room_3_l", "binary_sensor.alarmanlage_room_3_r")

@@ -8,7 +8,6 @@ from homeassistant.const import ATTR_DEVICE_CLASS
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import device_registry as dr
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest.const import (
     CONF_ADVANCED,
@@ -27,6 +26,7 @@ from custom_components.secvest.const import (
 
 from .common import Setup, coordinator_of, options_settings
 from .fake_panel import FakePanel
+from .ha.common import MockConfigEntry
 
 
 def _init_input(

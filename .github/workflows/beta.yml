@@ -1,6 +1,6 @@
 # Weekly tests against the upcoming Home Assistant release (ADR 0003).
 #
-# Uses the newest pytest-homeassistant-custom-component, which pins the
+# Uses the newest pytest-homeassistant including pre-releases, which pins the
 # current beta while one is out (the last week of each month) and the latest
 # release otherwise. A failure opens an issue but doesn't block anything.
 name: Home Assistant beta
@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       - run: uv sync --locked
-      - run: uv pip install --upgrade pytest-homeassistant-custom-component
+      - run: uv pip install --upgrade --prerelease allow pytest-homeassistant
       - run: uv run --no-sync python -c "from homeassistant.const import __version__; print(__version__)"
       - run: uv run --no-sync pytest
 

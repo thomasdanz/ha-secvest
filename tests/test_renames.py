@@ -7,13 +7,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest import coordinator as coordinator_module
 from custom_components.secvest.const import CONF_AUTH_FAILED, DOMAIN
 
 from .common import CODE, PANEL, ROUND, Setup, call_panel, coordinator_of, get_state
 from .fake_panel import FakePanel, Injection
+from .ha.common import MockConfigEntry
 
 ZONE = "binary_sensor.alarmanlage_room_6_l"
 OPEN_ZONES = "sensor.alarmanlage_teilber_1_open_zones"
@@ -115,7 +115,12 @@ async def test_names_set_in_home_assistant_stay(
     fake_panel.partitions[1].name = "Ground floor"
     fake_panel.zones["209"].name = "Front door"
     await _round(hass, entry)
-    assert get_state(hass, OPEN_ZONES).name == "My open zones"
+    entity = er.async_get(hass).async_get(OPEN_ZONES)
+    assert entity is not None
+    assert entity.name == "My open zones"
+    # Home Assistant 2026.11 shows it after the device's name, older versions
+    # alone
+    assert get_state(hass, OPEN_ZONES).name.endswith("My open zones")
     assert get_state(hass, PANEL).name == "Alarmanlage Ground floor"
     device = _zone_device(hass, entry)
     assert (device.name, device.name_by_user) == ("Wireless zone Front door", "My door")

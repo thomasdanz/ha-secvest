@@ -31,7 +31,7 @@ A Home Assistant custom integration for the ABUS Secvest alarm panel. It talks t
 
 - **Panel:** tested with the Secvest Touch FUAA50500 running firmware v3.01.31; other models and firmware versions are untested. The API doesn't report the firmware version; with the web interface turned on, the integration reads it there and raises a repair issue for an untested one. Unknown values from the panel are kept and logged once instead of breaking anything.
 - **Reported to work with:** no other models or firmware versions yet. If it works (or doesn't) on yours, please open an issue with the panel model and firmware version.
-- **Home Assistant:** tested with 2026.10 and 2026.9, the current and the previous release, and with 2026.8.0, the minimum. Older versions don't work: the zone devices need 2026.8.
+- **Home Assistant:** tested with 2026.11 and 2026.10, the current and the previous release, and with 2026.8.0, the minimum. Older versions don't work: the zone devices need 2026.8.
 
 ## Safety notes
 

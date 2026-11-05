@@ -7,10 +7,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 import pytest
-from pytest_homeassistant_custom_component.common import (
-    MockConfigEntry,
-    async_fire_time_changed,
-)
 
 from custom_components.secvest.const import (
     CONF_PARTITIONS,
@@ -21,6 +17,10 @@ from custom_components.secvest.const import (
 
 from .common import ROUND
 from .fake_panel import FakePanel
+from .ha.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 
 
 async def _setup(

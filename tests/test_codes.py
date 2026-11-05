@@ -14,7 +14,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.exceptions import ServiceValidationError
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry, flush_store
 
 from custom_components.secvest.codes import (
     CONF_HASH,
@@ -28,6 +27,7 @@ from custom_components.secvest.const import CONF_AUTH_FAILED, CONF_CODES
 
 from .common import ROUND, Setup, arming_failed_events, call_panel, get_state
 from .fake_panel import FakePanel
+from .ha.common import MockConfigEntry, flush_store
 
 
 async def _codes_step(hass: HomeAssistant, entry: MockConfigEntry, step: str) -> Any:

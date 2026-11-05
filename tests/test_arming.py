@@ -7,7 +7,6 @@ from homeassistant.components.alarm_control_panel.const import (
 )
 from homeassistant.core import Context, HomeAssistant, callback
 import pytest
-from pytest_homeassistant_custom_component.common import MockUser
 
 from custom_components.secvest.api.errors import ArmingBlockedError
 from custom_components.secvest.api.models import PanelEvent, PartitionState
@@ -31,6 +30,7 @@ from .common import (
     state_of,
 )
 from .fake_panel import FakePanel, Injection
+from .ha.common import MockUser
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

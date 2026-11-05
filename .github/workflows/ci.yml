@@ -2,14 +2,17 @@
 #
 # Supported Home Assistant versions (ADR 0003): the current and the previous
 # release. When a new release comes out:
-#   1. pyproject.toml: pin pytest-homeassistant-custom-component to the
-#      version for the new release, then run `uv lock`.
+#   1. pyproject.toml: pin pytest-homeassistant to the new release (its
+#      version equals Home Assistant's), then run `uv lock`.
 #   2. Below: move the old current release to the "previous" entry, with the
-#      pytest-homeassistant-custom-component version it was pinned to.
-#   3. README ("Tested Home Assistant versions") and changelog.
+#      test package and version it was tested with.
+#   3. README ("Supported versions") and changelog.
 # The third test job guards the minimum declared in hacs.json (#150): it
 # stays when the window moves, and changes only with that minimum, which is
 # raised only when the code needs it.
+# Test packages (#218): pytest-homeassistant exists from 2026.11 on; older
+# releases use its predecessor pytest-homeassistant-custom-component (no
+# releases after 2026.10.4). tests/ha/ imports from whichever is installed.
 #
 # Actions are pinned by commit, with the version as a comment; Dependabot
 # (.github/dependabot.yml) proposes updates weekly, also for uv.lock. The
@@ -46,22 +49,25 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # current release: the version pinned in pyproject.toml / uv.lock
-          - home-assistant: "2026.10"
-            pytest-ha: locked
+          # current release: pytest-homeassistant as pinned in pyproject.toml
+          - home-assistant: "2026.11"
+            test-package: locked
             coverage: true
           # previous release
-          - home-assistant: "2026.9"
-            pytest-ha: "0.13.366"
+          - home-assistant: "2026.10"
+            test-package: pytest-homeassistant-custom-component==0.13.375
           # the minimum in hacs.json: DeviceInfo's via_device_id needs 2026.8
           - home-assistant: "2026.8.0 (minimum)"
-            pytest-ha: "0.13.354"
+            test-package: pytest-homeassistant-custom-component==0.13.354
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       - run: uv sync --locked
-      - if: matrix.pytest-ha != 'locked'
-        run: uv pip install "pytest-homeassistant-custom-component==${{ matrix.pytest-ha }}"
+      # the two test packages provide the same fixtures: never both at once
+      - if: matrix.test-package != 'locked'
+        run: |
+          uv pip uninstall pytest-homeassistant
+          uv pip install "${{ matrix.test-package }}"
       - run: uv run --no-sync python -c "from homeassistant.const import __version__; print(__version__)"
       - if: ${{ !matrix.coverage }}
         run: uv run --no-sync pytest

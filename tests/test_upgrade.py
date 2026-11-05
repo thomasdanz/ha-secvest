@@ -9,7 +9,6 @@ from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest.config_flow import SecvestConfigFlow
 from custom_components.secvest.const import (
@@ -25,6 +24,7 @@ from custom_components.secvest.const import (
 
 from .common import ROUND, call_panel, coordinator_of
 from .fake_panel import FakePanel
+from .ha.common import MockConfigEntry
 
 STORED = json.loads(
     (Path(__file__).parent / "upgrade" / "stored_entries.json").read_text()

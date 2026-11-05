@@ -9,12 +9,12 @@ from homeassistant.components.alarm_control_panel.const import (
 )
 from homeassistant.core import HomeAssistant
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest.commands import CommandError
 
 from .common import CODE, PANEL, ROUND, Setup, call_panel, coordinator_of, state_of
 from .fake_panel import FakePanel, Injection
+from .ha.common import MockConfigEntry
 
 PUT = ("PUT", "/system/partitions-1/")
 # the fresh read before deciding the sequence

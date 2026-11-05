@@ -6,7 +6,6 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigSubentry
 from homeassistant.core import HomeAssistant
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest.const import (
     CONF_AUTH_FAILED,
@@ -17,6 +16,7 @@ from custom_components.secvest.diagnostics import async_get_config_entry_diagnos
 
 from .common import CODE, ROUND, Setup
 from .fake_panel import FakePanel
+from .ha.common import MockConfigEntry
 
 
 async def _diagnostics(hass: HomeAssistant, entry: MockConfigEntry) -> dict[str, Any]:
