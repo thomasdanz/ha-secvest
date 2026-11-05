@@ -4,7 +4,7 @@ Guidance for AI coding assistants working on this repository. Human contributors
 
 ## What this is
 
-A Home Assistant custom integration for the ABUS Secvest alarm panel, installed via HACS as a custom repository. It talks to the panel's local REST API — the one the official app uses. That API is documented in the separate repository [`secvest-api`](https://github.com/thomasdanz/secvest-api) ("the specification"), which is expected as a sibling checkout at `../secvest-api` (e.g. for `scripts/sync_fixtures.py`).
+A Home Assistant custom integration for the ABUS Secvest alarm panel, installed as a custom repository through the Marketplace (Home Assistant 2026.11 and later) or HACS. It talks to the panel's local REST API — the one the official app uses. That API is documented in the separate repository [`secvest-api`](https://github.com/thomasdanz/secvest-api) ("the specification"), which is expected as a sibling checkout at `../secvest-api` (e.g. for `scripts/sync_fixtures.py`).
 
 ## Read first
 
