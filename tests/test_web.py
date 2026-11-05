@@ -24,10 +24,6 @@ from homeassistant.helpers import (
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 import pytest
-from pytest_homeassistant_custom_component.common import (
-    MockConfigEntry,
-    async_fire_time_changed,
-)
 
 from custom_components.secvest import web as web_module
 from custom_components.secvest.config_flow import _web_login_failed
@@ -45,6 +41,10 @@ from custom_components.secvest.web import WebCoordinator, dbm_range
 
 from .common import ROUND, Setup, coordinator_of, get_state, options_settings, state_of
 from .fake_panel import FakePanel, Injection, WebRow
+from .ha.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 
 READ = [
     ("POST", "/sec_login.cgi"),

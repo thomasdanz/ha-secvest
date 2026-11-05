@@ -1,6 +1,6 @@
 # Weekly update proposals, one pull request per ecosystem (#151). The
-# Home Assistant pin (pytest-homeassistant-custom-component) moves with the
-# release window by hand, see the top of ci.yml.
+# Home Assistant pin (pytest-homeassistant) moves with the release window by
+# hand, see the top of ci.yml.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -15,7 +15,7 @@ updates:
     schedule:
       interval: weekly
     ignore:
-      - dependency-name: pytest-homeassistant-custom-component
+      - dependency-name: pytest-homeassistant
     groups:
       dev-dependencies:
         patterns: ["*"]

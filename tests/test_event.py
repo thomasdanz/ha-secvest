@@ -7,13 +7,13 @@ from typing import Any, cast
 
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.util import dt as dt_util
-from pytest_homeassistant_custom_component.common import async_capture_events
 
 from custom_components.secvest.event import EVENT_LOG_ENTRY
 from custom_components.secvest.logbook import async_describe_events
 
 from .common import Setup, get_state, poll_log_now
 from .fake_panel import FakePanel
+from .ha.common import async_capture_events
 
 LOG = "event.alarmanlage_log"
 

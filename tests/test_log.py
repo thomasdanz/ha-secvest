@@ -9,7 +9,6 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest.api.models import LogEntry, LogEvent, LogType
 from custom_components.secvest.api.parsing import loads, parse_log
@@ -17,6 +16,7 @@ from custom_components.secvest.log import OVERLAP, LogTracker, entry_time
 
 from .common import ROUND, Setup, coordinator_of, poll_log_now
 from .fake_panel import FakePanel, Injection
+from .ha.common import MockConfigEntry
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FULL_LOG = ("GET", "/logs/")

@@ -15,7 +15,6 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest import web as web_module
 from custom_components.secvest.const import (
@@ -27,6 +26,7 @@ from custom_components.secvest.const import (
 
 from .common import Setup, coordinator_of, get_state, state_of
 from .fake_panel import FakePanel, Injection
+from .ha.common import MockConfigEntry
 
 PROBLEM = "binary_sensor.alarmanlage_room_3_problem"
 BATTERY = "binary_sensor.alarmanlage_room_3_battery"

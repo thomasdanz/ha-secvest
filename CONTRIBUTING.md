@@ -14,7 +14,7 @@ uv sync
 
 If `uv sync` fails with "resolved to Python 3.14.0rc2, incompatible with >=3.14.2", your uv is too old (before about 0.9) to know the final Python 3.14; update it, e.g. with `pip install -U uv`.
 
-The development dependencies pin `pytest-homeassistant-custom-component` to the current Home Assistant release, which pins Home Assistant itself (ADR 0003).
+The development dependencies pin `pytest-homeassistant` to the current Home Assistant release, which pins Home Assistant itself (ADR 0003). CI tests older releases with its predecessor `pytest-homeassistant-custom-component`; `tests/ha/` imports from whichever is installed.
 
 ## Checks
 

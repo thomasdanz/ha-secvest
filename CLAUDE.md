@@ -50,6 +50,6 @@ uv run python scripts/sync_fixtures.py  # copy the fixtures from ../secvest-api 
 uv run scripts/render_icon.py          # render the brand PNGs from assets/icon.svg
 ```
 
-The dev dependencies pin `pytest-homeassistant-custom-component` to the current Home Assistant release (ADR 0003); `uv.lock` is committed.
+The dev dependencies pin `pytest-homeassistant` to the current Home Assistant release (ADR 0003); CI tests older releases with its predecessor `pytest-homeassistant-custom-component`, so tests import Home Assistant's test helpers from `tests/ha/`. `uv.lock` is committed.
 
 CI (`.github/workflows/ci.yml`) runs the same checks, the tests against the current and the previous Home Assistant release and the declared minimum (coverage of at least 95 % with the current one), hassfest and the HACS validation; actions are pinned by commit and Dependabot proposes updates weekly; `beta.yml` tests weekly against the upcoming release; `release.yml` creates the GitHub release when a tag `vX.Y.Z` is pushed, with the changelog section as notes (`scripts/release_notes.py`, which also checks the tag against the manifest). How to move the version window is described at the top of `ci.yml`.

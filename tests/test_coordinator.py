@@ -11,7 +11,6 @@ from homeassistant.const import STATE_ON, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import UpdateFailed
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest import coordinator as coordinator_module
 from custom_components.secvest.api.errors import CommunicationError
@@ -30,6 +29,7 @@ from custom_components.secvest.coordinator import (
 
 from .common import ROUND, Setup, coordinator_of
 from .fake_panel import FakePanel, Injection
+from .ha.common import MockConfigEntry
 
 MANIFEST = Path(__file__).parent.parent / "custom_components/secvest/manifest.json"
 

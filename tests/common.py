@@ -5,13 +5,14 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.core import Event, HomeAssistant, State
-from pytest_homeassistant_custom_component.common import (
-    MockConfigEntry,
-    async_capture_events,
-)
 
 from custom_components.secvest.commands import EVENT_ARMING_FAILED
 from custom_components.secvest.coordinator import SecvestCoordinator
+
+from .ha.common import (
+    MockConfigEntry,
+    async_capture_events,
+)
 
 # the alarm panel of partition 1, and the code the tests set up for it
 PANEL = "alarm_control_panel.alarmanlage_teilber_1"

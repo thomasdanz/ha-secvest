@@ -9,9 +9,9 @@ dependencies = []
 [dependency-groups]
 dev = [
     "mypy==2.4.0",
-    # pins the matching Home Assistant release (current: 2026.9)
     "pytest-cov==7.1.0",
-    "pytest-homeassistant-custom-component==0.13.371",
+    # pins the matching Home Assistant release (current: 2026.11, #218)
+    "pytest-homeassistant==2026.11.0",
     "ruff==0.17.0",
 ]
 
@@ -54,7 +54,7 @@ explicit_package_bases = true
 
 [[tool.mypy.overrides]]
 # ship no type information (resvg_py: scripts/render_icon.py only)
-module = ["pytest_homeassistant_custom_component.*", "resvg_py"]
+module = ["pytest_homeassistant.*", "pytest_homeassistant_custom_component.*", "resvg_py"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
@@ -67,3 +67,6 @@ implicit_reexport = true
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+# pytest-homeassistant: Home Assistant installs its httpx alias before respx
+# is imported, so respx's own plugin stays off (its mocks still work)
+addopts = "-p no:respx"

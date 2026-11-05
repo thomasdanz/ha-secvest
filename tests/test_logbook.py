@@ -8,18 +8,18 @@ from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 import pytest
-from pytest_homeassistant_custom_component.common import mock_component
-from pytest_homeassistant_custom_component.components.recorder.common import (
-    async_wait_recording_done,
-)
-from pytest_homeassistant_custom_component.plugins import (
-    RecorderInstanceContextManager,
-)
 
 from custom_components.secvest.event import EVENT_LOG_ENTRY
 
 from .common import Setup, get_state, poll_log_now
 from .fake_panel import FakePanel
+from .ha.common import mock_component
+from .ha.plugins import (
+    RecorderInstanceContextManager,
+)
+from .ha.recorder import (
+    async_wait_recording_done,
+)
 
 LOG = "event.alarmanlage_log"
 

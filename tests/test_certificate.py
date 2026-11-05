@@ -13,7 +13,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.exceptions import HomeAssistantError
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest.api.errors import CommunicationError
 from custom_components.secvest.api.transport import fingerprint, probe_certificate
@@ -34,6 +33,7 @@ from custom_components.secvest.diagnostics import async_get_config_entry_diagnos
 
 from .common import ROUND, Setup, call_panel, coordinator_of, state_of
 from .fake_panel import FakePanel
+from .ha.common import MockConfigEntry
 
 type Certificate = tuple[Path, Path]
 type Trust = Callable[[Certificate], None]

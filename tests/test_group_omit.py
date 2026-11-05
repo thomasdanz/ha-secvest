@@ -7,7 +7,6 @@ from homeassistant.const import CONF_DEVICE_CLASS, CONF_NAME, STATE_OFF, STATE_O
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest.commands import CommandError
 from custom_components.secvest.const import (
@@ -18,6 +17,7 @@ from custom_components.secvest.const import (
 
 from .common import CODE, ROUND, Setup, call_panel, coordinator_of, get_state, state_of
 from .fake_panel import FakePanel, Injection
+from .ha.common import MockConfigEntry
 
 SWITCH = "switch.alarmanlage_room_3_omit"
 

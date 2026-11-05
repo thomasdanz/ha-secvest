@@ -11,7 +11,6 @@ from homeassistant.const import CONF_PASSWORD, CONF_URL, CONF_VERIFY_SSL
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest.api.errors import CommunicationError
 from custom_components.secvest.config_flow import normalize_address
@@ -31,6 +30,7 @@ from custom_components.secvest.const import (
 )
 
 from .fake_panel import FakePanel, Injection
+from .ha.common import MockConfigEntry
 
 # credentials, partitions, and the zones of the partitions that have zones
 SETUP_READS = [

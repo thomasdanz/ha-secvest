@@ -4,12 +4,12 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.secvest.sensor import significant
 
 from .common import PANEL, Setup, coordinator_of, get_state
 from .fake_panel import FakePanel, Injection
+from .ha.common import MockConfigEntry
 
 ROUND_DURATION = "sensor.alarmanlage_round_duration"
 CONNECTION_SETUP = "sensor.alarmanlage_connection_setup"

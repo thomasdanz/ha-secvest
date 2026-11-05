@@ -7,7 +7,7 @@
 
 Home Assistant releases monthly and deprecates APIs regularly. A support promise is only worth something if it is tested; claiming compatibility with versions that nobody tests is a paper tiger. At the time of writing the current release is 2026.9, which requires Python 3.14.
 
-`pytest-homeassistant-custom-component` is released for every Home Assistant version and pins that version. CI can therefore test against several Home Assistant versions in parallel, each in a fresh environment, without installing anything locally.
+`pytest-homeassistant-custom-component` is released for every Home Assistant version and pins that version. CI can therefore test against several Home Assistant versions in parallel, each in a fresh environment, without installing anything locally. (Since 2026.11 its successor `pytest-homeassistant` takes this role, see the update below.)
 
 ## Options
 
@@ -32,3 +32,12 @@ Option 2:
 - Every supported version is actually tested.
 - Users on older Home Assistant versions have to update or use an older release of the integration.
 - The CI matrix needs a small update every month; the declared minimum changes only when the code requires it.
+
+## Update 2026-11-05: pytest-homeassistant (#218)
+
+`pytest-homeassistant-custom-component` is discontinued after 2026.10.4; Home Assistant publishes `pytest-homeassistant` from its core repository instead, versioned like Home Assistant, from 2026.11 on (betas from 2026.11.0b4). The decision stands; only the test package changes:
+
+- The current release is tested with `pytest-homeassistant` (pinned in `pyproject.toml`, the weekly beta run takes its newest pre-release).
+- Releases before 2026.11 (the previous release until 2026.12, and the declared minimum 2026.8.0) are tested with `pytest-homeassistant-custom-component`, installed in their CI job instead of the new package; the two provide the same fixtures and must not be installed together.
+- Both packages have the same modules, so tests import Home Assistant's test helpers through `tests/ha/`, which picks the installed one.
+- Once no tested version is older than 2026.11 (the minimum raised past 2026.10), `pytest-homeassistant-custom-component` and `tests/ha/`'s fallback go.
